@@ -1,23 +1,27 @@
 """
 Streamlit 回測網站主應用
-支援：加密貨幣資料 (CCXT)、CSV 上傳、Python 策略代碼編寫、完整績效分析
+支援：加密貨幣資料 (CCXT)、CSV 上傳、Python 策略代碼編寫、Walk-Forward 驗證、自動參數優化
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.subplots as sp
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
+import json
+import time
 
 from utils.data_fetcher import (
     fetch_crypto_data, load_csv_data,
     get_available_exchanges, get_timeframes
 )
 from utils.backtester import BacktestEngine
+from utils.walk_forward import WalkForwardValidator
+from utils.optimizer import ParameterOptimizer, calculate_overfit_score
 from strategies.strategy_runner import (
-    execute_user_strategy, get_template, list_templates
+    execute_user_strategy, get_template, list_templates,
+    get_param_space, get_default_params
 )
 
 
@@ -60,7 +64,7 @@ st.markdown("""
 
 # === 標題 ===
 st.markdown('<p class="main-header">📈 加密貨幣回測實驗室</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Crypto Backtesting Lab · Powered by CCXT + Streamlit</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Crypto Backtesting Lab · AI 自動參數優化 · Walk-Forward 驗證</p>', unsafe_allow_html=True)
 
 
 # === 側邊欄：資料來源 ===
@@ -95,6 +99,9 @@ with st.sidebar:
                     df = fetch_crypto_data(symbol, timeframe, days, exchange)
                     if df is not None and not df.empty:
                         st.session_state["df"] = df
+                        st.session_state["exchange"] = exchange
+                        st.session_state["symbol"] = symbol
+                        st.session_state["timeframe"] = timeframe
                         st.success(f"✅ 抓取 {len(df):,} 根 K 線")
                     else:
                         st.error("❌ 抓取失敗：無資料")
@@ -144,6 +151,9 @@ with st.sidebar:
             stop_loss = st.number_input("停損 (%)", min_value=0.1, max_value=50.0, value=2.0, step=0.5) / 100
         with col6:
             take_profit = st.number_input("停利 (%)", min_value=0.1, max_value=100.0, value=4.0, step=0.5) / 100
+    else:
+        stop_loss = None
+        take_profit = None
 
 
 # === 主區域 ===
@@ -155,323 +165,591 @@ if df is None or df.empty:
     1. **選擇資料來源**（左側）
        - 加密貨幣：自動從 Binance、OKX、Bybit 等交易所抓取
        - CSV：上傳自己的 OHLCV 資料
-    2. **選擇或撰寫策略**（下方）
-       - 6 個預設策略範本
-       - 支援完整 Python 代碼
-    3. **執行回測**並查看績效指標與圖表
+    2. **選擇功能分頁**（下方）
+       - 🎯 單次回測：基本回測與圖表
+       - 🤖 自動參數優化：網格/隨機搜尋找最佳參數
+       - 📊 Walk-Forward 驗證：避免過擬合的進階驗證
 
-    ### 💡 提示
-    - 策略代碼需定義 `generate_signals(df, params)` 函數
-    - 回傳兩個 `pd.Series` (bool): (進場訊號, 出場訊號)
-    - 可使用 `pd`, `np`, `params` 等變數
+    ### 💡 三種模式比較
+
+    | 模式 | 用途 | 速度 |
+    |------|------|------|
+    | 🎯 單次回測 | 快速驗證一個想法 | 秒級 |
+    | 🤖 自動優化 | 找出最佳參數組合 | 分鐘級 |
+    | 📊 Walk-Forward | 確認參數是否過擬合 | 10分鐘級 |
+
+    ### 🧠 內建 14 種策略範本
+    SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR
     """)
     st.stop()
 
-# === 策略區 ===
-st.header("🧠 策略程式碼")
 
-# 策略範本選擇
-col_t1, col_t2 = st.columns([3, 1])
-with col_t1:
-    template_choice = st.selectbox(
-        "載入範本（可選）",
-        ["（自訂）"] + list_templates(),
-        index=1,
-    )
-with col_t2:
-    st.write("")
-    st.write("")
-    if template_choice != "（自訂）" and st.button("📥 載入此範本"):
-        st.session_state["strategy_code"] = get_template(template_choice)
-
-# 策略代碼編輯器
-if "strategy_code" not in st.session_state:
-    st.session_state["strategy_code"] = get_template(list_templates()[0])
-
-strategy_code = st.text_area(
-    "Python 策略代碼（可編輯）",
-    value=st.session_state["strategy_code"],
-    height=320,
-    help="定義函數：def generate_signals(df, params) -> (entries, exits)",
-)
-
-# 策略參數
-with st.expander("🎛️ 策略參數（可在程式碼中用 params['xxx'] 讀取）", expanded=False):
-    st.caption("輸入 JSON 格式，例如：{\"fast_period\": 20, \"slow_period\": 50}")
-    params_text = st.text_area("參數", value='{"fast_period": 20, "slow_period": 50}', height=80)
-    try:
-        import json
-        strategy_params = json.loads(params_text)
-    except json.JSONDecodeError as e:
-        st.error(f"❌ JSON 格式錯誤: {e}")
-        strategy_params = {}
+# === 三大功能分頁 ===
+main_tab1, main_tab2, main_tab3 = st.tabs([
+    "🎯 單次回測",
+    "🤖 自動參數優化",
+    "📊 Walk-Forward 驗證"
+])
 
 
-# === 執行回測 ===
-st.divider()
-col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
-with col_btn1:
-    run_btn = st.button("▶️ 執行回測", type="primary", use_container_width=True)
-with col_btn2:
-    if st.button("💾 儲存策略代碼", use_container_width=True):
-        st.session_state["strategy_code"] = strategy_code
-        st.success("已儲存")
+# ===========================
+# 分頁 1：單次回測
+# ===========================
+with main_tab1:
+    st.header("🧠 策略程式碼")
 
-if not run_btn:
-    st.stop()
-
-
-# === 執行策略 ===
-entries, exits, err = execute_user_strategy(strategy_code, df, strategy_params)
-
-if err:
-    st.error(err)
-    st.stop()
-
-if not entries.any():
-    st.warning("⚠️ 策略沒有產生任何進場訊號。請檢查您的策略代碼或參數。")
-    st.stop()
-
-
-# === 跑回測 ===
-with st.spinner("執行回測中..."):
-    engine = BacktestEngine(
-        df,
-        initial_capital=initial_capital,
-        commission=commission_pct,
-        slippage=slippage_pct,
-    )
-    results = engine.run(
-        entries=entries,
-        exits=exits,
-        direction=direction_code,
-        stop_loss=stop_loss if use_sl_tp else None,
-        take_profit=take_profit if use_sl_tp else None,
-    )
-
-result_df = results["data"]
-trades = results["trades"]
-metrics = results["metrics"]
-
-
-# === 顯示績效指標 ===
-st.header("📊 績效總覽")
-
-if "error" in metrics:
-    st.warning(metrics["error"])
-    st.stop()
-
-col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-
-with col_m1:
-    total_ret = metrics["total_return_pct"]
-    st.metric("總報酬率", f"{total_ret:+.2f}%", delta=f"{total_ret - metrics['buy_hold_return_pct']:+.2f}% vs 買進持有")
-with col_m2:
-    st.metric("最終權益", f"${metrics['final_equity']:,.2f}")
-with col_m3:
-    st.metric("勝率", f"{metrics['win_rate']:.1f}%", delta=f"{metrics['n_trades']} 筆交易")
-with col_m4:
-    st.metric("最大回撤", f"{metrics['max_drawdown_pct']:.2f}%")
-with col_m5:
-    st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.2f}")
-
-col_m6, col_m7, col_m8, col_m9, col_m10 = st.columns(5)
-with col_m6:
-    st.metric("利潤因子", f"{metrics['profit_factor']:.2f}" if metrics['profit_factor'] != np.inf else "∞")
-with col_m7:
-    st.metric("買進持有報酬", f"{metrics['buy_hold_return_pct']:+.2f}%")
-with col_m8:
-    st.metric("平均獲利", f"{metrics['avg_win_pct']:+.2f}%")
-with col_m9:
-    st.metric("平均虧損", f"{metrics['avg_loss_pct']:+.2f}%")
-with col_m10:
-    st.metric("平均持倉 (h)", f"{metrics['avg_duration_hours']:.1f}")
-
-
-# === 圖表 ===
-st.header("📈 圖表分析")
-
-tab1, tab2, tab3 = st.tabs(["權益曲線", "價格 + 進出場標記", "交易明細"])
-
-with tab1:
-    fig_equity = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.08,
-        row_heights=[0.7, 0.3],
-        subplot_titles=("權益曲線 vs 買進持有", "回撤")
-    )
-
-    fig_equity.add_trace(
-        go.Scatter(x=result_df.index, y=result_df["equity"], name="策略權益",
-                   line=dict(color="#00C9FF", width=2)),
-        row=1, col=1
-    )
-    fig_equity.add_trace(
-        go.Scatter(x=result_df.index, y=result_df["buy_hold"], name="買進持有",
-                   line=dict(color="#FFA500", width=2, dash="dash")),
-        row=1, col=1
-    )
-
-    # 回撤
-    cummax = result_df["equity"].cummax()
-    drawdown = (result_df["equity"] - cummax) / cummax * 100
-    fig_equity.add_trace(
-        go.Scatter(x=result_df.index, y=drawdown, name="回撤 (%)",
-                   fill="tozeroy", line=dict(color="#FF4B4B", width=1)),
-        row=2, col=1
-    )
-
-    fig_equity.update_layout(
-        height=600,
-        hovermode="x unified",
-        template="plotly_dark",
-        showlegend=True,
-    )
-    fig_equity.update_yaxes(title_text="權益 (USDT)", row=1, col=1)
-    fig_equity.update_yaxes(title_text="回撤 (%)", row=2, col=1)
-    st.plotly_chart(fig_equity, use_container_width=True)
-
-with tab2:
-    # 顯示最近 200 根 K 線（避免圖太擠）
-    display_df = result_df.tail(200) if len(result_df) > 200 else result_df
-
-    fig_price = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.05,
-        row_heights=[0.7, 0.3],
-        subplot_titles=("價格走勢 + 進出場訊號", "成交量")
-    )
-
-    fig_price.add_trace(
-        go.Candlestick(
-            x=display_df.index,
-            open=display_df["open"],
-            high=display_df["high"],
-            low=display_df["low"],
-            close=display_df["close"],
-            name="K 線"
-        ),
-        row=1, col=1
-    )
-
-    # 進場點
-    entries_in_view = display_df[display_df["entry"]]
-    if not entries_in_view.empty:
-        fig_price.add_trace(
-            go.Scatter(
-                x=entries_in_view.index,
-                y=entries_in_view["close"],
-                mode="markers",
-                name="進場",
-                marker=dict(symbol="triangle-up", size=12, color="#00FF7F",
-                            line=dict(color="white", width=1))
-            ),
-            row=1, col=1
+    col_t1, col_t2 = st.columns([3, 1])
+    with col_t1:
+        template_choice = st.selectbox(
+            "載入範本（可選）",
+            ["（自訂）"] + list_templates(),
+            key="template_select",
         )
+    with col_t2:
+        st.write("")
+        st.write("")
+        if template_choice != "（自訂）" and st.button("📥 載入此範本", key="load_template"):
+            st.session_state["strategy_code"] = get_template(template_choice)
+            st.session_state["current_template"] = template_choice
+            st.rerun()
 
-    # 出場點
-    exits_in_view = display_df[display_df["exit"]]
-    if not exits_in_view.empty:
-        fig_price.add_trace(
-            go.Scatter(
-                x=exits_in_view.index,
-                y=exits_in_view["close"],
-                mode="markers",
-                name="出場",
-                marker=dict(symbol="triangle-down", size=12, color="#FF4B4B",
-                            line=dict(color="white", width=1))
-            ),
-            row=1, col=1
-        )
+    if "strategy_code" not in st.session_state:
+        st.session_state["strategy_code"] = get_template(list_templates()[0])
+        st.session_state["current_template"] = list_templates()[0]
 
-    # 成交量
-    colors = ["#FF4B4B" if display_df["close"].iloc[i] < display_df["open"].iloc[i] else "#00C9FF"
-              for i in range(len(display_df))]
-    fig_price.add_trace(
-        go.Bar(x=display_df.index, y=display_df["volume"], name="成交量", marker_color=colors),
-        row=2, col=1
+    strategy_code = st.text_area(
+        "Python 策略代碼（可編輯）",
+        value=st.session_state["strategy_code"],
+        height=320,
+        key="strategy_code_editor",
+        help="定義函數：def generate_signals(df, params) -> (entries, exits)",
     )
 
-    fig_price.update_layout(
-        height=700,
-        template="plotly_dark",
-        xaxis_rangeslider_visible=False,
-        showlegend=True,
-    )
-    st.plotly_chart(fig_price, use_container_width=True)
+    with st.expander("🎛️ 策略參數（JSON 格式）", expanded=False):
+        # 自動填入當前範本的預設參數
+        current_t = st.session_state.get("current_template", "")
+        if current_t and current_t != "（自訂）":
+            default_params = get_default_params(current_t)
+        else:
+            default_params = {"period": 20}
+        default_json = json.dumps(default_params, indent=2, ensure_ascii=False)
 
-with tab3:
-    if trades:
-        trades_df = pd.DataFrame(trades)
-        trades_df["entry_time"] = pd.to_datetime(trades_df["entry_time"]).dt.tz_localize(None)
-        trades_df["exit_time"] = pd.to_datetime(trades_df["exit_time"]).dt.tz_localize(None)
-        trades_df["duration_hours"] = trades_df["duration_hours"].round(2)
-        trades_df["pnl_pct"] = (trades_df["pnl_pct"] * 100).round(2)
-        trades_df["pnl"] = trades_df["pnl"].round(2)
-        trades_df["entry_price"] = trades_df["entry_price"].round(2)
-        trades_df["exit_price"] = trades_df["exit_price"].round(2)
+        params_text = st.text_area("參數", value=default_json, height=100, key="params_text")
+        try:
+            strategy_params = json.loads(params_text)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ JSON 格式錯誤: {e}")
+            strategy_params = {}
 
-        st.dataframe(
-            trades_df,
-            use_container_width=True,
-            column_config={
-                "entry_time": st.column_config.DatetimeColumn("進場時間", format="YYYY-MM-DD HH:mm"),
-                "exit_time": st.column_config.DatetimeColumn("出場時間", format="YYYY-MM-DD HH:mm"),
-                "direction": "方向",
-                "entry_price": st.column_config.NumberColumn("進場價", format="$%.2f"),
-                "exit_price": st.column_config.NumberColumn("出場價", format="$%.2f"),
-                "pnl_pct": st.column_config.NumberColumn("報酬率", format="%.2f%%"),
-                "pnl": st.column_config.NumberColumn("損益 (USDT)", format="$%.2f"),
-                "duration_hours": st.column_config.NumberColumn("持倉時數", format="%.1f h"),
-                "exit_reason": "出場原因",
-            },
-            hide_index=True,
+    st.divider()
+    col_btn1, col_btn2 = st.columns([1, 5])
+    with col_btn1:
+        run_single = st.button("▶️ 執行回測", type="primary", use_container_width=True, key="run_single")
+    with col_btn2:
+        if st.button("💾 儲存策略代碼", use_container_width=False):
+            st.session_state["strategy_code"] = strategy_code
+            st.success("已儲存")
+
+    if not run_single:
+        st.stop()
+
+    # 執行策略
+    entries, exits, err = execute_user_strategy(strategy_code, df, strategy_params)
+
+    if err:
+        st.error(err)
+        st.stop()
+
+    if not entries.any():
+        st.warning("⚠️ 策略沒有產生任何進場訊號")
+        st.stop()
+
+    # 跑回測
+    with st.spinner("執行回測中..."):
+        engine = BacktestEngine(
+            df, initial_capital=initial_capital,
+            commission=commission_pct, slippage=slippage_pct,
         )
+        results = engine.run(entries, exits, direction=direction_code,
+                              stop_loss=stop_loss, take_profit=take_profit)
 
-        # 下載按鈕
-        csv = trades_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "📥 下載交易明細 CSV",
-            data=csv,
-            file_name=f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
+    result_df = results["data"]
+    trades = results["trades"]
+    metrics = results["metrics"]
+
+    st.header("📊 績效總覽")
+    if "error" in metrics:
+        st.warning(metrics["error"])
+        st.stop()
+
+    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+    with col_m1:
+        total_ret = metrics["total_return_pct"]
+        st.metric("總報酬率", f"{total_ret:+.2f}%", delta=f"{total_ret - metrics['buy_hold_return_pct']:+.2f}% vs 買進持有")
+    with col_m2:
+        st.metric("最終權益", f"${metrics['final_equity']:,.2f}")
+    with col_m3:
+        st.metric("勝率", f"{metrics['win_rate']:.1f}%", delta=f"{metrics['n_trades']} 筆交易")
+    with col_m4:
+        st.metric("最大回撤", f"{metrics['max_drawdown_pct']:.2f}%")
+    with col_m5:
+        st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.2f}")
+
+    col_m6, col_m7, col_m8, col_m9, col_m10 = st.columns(5)
+    with col_m6:
+        st.metric("利潤因子", f"{metrics['profit_factor']:.2f}" if metrics['profit_factor'] != np.inf else "∞")
+    with col_m7:
+        st.metric("買進持有報酬", f"{metrics['buy_hold_return_pct']:+.2f}%")
+    with col_m8:
+        st.metric("平均獲利", f"{metrics['avg_win_pct']:+.2f}%")
+    with col_m9:
+        st.metric("平均虧損", f"{metrics['avg_loss_pct']:+.2f}%")
+    with col_m10:
+        st.metric("平均持倉 (h)", f"{metrics['avg_duration_hours']:.1f}")
+
+    st.header("📈 圖表分析")
+
+    fig_tab1, fig_tab2, fig_tab3 = st.tabs(["權益曲線", "價格 + 進出場標記", "交易明細"])
+
+    with fig_tab1:
+        fig_equity = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                                    row_heights=[0.7, 0.3],
+                                    subplot_titles=("權益曲線 vs 買進持有", "回撤"))
+        fig_equity.add_trace(go.Scatter(x=result_df.index, y=result_df["equity"], name="策略權益",
+                                         line=dict(color="#00C9FF", width=2)), row=1, col=1)
+        fig_equity.add_trace(go.Scatter(x=result_df.index, y=result_df["buy_hold"], name="買進持有",
+                                         line=dict(color="#FFA500", width=2, dash="dash")), row=1, col=1)
+        cummax = result_df["equity"].cummax()
+        drawdown = (result_df["equity"] - cummax) / cummax * 100
+        fig_equity.add_trace(go.Scatter(x=result_df.index, y=drawdown, name="回撤 (%)",
+                                         fill="tozeroy", line=dict(color="#FF4B4B", width=1)), row=2, col=1)
+        fig_equity.update_layout(height=600, hovermode="x unified", template="plotly_dark")
+        st.plotly_chart(fig_equity, use_container_width=True)
+
+    with fig_tab2:
+        display_df = result_df.tail(200) if len(result_df) > 200 else result_df
+        fig_price = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05,
+                                   row_heights=[0.7, 0.3],
+                                   subplot_titles=("價格走勢 + 進出場訊號", "成交量"))
+        fig_price.add_trace(go.Candlestick(x=display_df.index, open=display_df["open"],
+                                            high=display_df["high"], low=display_df["low"],
+                                            close=display_df["close"], name="K 線"), row=1, col=1)
+        entries_in_view = display_df[display_df["entry"]]
+        if not entries_in_view.empty:
+            fig_price.add_trace(go.Scatter(x=entries_in_view.index, y=entries_in_view["close"],
+                                            mode="markers", name="進場",
+                                            marker=dict(symbol="triangle-up", size=12, color="#00FF7F",
+                                                        line=dict(color="white", width=1))), row=1, col=1)
+        exits_in_view = display_df[display_df["exit"]]
+        if not exits_in_view.empty:
+            fig_price.add_trace(go.Scatter(x=exits_in_view.index, y=exits_in_view["close"],
+                                            mode="markers", name="出場",
+                                            marker=dict(symbol="triangle-down", size=12, color="#FF4B4B",
+                                                        line=dict(color="white", width=1))), row=1, col=1)
+        colors = ["#FF4B4B" if display_df["close"].iloc[i] < display_df["open"].iloc[i] else "#00C9FF"
+                  for i in range(len(display_df))]
+        fig_price.add_trace(go.Bar(x=display_df.index, y=display_df["volume"], name="成交量",
+                                    marker_color=colors), row=2, col=1)
+        fig_price.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False)
+        st.plotly_chart(fig_price, use_container_width=True)
+
+    with fig_tab3:
+        if trades:
+            trades_df = pd.DataFrame(trades)
+            trades_df["entry_time"] = pd.to_datetime(trades_df["entry_time"]).dt.tz_localize(None)
+            trades_df["exit_time"] = pd.to_datetime(trades_df["exit_time"]).dt.tz_localize(None)
+            trades_df["duration_hours"] = trades_df["duration_hours"].round(2)
+            trades_df["pnl_pct"] = (trades_df["pnl_pct"] * 100).round(2)
+            trades_df["pnl"] = trades_df["pnl"].round(2)
+            trades_df["entry_price"] = trades_df["entry_price"].round(2)
+            trades_df["exit_price"] = trades_df["exit_price"].round(2)
+            st.dataframe(trades_df, use_container_width=True, hide_index=True)
+            csv = trades_df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 下載交易明細 CSV", data=csv,
+                                file_name=f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv")
+        else:
+            st.info("無交易記錄")
+
+
+# ===========================
+# 分頁 2：自動參數優化
+# ===========================
+with main_tab2:
+    st.header("🤖 自動參數優化")
+    st.caption("自動測試所有參數組合，找出最佳表現。像 TradingView AI 一樣的全自動優化。")
+
+    col_o1, col_o2 = st.columns([3, 1])
+    with col_o1:
+        opt_template = st.selectbox("選擇策略", list_templates(), key="opt_template")
+    with col_o2:
+        st.write("")
+        st.write("")
+        if st.button("📥 載入策略", key="load_opt_template"):
+            st.session_state["opt_code"] = get_template(opt_template)
+            st.session_state["opt_current"] = opt_template
+            st.session_state["opt_param_space"] = get_param_space(opt_template)
+            st.session_state["opt_default_params"] = get_default_params(opt_template)
+            st.rerun()
+
+    if "opt_code" not in st.session_state:
+        st.session_state["opt_code"] = get_template(list_templates()[0])
+        st.session_state["opt_current"] = list_templates()[0]
+        st.session_state["opt_param_space"] = get_param_space(list_templates()[0])
+        st.session_state["opt_default_params"] = get_default_params(list_templates()[0])
+
+    opt_code = st.text_area("策略代碼（可編輯）", value=st.session_state["opt_code"],
+                              height=250, key="opt_code_editor")
+
+    col_op1, col_op2 = st.columns(2)
+    with col_op1:
+        st.markdown("**🎛️ 固定參數（所有測試都會使用）**")
+        fixed_params_text = st.text_area(
+            "固定參數",
+            value=json.dumps(st.session_state["opt_default_params"], indent=2, ensure_ascii=False),
+            height=100,
+            key="fixed_params"
+        )
+        try:
+            fixed_params = json.loads(fixed_params_text)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ JSON 錯誤: {e}")
+            fixed_params = {}
+
+    with col_op2:
+        st.markdown("**🔍 要優化的參數空間**")
+        param_space_text = st.text_area(
+            "參數空間（JSON）",
+            value=json.dumps(st.session_state["opt_param_space"], indent=2, ensure_ascii=False),
+            height=200,
+            key="param_space"
+        )
+        try:
+            param_space = json.loads(param_space_text)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ JSON 錯誤: {e}")
+            param_space = {}
+
+    st.divider()
+
+    col_set1, col_set2, col_set3 = st.columns(3)
+    with col_set1:
+        search_method = st.radio("搜尋方法", ["網格搜尋（完整）", "隨機搜尋（快速）"])
+        method_code = "grid" if "網格" in search_method else "random"
+    with col_set2:
+        opt_metric = st.selectbox("優化目標", ["sharpe_ratio", "total_return_pct", "calmar_ratio", "profit_factor", "win_rate"])
+    with col_set3:
+        if method_code == "random":
+            n_iter = st.number_input("迭代次數", min_value=10, max_value=2000, value=100)
+        else:
+            # 計算網格總數
+            total_combos = 1
+            for v in param_space.values():
+                if isinstance(v, list):
+                    total_combos *= len(v)
+            st.metric("組合總數", f"{total_combos:,}")
+
+    run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
+
+    if not run_opt:
+        st.stop()
+
+    if not param_space:
+        st.error("請設定至少一個要優化的參數")
+        st.stop()
+
+    # 執行優化
+    optimizer = ParameterOptimizer(
+        strategy_runner=execute_user_strategy,
+        backtest_engine_class=BacktestEngine,
+        metric=opt_metric,
+    )
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text(f"⏳ 開始{'網格' if method_code == 'grid' else '隨機'}搜尋...")
+
+    start_time = time.time()
+    if method_code == "grid":
+        opt_results = optimizer.grid_search(
+            df, opt_code, param_space, fixed_params,
+            initial_capital, commission_pct, slippage_pct, direction_code,
         )
     else:
-        st.info("無交易記錄")
-
-
-# === 月度績效熱力圖 ===
-st.header("🔥 月度績效")
-if trades:
-    trades_df = pd.DataFrame(trades)
-    trades_df["entry_time"] = pd.to_datetime(trades_df["entry_time"]).dt.tz_localize(None)
-    trades_df["year"] = trades_df["entry_time"].dt.year
-    trades_df["month"] = trades_df["entry_time"].dt.month
-    monthly = trades_df.groupby(["year", "month"])["pnl_pct"].sum() * 100
-    monthly_pivot = monthly.unstack(fill_value=0)
-
-    if not monthly_pivot.empty:
-        fig_heatmap = go.Figure(data=go.Heatmap(
-            z=monthly_pivot.values,
-            x=[f"{m}月" for m in monthly_pivot.columns],
-            y=monthly_pivot.index,
-            colorscale="RdYlGn",
-            zmid=0,
-            text=np.round(monthly_pivot.values, 2),
-            texttemplate="%{text}%",
-            textfont={"size": 12},
-            colorbar=dict(title="月報酬 %"),
-        ))
-        fig_heatmap.update_layout(
-            height=300,
-            template="plotly_dark",
-            title="月度報酬率熱力圖",
+        opt_results = optimizer.random_search(
+            df, opt_code, param_space, fixed_params,
+            initial_capital, commission_pct, slippage_pct, direction_code,
+            n_iter=n_iter,
         )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
+    progress_bar.progress(100)
+    elapsed = time.time() - start_time
+    status_text.text(f"✅ 完成！耗時 {elapsed:.1f} 秒，測試 {opt_results['valid_combinations']} 個有效組合")
+
+    if not opt_results["best_params"]:
+        st.error("❌ 沒有找到任何有效組合，請放寬參數空間或檢查策略代碼")
+        st.stop()
+
+    best = opt_results["best_metrics"]
+
+    st.success(f"🎉 找到最佳參數！")
+
+    col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns(5)
+    with col_r1:
+        st.metric("最佳 Sharpe", f"{best.get('sharpe_ratio', 0):.2f}")
+    with col_r2:
+        st.metric("最佳報酬率", f"{best.get('total_return_pct', 0):+.2f}%")
+    with col_r3:
+        st.metric("最大回撤", f"{best.get('max_drawdown_pct', 0):.2f}%")
+    with col_r4:
+        st.metric("勝率", f"{best.get('win_rate', 0):.1f}%")
+    with col_r5:
+        st.metric("交易數", f"{best.get('n_trades', 0)}")
+
+    # 過擬分評分
+    st.subheader("🔍 過擬合風險評估")
+    overfit = calculate_overfit_score(opt_results["valid_results"], top_n=10)
+    col_of1, col_of2, col_of3 = st.columns([1, 1, 2])
+    with col_of1:
+        st.metric("過擬合評分", f"{overfit['score']:.0f}/100")
+    with col_of2:
+        st.metric("參數平原比", f"{overfit.get('avg_ratio', 0):.2f}")
+    with col_of3:
+        st.info(overfit["warning"])
+
+    # 最佳參數
+    st.subheader("🏆 最佳參數組合")
+    best_params_display = {k: v for k, v in opt_results["best_params"].items() if k in param_space}
+    st.json(best_params_display)
+
+    if st.button("📋 複製到單次回測", key="copy_to_single"):
+        st.session_state["strategy_code"] = opt_code
+        st.session_state["current_template"] = st.session_state.get("opt_current", "")
+        merged = {**fixed_params, **best_params_display}
+        st.session_state["params_text"] = json.dumps(merged, indent=2, ensure_ascii=False)
+        st.success("✅ 已複製到「單次回測」分頁，請切換查看")
+
+    # Top 10 結果
+    st.subheader(f"📊 Top {min(10, len(opt_results['valid_results']))} 結果")
+    top_display = []
+    for r in opt_results["valid_results"][:10]:
+        row = {**r["params"]}
+        row["Sharpe"] = r.get("sharpe_ratio", 0)
+        row["報酬率 %"] = r.get("total_return_pct", 0)
+        row["回撤 %"] = r.get("max_drawdown_pct", 0)
+        row["勝率 %"] = r.get("win_rate", 0)
+        row["交易數"] = r.get("n_trades", 0)
+        row["利潤因子"] = r.get("profit_factor", 0)
+        top_display.append(row)
+    top_df = pd.DataFrame(top_display)
+    st.dataframe(top_df, use_container_width=True, hide_index=True)
+
+    # 2D 熱力圖（如果有兩個參數）
+    if len(param_space) == 2:
+        st.subheader("🔥 參數熱力圖")
+        pname1, pname2 = list(param_space.keys())
+        pvals1 = param_space[pname1]
+        pvals2 = param_space[pname2]
+
+        heatmap_z = np.full((len(pvals2), len(pvals1)), np.nan)
+        for r in opt_results["valid_results"]:
+            v1 = r["params"][pname1]
+            v2 = r["params"][pname2]
+            if v1 in pvals1 and v2 in pvals2:
+                i = pvals1.index(v1)
+                j = pvals2.index(v2)
+                heatmap_z[j, i] = r.get(opt_metric, np.nan)
+
+        fig_heat = go.Figure(data=go.Heatmap(
+            z=heatmap_z, x=[str(v) for v in pvals1], y=[str(v) for v in pvals2],
+            colorscale="Viridis", text=np.round(heatmap_z, 2),
+            texttemplate="%{text}", colorbar=dict(title=opt_metric),
+        ))
+        fig_heat.update_layout(
+            xaxis_title=pname1, yaxis_title=pname2,
+            template="plotly_dark", height=500,
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+
+# ===========================
+# 分頁 3：Walk-Forward 驗證
+# ===========================
+with main_tab3:
+    st.header("📊 Walk-Forward 驗證")
+    st.caption("""
+    將資料切成多個 in-sample（訓練）與 out-of-sample（測試）區段，
+    確保策略在「未見過的資料」上也能獲利，避免過擬合。
+
+    **流程**：
+    1. 將資料切 N 個區段
+    2. 在前段做參數優化（in-sample）
+    3. 在後段驗證（out-of-sample）
+    4. 滾動前進，重複步驟 2-3
+    5. 拼接所有 OOS 結果計算綜合表現
+    """)
+
+    col_w1, col_w2 = st.columns([3, 1])
+    with col_w1:
+        wf_template = st.selectbox("選擇策略", list_templates(), key="wf_template")
+    with col_w2:
+        st.write("")
+        st.write("")
+        if st.button("📥 載入策略", key="load_wf_template"):
+            st.session_state["wf_code"] = get_template(wf_template)
+            st.session_state["wf_current"] = wf_template
+            st.session_state["wf_param_space"] = get_param_space(wf_template)
+            st.rerun()
+
+    if "wf_code" not in st.session_state:
+        st.session_state["wf_code"] = get_template(list_templates()[0])
+        st.session_state["wf_current"] = list_templates()[0]
+        st.session_state["wf_param_space"] = get_param_space(list_templates()[0])
+
+    wf_code = st.text_area("策略代碼", value=st.session_state["wf_code"], height=200, key="wf_code_editor")
+
+    col_wp1, col_wp2 = st.columns(2)
+    with col_wp1:
+        st.markdown("**🎛️ 固定參數**")
+        wf_fixed_text = st.text_area(
+            "固定參數",
+            value=json.dumps(get_default_params(st.session_state["wf_current"]), indent=2, ensure_ascii=False),
+            height=80, key="wf_fixed",
+        )
+        try:
+            wf_fixed = json.loads(wf_fixed_text)
+        except json.JSONDecodeError:
+            wf_fixed = {}
+
+    with col_wp2:
+        st.markdown("**🔍 優化參數空間**")
+        wf_space_text = st.text_area(
+            "參數空間",
+            value=json.dumps(st.session_state["wf_param_space"], indent=2, ensure_ascii=False),
+            height=150, key="wf_space",
+        )
+        try:
+            wf_param_space = json.loads(wf_space_text)
+        except json.JSONDecodeError:
+            wf_param_space = {}
+
+    st.divider()
+
+    col_ws1, col_ws2, col_ws3 = st.columns(3)
+    with col_ws1:
+        n_splits = st.slider("切分數量", min_value=3, max_value=10, value=5)
+    with col_ws2:
+        train_ratio = st.slider("訓練集佔比", min_value=0.5, max_value=0.9, value=0.7, step=0.05)
+    with col_ws3:
+        anchored = st.checkbox("錨定窗口（從頭開始）", value=False)
+        wf_metric = st.selectbox("優化目標", ["sharpe_ratio", "total_return_pct", "calmar_ratio"],
+                                  key="wf_metric")
+
+    run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
+
+    if not run_wf:
+        st.stop()
+
+    validator = WalkForwardValidator(
+        strategy_runner=execute_user_strategy,
+        backtest_engine_class=BacktestEngine,
+        n_splits=n_splits,
+        train_ratio=train_ratio,
+        anchored=anchored,
+    )
+
+    with st.spinner("⏳ Walk-Forward 驗證中（這可能需要幾分鐘）..."):
+        wf_results = validator.run(
+            df, wf_code, wf_param_space, wf_fixed,
+            optimize_metric=wf_metric,
+            initial_capital=initial_capital,
+            commission=commission_pct,
+            slippage=slippage_pct,
+            direction=direction_code,
+        )
+
+    if "error" in wf_results:
+        st.error(wf_results["error"])
+        st.stop()
+
+    st.success(f"✅ 完成 {wf_results['n_windows']} 個區段的驗證")
+
+    # 綜合 OOS 指標
+    st.subheader("📈 綜合 OOS 表現")
+    oos = wf_results["combined_oos_metrics"]
+    col_oof1, col_oof2, col_oof3, col_oof4, col_oof5 = st.columns(5)
+    with col_oof1:
+        st.metric("OOS 交易數", f"{oos.get('n_oos_trades', 0)}")
+    with col_oof2:
+        st.metric("OOS 總報酬", f"{oos.get('oos_total_return_pct', 0):+.2f}%")
+    with col_oof3:
+        st.metric("OOS 勝率", f"{oos.get('oos_win_rate', 0):.1f}%")
+    with col_oof4:
+        st.metric("OOS 平均損益", f"{oos.get('oos_avg_pnl_pct', 0):+.2f}%")
+    with col_oof5:
+        st.metric("最大單筆虧損", f"{oos.get('oos_max_single_loss_pct', 0):.2f}%")
+
+    # 過擬合評估
+    st.subheader("🎯 過擬合風險評估")
+    col_od1, col_od2, col_od3 = st.columns(3)
+    with col_od1:
+        st.metric("平均訓練指標", f"{wf_results['avg_train_metric']:.2f}")
+    with col_od2:
+        st.metric("平均測試指標", f"{wf_results['avg_test_metric']:.2f}")
+    with col_od3:
+        deg = wf_results["degradation_pct"]
+        st.metric("指標衰退率", f"{deg:+.1f}%", delta="越小越好")
+
+    if deg < 30:
+        st.success("✅ 過擬合風險低：訓練與測試指標接近，泛化能力強")
+    elif deg < 60:
+        st.warning("⚠️ 過擬合風險中等：訓練表現優於測試，建議保守倉位")
+    else:
+        st.error("🔴 過擬合風險高：策略可能在真實市場失效，建議重新設計")
+
+    # 參數穩定度
+    st.subheader("🔬 參數穩定度分析")
+    stability = wf_results["parameter_stability"]
+    col_st1, col_st2 = st.columns([1, 2])
+    with col_st1:
+        st.metric("穩定度評分", f"{stability['score']:.0f}/100")
+    with col_st2:
+        st.info(stability["interpretation"])
+
+    if "details" in stability and stability["details"]:
+        st.markdown("**各參數的變化**")
+        stab_rows = []
+        for pname, pdata in stability["details"].items():
+            stab_rows.append({
+                "參數": pname,
+                "平均最佳值": round(pdata["mean"], 2),
+                "標準差": round(pdata["std"], 2),
+                "變異係數 CV": round(pdata["cv"], 3),
+                "所有最佳值": str(pdata["values"]),
+            })
+        st.dataframe(pd.DataFrame(stab_rows), use_container_width=True, hide_index=True)
+
+    # 每個 window 詳細結果
+    st.subheader("📋 各區段詳細結果")
+    wf_rows = []
+    for w in wf_results["windows"]:
+        row = {
+            "區段": w["split_id"],
+            "訓練範圍": f"{w['train_start']} → {w['train_end']}",
+            "測試範圍": f"{w['test_start']} → {w['test_end']}",
+        }
+        if "best_params" in w:
+            for pname, pval in w["best_params"].items():
+                row[f"最佳 {pname}"] = pval
+        row["訓練指標"] = round(w.get("train_metric", 0), 2)
+        row["測試指標"] = round(w.get("test_metric", 0), 2) if w.get("test_metric") is not None else "N/A"
+        row["測試報酬%"] = round(w.get("test_return", 0), 2)
+        row["測試回撤%"] = round(w.get("test_drawdown", 0), 2)
+        row["測試勝率%"] = round(w.get("test_win_rate", 0), 2)
+        row["測試交易數"] = w.get("test_n_trades", 0)
+        wf_rows.append(row)
+    st.dataframe(pd.DataFrame(wf_rows), use_container_width=True, hide_index=True)
 
 
 # === 頁尾 ===
 st.divider()
-st.caption("⚠️ 免責聲明：本工具僅供研究與教育用途。回測結果不代表未來表現。交易涉及風險，過去的績效不保證未來收益。")
+st.caption("⚠️ 免責聲明：本工具僅供研究與教育用途。回測結果不代表未來表現。交易涉及重大風險，過去的績效不保證未來收益。")
