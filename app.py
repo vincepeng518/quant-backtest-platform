@@ -37,6 +37,7 @@ from utils.ui_components import (
     render_list_of_trades, render_charts,
     render_monte_carlo,
 )
+from utils.theme import THEMES, get_theme, get_current_theme, list_themes, theme_css
 
 
 # === 頁面設定 ===
@@ -48,134 +49,21 @@ st.set_page_config(
 )
 
 
-# === 自訂 CSS - Notion 風格 ===
-st.markdown("""
-<style>
-    html, body, [class*="css"] {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
-                     "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
-    }
-    .main-header {
-        font-size: 1.875rem;
-        font-weight: 700;
-        color: #1F2937;
-        margin-bottom: 4px;
-        letter-spacing: -0.02em;
-    }
-    .sub-header {
-        color: #6B7280;
-        font-size: 0.875rem;
-        margin-top: 0;
-        margin-bottom: 28px;
-        font-weight: 400;
-    }
-    h3 {
-        font-size: 1.125rem !important;
-        font-weight: 600 !important;
-        color: #1F2937 !important;
-        margin-top: 24px !important;
-        margin-bottom: 12px !important;
-    }
-    [data-testid="stSidebar"] h2 {
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        color: #9CA3AF !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-top: 16px !important;
-        margin-bottom: 8px !important;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        border-bottom: 1px solid #E5E7EB;
-        background: transparent;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 0;
-        padding: 8px 16px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #6B7280;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #2563EB !important;
-        border-bottom: 2px solid #2563EB !important;
-        background: transparent !important;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #374151;
-    }
-    .stButton button {
-        border-radius: 6px;
-        font-weight: 500;
-        font-size: 0.875rem;
-        border: 1px solid #E5E7EB;
-        background: white;
-        color: #374151;
-        transition: all 0.15s ease;
-        padding: 0.4rem 0.875rem;
-    }
-    .stButton button:hover {
-        background: #F9FAFB;
-        border-color: #D1D5DB;
-    }
-    .stButton button[kind="primary"] {
-        background: #2563EB;
-        color: white;
-        border: 1px solid #2563EB;
-    }
-    .stButton button[kind="primary"]:hover {
-        background: #1D4ED8;
-        border-color: #1D4ED8;
-    }
-    .stTextInput input, .stTextArea textarea, .stNumberInput input,
-    .stSelectbox [data-baseweb="select"] > div {
-        border-radius: 6px;
-        border: 1px solid #E5E7EB;
-        font-size: 0.875rem;
-        background: white;
-    }
-    .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {
-        border-color: #2563EB;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-    .metric-card {
-        background: white;
-        padding: 12px 16px;
-        border-radius: 6px;
-        border: 1px solid #E5E7EB;
-    }
-    .streamlit-expanderHeader {
-        background: #F9FAFB !important;
-        border-radius: 6px !important;
-        border: 1px solid #E5E7EB !important;
-        font-size: 0.875rem !important;
-        font-weight: 500 !important;
-    }
-    .streamlit-expanderContent {
-        background: white;
-        border: 1px solid #E5E7EB;
-        border-top: none;
-        border-radius: 0 0 6px 6px;
-    }
-    .stDataFrame {
-        border: 1px solid #E5E7EB;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-    hr {
-        margin: 20px 0 !important;
-        border-color: #E5E7EB !important;
-    }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    [data-testid="stToolbar"] {visibility: hidden;}
-    [data-testid="stDecoration"] {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
+# === 主題系統（從 session_state 讀取） ===
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "light"
+
+current_theme = get_theme(st.session_state["theme"])
+
+# Google Fonts（不內嵌 @import，避免干擾系統 emoji 字體）
+st.markdown(
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">',
+    unsafe_allow_html=True,
+)
+
+st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
 st.markdown('<p class="main-header">📈 加密貨幣回測實驗室</p>', unsafe_allow_html=True)
@@ -184,6 +72,29 @@ st.markdown('<p class="sub-header">Crypto Backtesting Lab · 自動參數優化 
 
 # === 側邊欄：資料來源 ===
 with st.sidebar:
+    st.header("🎨 主題")
+
+    theme_options = list_themes()
+    current_idx = list(theme_options.keys()).index(st.session_state["theme"]) \
+        if st.session_state["theme"] in theme_options else 0
+
+    def _on_theme_change():
+        # 從 widget 取新值
+        st.session_state["theme"] = st.session_state["_theme_selector"]
+
+    selected_theme_name = st.radio(
+        "主題切換",
+        options=list(theme_options.keys()),
+        index=current_idx,
+        key="_theme_selector",
+        on_change=_on_theme_change,
+        label_visibility="collapsed",
+        help="切換配色主題（影響整個 app + plotly 圖表）",
+        format_func=lambda tid: theme_options[tid],
+    )
+
+    st.divider()
+
     st.header("📊 資料來源")
 
     data_source = st.radio(
@@ -472,23 +383,53 @@ with main_tab1:
         all_sources = ["（自訂）"] + list_templates()
         if st.session_state.get("user_strategies"):
             all_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+
+        # 計算 selectbox 當前 index
+        prev_template = st.session_state.get("current_template", "（自訂）")
+        prev_idx = all_sources.index(prev_template) if prev_template in all_sources else 0
+
         template_choice = st.selectbox(
             "選擇策略來源",
             all_sources,
+            index=prev_idx,
             key="template_select",
+            help="選擇後會自動載入對應策略代碼",
         )
+
+    # 自動載入：選擇變了就立即更新 strategy_code
+    if not template_choice.startswith("──") and template_choice != "（自訂）":
+        if st.session_state.get("current_template") != template_choice:
+            if template_choice in list_templates():
+                new_code = get_template(template_choice)
+            elif template_choice in st.session_state.get("user_strategies", {}):
+                new_code = st.session_state["user_strategies"][template_choice]
+            else:
+                new_code = None
+            if new_code is not None:
+                st.session_state["strategy_code"] = new_code
+                st.session_state["current_template"] = template_choice
+                # 同步更新 text_area 的 widget state，否則 key 已存在會忽略新 value
+                st.session_state["strategy_code_editor"] = new_code
+                st.rerun()
+
     with col_src2:
-        st.write("")
         st.write("")
         if template_choice.startswith("──"):
             st.button("📥 載入", key="load_template", disabled=True, use_container_width=True)
-        elif template_choice != "（自訂）" and st.button("📥 載入", key="load_template", use_container_width=True):
-            if template_choice in list_templates():
-                st.session_state["strategy_code"] = get_template(template_choice)
-                st.session_state["current_template"] = template_choice
-            elif template_choice in st.session_state.get("user_strategies", {}):
-                st.session_state["strategy_code"] = st.session_state["user_strategies"][template_choice]
-                st.session_state["current_template"] = template_choice
+        else:
+            if st.button("🔄 重新載入", key="load_template", use_container_width=True,
+                         help="重新從範本載入（會覆蓋目前編輯的代碼）"):
+                if template_choice in list_templates():
+                    new_code = get_template(template_choice)
+                elif template_choice in st.session_state.get("user_strategies", {}):
+                    new_code = st.session_state["user_strategies"][template_choice]
+                else:
+                    new_code = None
+                if new_code is not None:
+                    st.session_state["strategy_code"] = new_code
+                    st.session_state["current_template"] = template_choice
+                    st.session_state["strategy_code_editor"] = new_code
+                    st.rerun()
 
     if "strategy_code" not in st.session_state:
         st.session_state["strategy_code"] = get_template(list_templates()[0])
@@ -604,23 +545,64 @@ with main_tab2:
         opt_sources = list_templates()
         if st.session_state.get("user_strategies"):
             opt_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
-        opt_template = st.selectbox("選擇策略", opt_sources, key="opt_template")
+        # 計算 selectbox 當前 index
+        prev_opt = st.session_state.get("opt_current", list_templates()[0])
+        opt_idx = opt_sources.index(prev_opt) if prev_opt in opt_sources else 0
+        opt_template = st.selectbox(
+            "選擇策略",
+            opt_sources,
+            index=opt_idx,
+            key="opt_template",
+            help="選擇後會自動載入對應策略",
+        )
+
+        # 自動載入
+        if not opt_template.startswith("──"):
+            if st.session_state.get("opt_current") != opt_template:
+                if opt_template in list_templates():
+                    new_code = get_template(opt_template)
+                    new_space = get_param_space(opt_template)
+                    new_default = get_default_params(opt_template)
+                elif opt_template in st.session_state.get("user_strategies", {}):
+                    new_code = st.session_state["user_strategies"][opt_template]
+                    new_space = {}
+                    new_default = {}
+                else:
+                    new_code = None
+                if new_code is not None:
+                    st.session_state["opt_code"] = new_code
+                    st.session_state["opt_param_space"] = new_space
+                    st.session_state["opt_default_params"] = new_default
+                    st.session_state["opt_current"] = opt_template
+                    # 同步更新 widget state
+                    st.session_state["opt_code_editor"] = new_code
+                    st.rerun()
+
     with col_o2:
         st.write("")
         st.write("")
         if opt_template.startswith("──"):
-            st.button("📥 載入策略", key="load_opt_template", disabled=True, use_container_width=True)
-        elif st.button("📥 載入策略", key="load_opt_template", use_container_width=True):
-            if opt_template in list_templates():
-                st.session_state["opt_code"] = get_template(opt_template)
-                st.session_state["opt_param_space"] = get_param_space(opt_template)
-                st.session_state["opt_default_params"] = get_default_params(opt_template)
-            elif opt_template in st.session_state.get("user_strategies", {}):
-                st.session_state["opt_code"] = st.session_state["user_strategies"][opt_template]
-                st.session_state["opt_param_space"] = {}
-                st.session_state["opt_default_params"] = {}
-                st.info("自訂策略：請手動設定參數空間")
-            st.session_state["opt_current"] = opt_template
+            st.button("📥 載入", key="load_opt_template", disabled=True, use_container_width=True)
+        else:
+            if st.button("🔄 重新載入", key="load_opt_template", use_container_width=True,
+                         help="重新從範本載入（會覆蓋目前編輯的代碼）"):
+                if opt_template in list_templates():
+                    new_code = get_template(opt_template)
+                    new_space = get_param_space(opt_template)
+                    new_default = get_default_params(opt_template)
+                elif opt_template in st.session_state.get("user_strategies", {}):
+                    new_code = st.session_state["user_strategies"][opt_template]
+                    new_space = {}
+                    new_default = {}
+                else:
+                    new_code = None
+                if new_code is not None:
+                    st.session_state["opt_code"] = new_code
+                    st.session_state["opt_param_space"] = new_space
+                    st.session_state["opt_default_params"] = new_default
+                    st.session_state["opt_current"] = opt_template
+                    st.session_state["opt_code_editor"] = new_code
+                    st.rerun()
 
     if "opt_code" not in st.session_state:
         st.session_state["opt_code"] = get_template(list_templates()[0])
@@ -806,21 +788,57 @@ with main_tab3:
         wf_sources = list_templates()
         if st.session_state.get("user_strategies"):
             wf_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
-        wf_template = st.selectbox("選擇策略", wf_sources, key="wf_template")
+        # 計算 selectbox 當前 index
+        prev_wf = st.session_state.get("wf_current", list_templates()[0])
+        wf_idx = wf_sources.index(prev_wf) if prev_wf in wf_sources else 0
+        wf_template = st.selectbox(
+            "選擇策略",
+            wf_sources,
+            index=wf_idx,
+            key="wf_template",
+            help="選擇後會自動載入對應策略",
+        )
+
+        # 自動載入
+        if not wf_template.startswith("──"):
+            if st.session_state.get("wf_current") != wf_template:
+                if wf_template in list_templates():
+                    new_code = get_template(wf_template)
+                    new_space = get_param_space(wf_template)
+                elif wf_template in st.session_state.get("user_strategies", {}):
+                    new_code = st.session_state["user_strategies"][wf_template]
+                    new_space = {}
+                else:
+                    new_code = None
+                if new_code is not None:
+                    st.session_state["wf_code"] = new_code
+                    st.session_state["wf_param_space"] = new_space
+                    st.session_state["wf_current"] = wf_template
+                    st.session_state["wf_code_editor"] = new_code
+                    st.rerun()
+
     with col_w2:
         st.write("")
         st.write("")
         if wf_template.startswith("──"):
-            st.button("📥 載入策略", key="load_wf_template", disabled=True, use_container_width=True)
-        elif st.button("📥 載入策略", key="load_wf_template", use_container_width=True):
-            if wf_template in list_templates():
-                st.session_state["wf_code"] = get_template(wf_template)
-                st.session_state["wf_param_space"] = get_param_space(wf_template)
-            elif wf_template in st.session_state.get("user_strategies", {}):
-                st.session_state["wf_code"] = st.session_state["user_strategies"][wf_template]
-                st.session_state["wf_param_space"] = {}
-                st.info("自訂策略：請手動設定參數空間")
-            st.session_state["wf_current"] = wf_template
+            st.button("📥 載入", key="load_wf_template", disabled=True, use_container_width=True)
+        else:
+            if st.button("🔄 重新載入", key="load_wf_template", use_container_width=True,
+                         help="重新從範本載入（會覆蓋目前編輯的代碼）"):
+                if wf_template in list_templates():
+                    new_code = get_template(wf_template)
+                    new_space = get_param_space(wf_template)
+                elif wf_template in st.session_state.get("user_strategies", {}):
+                    new_code = st.session_state["user_strategies"][wf_template]
+                    new_space = {}
+                else:
+                    new_code = None
+                if new_code is not None:
+                    st.session_state["wf_code"] = new_code
+                    st.session_state["wf_param_space"] = new_space
+                    st.session_state["wf_current"] = wf_template
+                    st.session_state["wf_code_editor"] = new_code
+                    st.rerun()
 
     if "wf_code" not in st.session_state:
         st.session_state["wf_code"] = get_template(list_templates()[0])

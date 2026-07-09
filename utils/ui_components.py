@@ -1,8 +1,8 @@
 """
-Notion 風格的回測結果 UI 元件
-- 淺色背景 (#FFFFFF)
-- 簡潔排版、寬鬆留白
-- 細邊框、極簡陰影
+回測結果 UI 元件（多主題支援）
+- 配色從 utils.theme 動態讀取
+- 預設 Light Pro（Data-Dense Dashboard）
+- Dark Trading（Financial Dashboard）可在 sidebar 切換
 - 顏色編碼：綠色(獲利)/ 紅色(虧損)/ 藍色(強調)
 """
 
@@ -13,32 +13,47 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import Dict, List, Any
 
+from utils.theme import get_current_theme
 
-# === Notion 風格配色（淺色主題） ===
-N_COLORS = {
-    "bg": "#FFFFFF",
-    "bg_subtle": "#F9FAFB",
-    "bg_card": "#FFFFFF",
-    "border": "#E5E7EB",
-    "border_strong": "#D1D5DB",
-    "text_primary": "#1F2937",
-    "text_secondary": "#6B7280",
-    "text_muted": "#9CA3AF",
-    "green": "#10B981",       # 獲利
-    "green_light": "#D1FAE5",
-    "green_text": "#047857",
-    "red": "#EF4444",         # 虧損
-    "red_light": "#FEE2E2",
-    "red_text": "#B91C1C",
-    "blue": "#2563EB",        # 強調
-    "blue_light": "#DBEAFE",
-    "orange": "#F59E0B",
-    "purple": "#8B5CF6",
-    "yellow": "#EAB308",
-}
+
+def get_colors() -> Dict[str, str]:
+    C = get_colors()
+    """動態取得當前主題配色（每次渲染都讀最新 session_state）"""
+    t = get_current_theme()
+    return {
+        "bg": t["bg"],
+        "bg_subtle": t["bg_subtle"],
+        "bg_card": t["bg_card"],
+        "border": t["border"],
+        "border_strong": t["border_strong"],
+        "text_primary": t["text_primary"],
+        "text_secondary": t["text_secondary"],
+        "text_muted": t["text_muted"],
+        "green": t["green"],
+        "green_light": t["green_light"],
+        "green_text": t["green_text"],
+        "red": t["red"],
+        "red_light": t["red_light"],
+        "red_text": t["red_text"],
+        "blue": t["primary"],
+        "blue_light": f"{t['primary']}15",  # 12% 透明
+        "orange": t["orange"],
+        "purple": t["purple"],
+        "yellow": t["yellow"],
+        "font_family": t["font_family"],
+        "font_mono": t["font_mono"],
+        "plotly_template": t["plotly_template"],
+    }
+
+
+# 保留 N_COLORS 為向後相容別名（會在呼叫時被替換）
+def _compat():
+    C = get_colors()
+    return get_colors()
 
 
 def calc_calmar_ratio(total_return_pct: float, max_drawdown_pct: float) -> float:
+    C = get_colors()
     """Calmar Ratio = 年化報酬 / 最大回撤"""
     if max_drawdown_pct == 0:
         return 0
@@ -46,6 +61,7 @@ def calc_calmar_ratio(total_return_pct: float, max_drawdown_pct: float) -> float
 
 
 def calc_sortino_ratio(returns: pd.Series, risk_free: float = 0) -> float:
+    C = get_colors()
     """Sortino Ratio = 報酬 / 下行波動率"""
     downside = returns[returns < 0]
     if len(downside) == 0 or downside.std() == 0:
@@ -55,6 +71,7 @@ def calc_sortino_ratio(returns: pd.Series, risk_free: float = 0) -> float:
 
 
 def calc_recovery_factor(total_return_pct: float, max_drawdown_pct: float) -> float:
+    C = get_colors()
     """Recovery Factor = 總報酬 / 最大回撤絕對值"""
     if max_drawdown_pct == 0:
         return 0
@@ -62,6 +79,7 @@ def calc_recovery_factor(total_return_pct: float, max_drawdown_pct: float) -> fl
 
 
 def calc_avg_win_loss_ratio(avg_win: float, avg_loss: float) -> float:
+    C = get_colors()
     """風報比 = 平均獲利 / 平均虧損絕對值"""
     if avg_loss == 0:
         return 0
@@ -69,11 +87,13 @@ def calc_avg_win_loss_ratio(avg_win: float, avg_loss: float) -> float:
 
 
 def calc_expectancy(win_rate: float, avg_win: float, avg_loss: float) -> float:
+    C = get_colors()
     """期望值 = 勝率*平均獲利 - (1-勝率)*|平均虧損|"""
     return (win_rate / 100) * avg_win - (1 - win_rate / 100) * abs(avg_loss)
 
 
 def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: float) -> None:
+    C = get_colors()
     """Notion 風格的 Overview 分頁"""
     # 計算額外指標
     total_return = metrics.get("total_return_pct", 0)
@@ -96,21 +116,21 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
     expectancy = calc_expectancy(win_rate, avg_win, avg_loss)
 
     # 頂部：大型淨利潤（Notion 風格）
-    profit_color = N_COLORS["green_text"] if net_profit >= 0 else N_COLORS["red_text"]
-    profit_pct_color = N_COLORS["green_text"] if total_return >= 0 else N_COLORS["red_text"]
-    delta_color = N_COLORS["green_text"] if total_return >= buy_hold else N_COLORS["red_text"]
+    profit_color = C["green_text"] if net_profit >= 0 else C["red_text"]
+    profit_pct_color = C["green_text"] if total_return >= 0 else C["red_text"]
+    delta_color = C["green_text"] if total_return >= buy_hold else C["red_text"]
 
     st.markdown(f"""
-    <div style="background: {N_COLORS['bg_subtle']}; padding: 28px 32px; border-radius: 8px; margin-bottom: 24px; border: 1px solid {N_COLORS['border']};">
+    <div style="background: {C['bg_subtle']}; padding: 28px 32px; border-radius: 8px; margin-bottom: 24px; border: 1px solid {C['border']};">
         <div style="display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div>
-                <div style="color: {N_COLORS['text_secondary']}; font-size: 13px; margin-bottom: 6px; font-weight: 500;">淨利潤</div>
+                <div style="color: {C['text_secondary']}; font-size: 13px; margin-bottom: 6px; font-weight: 500;">淨利潤</div>
                 <div style="color: {profit_color}; font-size: 40px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em;">
                     ${net_profit:+,.2f}
                 </div>
             </div>
             <div style="text-align: right;">
-                <div style="color: {N_COLORS['text_secondary']}; font-size: 13px; margin-bottom: 6px; font-weight: 500;">總報酬率</div>
+                <div style="color: {C['text_secondary']}; font-size: 13px; margin-bottom: 6px; font-weight: 500;">總報酬率</div>
                 <div style="color: {profit_pct_color}; font-size: 28px; font-weight: 700; line-height: 1.1;">
                     {total_return:+.2f}%
                 </div>
@@ -131,7 +151,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
         subplot_titles=("權益曲線", "回撤")
     )
 
-    equity_color = N_COLORS["green"] if net_profit >= 0 else N_COLORS["red"]
+    equity_color = C["green"] if net_profit >= 0 else C["red"]
     fillcolor_rgba = "rgba(16, 185, 129, 0.08)" if net_profit >= 0 else "rgba(239, 68, 68, 0.08)"
 
     fig.add_trace(
@@ -148,7 +168,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
         go.Scatter(
             x=result_df.index, y=result_df["buy_hold"],
             name="買進持有",
-            line=dict(color=N_COLORS["orange"], width=1.5, dash="dash"),
+            line=dict(color=C["orange"], width=1.5, dash="dash"),
         ),
         row=1, col=1
     )
@@ -161,7 +181,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
             x=result_df.index, y=drawdown,
             name="回撤 %",
             fill="tozeroy",
-            line=dict(color=N_COLORS["red"], width=1),
+            line=dict(color=C["red"], width=1),
             fillcolor="rgba(239, 68, 68, 0.15)",
         ),
         row=2, col=1
@@ -170,10 +190,10 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
     fig.update_layout(
         height=450,
         hovermode="x unified",
-        template="plotly_white",
-        paper_bgcolor=N_COLORS["bg"],
-        plot_bgcolor=N_COLORS["bg"],
-        font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+        template=C["plotly_template"],
+        paper_bgcolor=C["bg"],
+        plot_bgcolor=C["bg"],
+        font=dict(color=C["text_primary"], family="system-ui"),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -183,8 +203,8 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
         ),
         margin=dict(l=50, r=20, t=50, b=30),
     )
-    fig.update_xaxes(gridcolor=N_COLORS["border"], showgrid=True, zeroline=False)
-    fig.update_yaxes(gridcolor=N_COLORS["border"], showgrid=True, zeroline=False)
+    fig.update_xaxes(gridcolor=C["border"], showgrid=True, zeroline=False)
+    fig.update_yaxes(gridcolor=C["border"], showgrid=True, zeroline=False)
     fig.update_yaxes(title_text="USDT", row=1, col=1)
     fig.update_yaxes(title_text="%", row=2, col=1)
 
@@ -192,7 +212,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
 
     # 關鍵指標（Notion 風格：簡潔的網格）
     st.markdown(f"""
-    <div style="color: {N_COLORS['text_secondary']}; font-size: 11px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
+    <div style="color: {C['text_secondary']}; font-size: 11px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
         關鍵指標
     </div>
     """, unsafe_allow_html=True)
@@ -223,6 +243,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
 
 
 def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
+    C = get_colors()
     """Notion 風格的 Performance Summary"""
     if not trades:
         st.info("無交易記錄")
@@ -241,7 +262,7 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
             continue
 
         st.markdown(f"""
-        <div style="font-size: 1rem; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid {N_COLORS['border']};">
+        <div style="font-size: 1rem; font-weight: 600; color: {C['text_primary']}; margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid {C['border']};">
             {title}
         </div>
         """, unsafe_allow_html=True)
@@ -289,6 +310,7 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
 
 
 def render_list_of_trades(trades: List[Dict]) -> None:
+    C = get_colors()
     """Notion 風格的交易清單"""
     if not trades:
         st.info("無交易記錄")
@@ -355,6 +377,7 @@ def render_list_of_trades(trades: List[Dict]) -> None:
 
 
 def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
+    C = get_colors()
     """
     自動偵測並解析圖表需要的欄位
     - 支援單標的：open/high/low/close/volume
@@ -391,6 +414,7 @@ def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
 
 
 def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
+    C = get_colors()
     """Notion 風格的圖表區"""
     st.markdown("### 📈 價格走勢 + 進出場標記")
 
@@ -418,8 +442,8 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
         "high": display_df[col_map["high"]],
         "low": display_df[col_map["low"]],
         "close": display_df[col_map["close"]],
-        "increasing_line_color": N_COLORS["green"],
-        "decreasing_line_color": N_COLORS["red"],
+        "increasing_line_color": C["green"],
+        "decreasing_line_color": C["red"],
         "name": col_map.get("symbol", "K 線"),
     }
     fig.add_trace(go.Candlestick(**candlestick_kwargs), row=1, col=1)
@@ -429,7 +453,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             go.Scatter(
                 x=display_df.index, y=display_df[col_map["close2"]],
                 name=f"{col_map['symbol2']} 價格",
-                line=dict(color=N_COLORS["orange"], width=1.5, dash="dot"),
+                line=dict(color=C["orange"], width=1.5, dash="dot"),
                 opacity=0.6,
             ),
             row=1, col=1
@@ -451,7 +475,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                 go.Scatter(
                     x=long_entries.index, y=long_entries[close_col],
                     mode="markers+text", name="做多進場",
-                    marker=dict(symbol="triangle-up", size=12, color=N_COLORS["green"],
+                    marker=dict(symbol="triangle-up", size=12, color=C["green"],
                                 line=dict(color="white", width=1.5)),
                     text="L", textposition="top center",
                     textfont=dict(color="white", size=9),
@@ -464,7 +488,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                 go.Scatter(
                     x=short_entries.index, y=short_entries[close_col],
                     mode="markers+text", name="做空進場",
-                    marker=dict(symbol="triangle-down", size=12, color=N_COLORS["red"],
+                    marker=dict(symbol="triangle-down", size=12, color=C["red"],
                                 line=dict(color="white", width=1.5)),
                     text="S", textposition="bottom center",
                     textfont=dict(color="white", size=9),
@@ -479,10 +503,10 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             go.Scatter(
                 x=exits_in_view.index, y=exits_in_view[close_col],
                 mode="markers+text", name="出場",
-                marker=dict(symbol="x", size=9, color=N_COLORS["orange"],
+                marker=dict(symbol="x", size=9, color=C["orange"],
                             line=dict(color="white", width=1)),
                 text="X", textposition="top center",
-                textfont=dict(color=N_COLORS["orange"], size=9),
+                textfont=dict(color=C["orange"], size=9),
             ),
             row=1, col=1
         )
@@ -491,8 +515,8 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
         open_col = col_map["open"]
         close_col = col_map["close"]
         vol_col = col_map["volume"]
-        colors = [N_COLORS["red"] if display_df[close_col].iloc[i] < display_df[open_col].iloc[i]
-                  else N_COLORS["green_light"] for i in range(len(display_df))]
+        colors = [C["red"] if display_df[close_col].iloc[i] < display_df[open_col].iloc[i]
+                  else C["green_light"] for i in range(len(display_df))]
         fig.add_trace(
             go.Bar(
                 x=display_df.index, y=display_df[vol_col],
@@ -508,15 +532,15 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             xref="paper", yref="paper",
             x=0.5, y=0.15,
             showarrow=False,
-            font=dict(color=N_COLORS["text_muted"], size=12),
+            font=dict(color=C["text_muted"], size=12),
         )
 
     fig.update_layout(
         height=650,
-        template="plotly_white",
-        paper_bgcolor=N_COLORS["bg"],
-        plot_bgcolor=N_COLORS["bg"],
-        font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+        template=C["plotly_template"],
+        paper_bgcolor=C["bg"],
+        plot_bgcolor=C["bg"],
+        font=dict(color=C["text_primary"], family="system-ui"),
         xaxis_rangeslider_visible=False,
         showlegend=True,
         legend=dict(
@@ -527,32 +551,34 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
         ),
         margin=dict(l=50, r=20, t=50, b=30),
     )
-    fig.update_xaxes(gridcolor=N_COLORS["border"], showgrid=True, zeroline=False)
-    fig.update_yaxes(gridcolor=N_COLORS["border"], showgrid=True, zeroline=False)
+    fig.update_xaxes(gridcolor=C["border"], showgrid=True, zeroline=False)
+    fig.update_yaxes(gridcolor=C["border"], showgrid=True, zeroline=False)
     st.plotly_chart(fig, use_container_width=True)
 
 
 def _metric_card(label: str, value: str, sentiment: str = "neutral") -> str:
+    C = get_colors()
     """Notion 風格的指標卡片（簡潔、淺色）"""
     if sentiment == "positive":
-        color = N_COLORS["green_text"]
-        bg = N_COLORS["green_light"]
+        color = C["green_text"]
+        bg = C["green_light"]
     elif sentiment == "negative":
-        color = N_COLORS["red_text"]
-        bg = N_COLORS["red_light"]
+        color = C["red_text"]
+        bg = C["red_light"]
     else:
-        color = N_COLORS["text_primary"]
-        bg = N_COLORS["bg_subtle"]
+        color = C["text_primary"]
+        bg = C["bg_subtle"]
 
     return f"""
-    <div style="background: {N_COLORS['bg']}; padding: 10px 14px; margin: 4px 0; border-radius: 6px; border: 1px solid {N_COLORS['border']}; display: flex; justify-content: space-between; align-items: center;">
-        <div style="color: {N_COLORS['text_secondary']}; font-size: 12px;">{label}</div>
+    <div style="background: {C['bg']}; padding: 10px 14px; margin: 4px 0; border-radius: 6px; border: 1px solid {C['border']}; display: flex; justify-content: space-between; align-items: center;">
+        <div style="color: {C['text_secondary']}; font-size: 12px;">{label}</div>
         <div style="background: {bg}; color: {color}; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600;">{value}</div>
     </div>
     """
 
 
 def _max_consecutive(series: pd.Series) -> int:
+    C = get_colors()
     """計算最大連續 True 數量"""
     if series.empty:
         return 0
@@ -568,6 +594,7 @@ def _max_consecutive(series: pd.Series) -> int:
 
 
 def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
+    C = get_colors()
     """
     Notion 風格的蒙地卡羅模擬分頁
     透過隨機重排交易順序，評估策略的穩健性
@@ -612,7 +639,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
 
         # === 關鍵指標卡片 ===
         st.markdown(f"""
-        <div style="color: {N_COLORS['text_secondary']}; font-size: 11px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
+        <div style="color: {C['text_secondary']}; font-size: 11px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
             模擬結果摘要 ({mc['n_simulations']} 次)
         </div>
         """, unsafe_allow_html=True)
@@ -620,10 +647,10 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
         col1, col2, col3, col4, col5 = st.columns(5)
 
         # 報酬率中位數顏色
-        median_color = N_COLORS["green_text"] if p["return_p50"] >= 0 else N_COLORS["red_text"]
+        median_color = C["green_text"] if p["return_p50"] >= 0 else C["red_text"]
         # 破產機率顏色
-        ruin_color = N_COLORS["red_text"] if mc["ruin_prob"] > 10 else (
-            N_COLORS["orange"] if mc["ruin_prob"] > 5 else N_COLORS["green_text"]
+        ruin_color = C["red_text"] if mc["ruin_prob"] > 10 else (
+            C["orange"] if mc["ruin_prob"] > 5 else C["green_text"]
         )
 
         with col1:
@@ -642,7 +669,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
 
         # === 圖表：權益曲線分布 ===
         st.markdown(f"""
-        <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 24px 0 12px 0;">
+        <div style="font-size: 14px; font-weight: 600; color: {C['text_primary']}; margin: 24px 0 12px 0;">
             📈 權益曲線分布（隨機路徑）
         </div>
         """, unsafe_allow_html=True)
@@ -686,7 +713,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             x=x_labels, y=p50,
             mode="lines",
             name="中位數",
-            line=dict(color=N_COLORS["blue"], width=2.5),
+            line=dict(color=C["blue"], width=2.5),
         ))
 
         # 加幾條隨機樣本路徑（淡色）
@@ -705,25 +732,25 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
         fig.add_hline(
             y=initial_capital,
             line_dash="dash",
-            line_color=N_COLORS["text_muted"],
+            line_color=C["text_muted"],
             annotation_text=f"初始資金 ${initial_capital:,.0f}",
             annotation_position="right",
         )
 
         fig.update_layout(
             height=450,
-            template="plotly_white",
-            paper_bgcolor=N_COLORS["bg"],
-            plot_bgcolor=N_COLORS["bg"],
-            font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+            template=C["plotly_template"],
+            paper_bgcolor=C["bg"],
+            plot_bgcolor=C["bg"],
+            font=dict(color=C["text_primary"], family="system-ui"),
             hovermode="x unified",
             xaxis_title="交易編號",
             yaxis_title="權益 (USDT)",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=50, r=20, t=50, b=30),
         )
-        fig.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
-        fig.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+        fig.update_xaxes(gridcolor=C["border"], zeroline=False)
+        fig.update_yaxes(gridcolor=C["border"], zeroline=False)
         st.plotly_chart(fig, use_container_width=True)
 
         # === 雙直方圖：報酬率 & 回撤分布 ===
@@ -731,7 +758,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
 
         with col1:
             st.markdown(f"""
-            <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 16px 0 8px 0;">
+            <div style="font-size: 14px; font-weight: 600; color: {C['text_primary']}; margin: 16px 0 8px 0;">
                 📊 最終報酬率分布
             </div>
             """, unsafe_allow_html=True)
@@ -740,7 +767,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_ret.add_trace(go.Histogram(
                 x=mc["final_returns"],
                 nbinsx=50,
-                marker_color=N_COLORS["blue"],
+                marker_color=C["blue"],
                 marker_line_color="white",
                 marker_line_width=1,
                 opacity=0.85,
@@ -750,7 +777,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_ret.add_vline(
                 x=p["return_p50"],
                 line_dash="dash",
-                line_color=N_COLORS["red"],
+                line_color=C["red"],
                 annotation_text=f"中位數 {p['return_p50']:+.1f}%",
                 annotation_position="top",
             )
@@ -758,28 +785,28 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_ret.add_vline(
                 x=p["return_mean"],
                 line_dash="dot",
-                line_color=N_COLORS["green"],
+                line_color=C["green"],
                 annotation_text=f"平均 {p['return_mean']:+.1f}%",
                 annotation_position="bottom",
             )
             fig_ret.update_layout(
                 height=350,
-                template="plotly_white",
-                paper_bgcolor=N_COLORS["bg"],
-                plot_bgcolor=N_COLORS["bg"],
-                font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+                template=C["plotly_template"],
+                paper_bgcolor=C["bg"],
+                plot_bgcolor=C["bg"],
+                font=dict(color=C["text_primary"], family="system-ui"),
                 xaxis_title="最終報酬率 (%)",
                 yaxis_title="模擬次數",
                 showlegend=False,
                 margin=dict(l=50, r=20, t=20, b=40),
             )
-            fig_ret.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
-            fig_ret.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            fig_ret.update_xaxes(gridcolor=C["border"], zeroline=False)
+            fig_ret.update_yaxes(gridcolor=C["border"], zeroline=False)
             st.plotly_chart(fig_ret, use_container_width=True)
 
         with col2:
             st.markdown(f"""
-            <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 16px 0 8px 0;">
+            <div style="font-size: 14px; font-weight: 600; color: {C['text_primary']}; margin: 16px 0 8px 0;">
                 📉 最大回撤分布
             </div>
             """, unsafe_allow_html=True)
@@ -788,7 +815,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_dd.add_trace(go.Histogram(
                 x=mc["max_drawdowns"],
                 nbinsx=50,
-                marker_color=N_COLORS["red"],
+                marker_color=C["red"],
                 marker_line_color="white",
                 marker_line_width=1,
                 opacity=0.85,
@@ -798,7 +825,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_dd.add_vline(
                 x=p["dd_p50"],
                 line_dash="dash",
-                line_color=N_COLORS["blue"],
+                line_color=C["blue"],
                 annotation_text=f"中位數 {p['dd_p50']:.1f}%",
                 annotation_position="top",
             )
@@ -806,28 +833,28 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             fig_dd.add_vline(
                 x=p["dd_p95"],
                 line_dash="dot",
-                line_color=N_COLORS["orange"],
+                line_color=C["orange"],
                 annotation_text=f"最壞 5% {p['dd_p95']:.1f}%",
                 annotation_position="bottom",
             )
             fig_dd.update_layout(
                 height=350,
-                template="plotly_white",
-                paper_bgcolor=N_COLORS["bg"],
-                plot_bgcolor=N_COLORS["bg"],
-                font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+                template=C["plotly_template"],
+                paper_bgcolor=C["bg"],
+                plot_bgcolor=C["bg"],
+                font=dict(color=C["text_primary"], family="system-ui"),
                 xaxis_title="最大回撤 (%)",
                 yaxis_title="模擬次數",
                 showlegend=False,
                 margin=dict(l=50, r=20, t=20, b=40),
             )
-            fig_dd.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
-            fig_dd.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            fig_dd.update_xaxes(gridcolor=C["border"], zeroline=False)
+            fig_dd.update_yaxes(gridcolor=C["border"], zeroline=False)
             st.plotly_chart(fig_dd, use_container_width=True)
 
         # === 風險評估總結 ===
         st.markdown(f"""
-        <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 20px 0 12px 0;">
+        <div style="font-size: 14px; font-weight: 600; color: {C['text_primary']}; margin: 20px 0 12px 0;">
             📋 風險評估總結
         </div>
         """, unsafe_allow_html=True)
@@ -850,15 +877,15 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             risk_msg = "整體正向但有風險，建議結合其他指標綜合評估。"
 
         st.markdown(f"""
-        <div style="background: {N_COLORS['bg_subtle']}; padding: 20px 24px; border-radius: 8px; border: 1px solid {N_COLORS['border']}; margin-top: 8px;">
+        <div style="background: {C['bg_subtle']}; padding: 20px 24px; border-radius: 8px; border: 1px solid {C['border']}; margin-top: 8px;">
             <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
-                <div style="color: {N_COLORS['text_secondary']}; font-size: 13px;">風險等級</div>
+                <div style="color: {C['text_secondary']}; font-size: 13px;">風險等級</div>
                 <div style="font-size: 16px; font-weight: 600;">{risk_level}</div>
             </div>
-            <div style="color: {N_COLORS['text_primary']}; font-size: 14px; line-height: 1.6;">
+            <div style="color: {C['text_primary']}; font-size: 14px; line-height: 1.6;">
                 {risk_msg}
             </div>
-            <div style="color: {N_COLORS['text_secondary']}; font-size: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid {N_COLORS['border']};">
+            <div style="color: {C['text_secondary']}; font-size: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid {C['border']};">
                 詳細數據：中位數 {p['return_p50']:+.2f}% · 平均 {p['return_mean']:+.2f}% · 標準差 {p['return_std']:.2f}% ·
                 最壞 5% {p['return_p5']:+.2f}% · 最好 5% {p['return_p95']:+.2f}% ·
                 中位數回撤 {p['dd_p50']:.2f}% · 最壞 5% 回撤 {p['dd_p95']:.2f}%
