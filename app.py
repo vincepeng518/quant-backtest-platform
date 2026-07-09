@@ -104,14 +104,18 @@ with st.sidebar:
         # BingX 熱門交易對快速選擇
         if selected_exchange == "bingx":
             popular = get_bingx_popular_symbols()
-            with st.expander("⭐ BingX 熱門交易對快速選擇", expanded=False):
+            with st.expander("⭐ BingX 熱門交易對", expanded=False):
                 st.caption("點擊按鈕快速填入交易對")
-                cols = st.columns(4)
-                for i, sym in enumerate(popular):
-                    with cols[i % 4]:
-                        if st.button(sym, key=f"sym_{sym}", use_container_width=True):
-                            st.session_state["symbol_input"] = sym
-                            st.rerun()
+                # 2 欄全寬按鈕，每個按鈕只顯示簡短名稱
+                for i in range(0, len(popular), 2):
+                    cols = st.columns(2)
+                    for j, item in enumerate(popular[i:i+2]):
+                        with cols[j]:
+                            label = f"**{item['short']}**"
+                            if st.button(label, key=f"sym_{item['full']}",
+                                          use_container_width=True):
+                                st.session_state["symbol_input"] = item["full"]
+                                st.rerun()
 
         col3, col4 = st.columns(2)
         with col3:

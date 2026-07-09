@@ -253,11 +253,26 @@ def get_timeframes() -> List[str]:
     return ["1m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w"]
 
 
-def get_bingx_popular_symbols() -> List[str]:
-    """BingX 熱門交易對"""
+def get_bingx_popular_symbols() -> List[Dict[str, str]]:
+    """
+    BingX 熱門交易對清單
+    回傳 list of dict: {"short": 顯示用簡稱, "full": 完整交易對}
+    """
     return [
-        "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT",
-        "BNB/USDT", "DOGE/USDT", "ADA/USDT", "AVAX/USDT",
-        "LINK/USDT", "DOT/USDT", "MATIC/USDT", "TON/USDT",
-        "TRX/USDT", "LTC/USDT", "SHIB/USDT", "PEPE/USDT",
+        {"short": "BTC",   "full": "BTC/USDT"},
+        {"short": "ETH",   "full": "ETH/USDT"},
+        {"short": "SOL",   "full": "SOL/USDT"},
+        {"short": "XRP",   "full": "XRP/USDT"},
+        {"short": "BNB",   "full": "BNB/USDT"},
+        {"short": "DOGE",  "full": "DOGE/USDT"},
+        {"short": "ADA",   "full": "ADA/USDT"},
+        {"short": "AVAX",  "full": "AVAX/USDT"},
+        {"short": "LINK",  "full": "LINK/USDT"},
+        {"short": "DOT",   "full": "DOT/USDT"},
+        {"short": "MATIC", "full": "MATIC/USDT"},
+        {"short": "TON",   "full": "TON/USDT"},
+        {"short": "TRX",   "full": "TRX/USDT"},
+        {"short": "LTC",   "full": "LTC/USDT"},
+        {"short": "SHIB",  "full": "SHIB/USDT"},
+        {"short": "PEPE",  "full": "PEPE/USDT"},
     ]
