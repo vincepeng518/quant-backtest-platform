@@ -11,6 +11,16 @@ from typing import Tuple, Dict, Any
 def execute_user_strategy(
     code: str, df: pd.DataFrame, params: Dict[str, Any]
 ) -> Tuple[pd.Series, pd.Series, str]:
+    # 自動處理配對交易資料：若 df 沒有 'close' 但有兩個 _close 欄位，加 'close' 別名
+    if "close" not in df.columns:
+        close_cols = [c for c in df.columns if c.endswith("_close")]
+        if len(close_cols) >= 2:
+            # 預設用第一個標的的 close（例如 BTC/USDT_close）
+            df = df.copy()
+            df["close"] = df[close_cols[0]]
+        elif len(close_cols) == 1:
+            df = df.copy()
+            df["close"] = df[close_cols[0]]
     """
     執行使用者策略代碼
     code: Python 程式碼（需定義 generate_signals(df, params) 函數，回傳 (entries, exits)）
@@ -400,6 +410,104 @@ def generate_signals(df, params):
 
     return entries.fillna(False), exits.fillna(False)
 ''',
+
+    "BTC/ETH 比率配對 (Bollinger)": '''# BTC/ETH 比率配對交易策略
+# 進場：比率跌破下軌 → 做多比率（買 BTC + 空 ETH）
+# 進場：比率突破上軌 → 做空比率（空 BTC + 買 ETH）
+# 出場：回到均線 / 觸碰對側軌道 / 固定 TP/SL
+#
+# 注意：這是配對交易策略，需要 PairBacktestEngine
+# 在 app.py 中選擇「配對交易模式」才能正確執行
+
+def generate_signals(df, params):
+    lookback = params.get("lookback", 100)
+    sd_mult = params.get("sd_mult", 3.0)
+    tp_percent = params.get("tp_percent", 5.0)
+    sl_percent = params.get("sl_percent", 2.5)
+    use_ma_exit = params.get("use_ma_exit", True)
+    use_tp_sl = params.get("use_tp_sl", True)
+    use_opposite_exit = params.get("use_opposite_exit", False)
+
+    # 計算比率
+    if "ratio" not in df.columns:
+        # 假設 df 是合併後的 pair data，有兩個 close
+        # 自動尋找兩個 close 欄位
+        close_cols = [c for c in df.columns if c.endswith("_close")]
+        if len(close_cols) >= 2:
+            df["ratio"] = df[close_cols[0]] / df[close_cols[1]]
+        else:
+            # 單一標的，把 close 當作比率
+            df["ratio"] = df["close"]
+
+    ratio = df["ratio"]
+    df["ma"] = ratio.rolling(lookback).mean()
+    df["std"] = ratio.rolling(lookback).std()
+    df["upper"] = df["ma"] + sd_mult * df["std"]
+    df["lower"] = df["ma"] - sd_mult * df["std"]
+
+    entries = pd.Series(False, index=df.index)
+    exits = pd.Series(False, index=df.index)
+
+    position = 0
+    entry_ratio = 0.0
+
+    start_idx = lookback
+    for i in range(start_idx, len(df)):
+        if pd.isna(df["ma"].iloc[i]) or pd.isna(df["upper"].iloc[i]) or pd.isna(df["lower"].iloc[i]):
+            continue
+
+        curr_ratio = ratio.iloc[i]
+        curr_ma = df["ma"].iloc[i]
+        curr_upper = df["upper"].iloc[i]
+        curr_lower = df["lower"].iloc[i]
+
+        if position == 0:
+            # 多比率進場
+            if curr_ratio < curr_lower:
+                position = 1
+                entry_ratio = curr_ratio
+                entries.iloc[i] = True
+            # 空比率進場
+            elif curr_ratio > curr_upper:
+                position = -1
+                entry_ratio = curr_ratio
+                entries.iloc[i] = True
+        else:
+            is_exit = False
+            # 回到均線
+            if use_ma_exit:
+                if position == 1 and curr_ratio >= curr_ma:
+                    is_exit = True
+                elif position == -1 and curr_ratio <= curr_ma:
+                    is_exit = True
+
+            # 觸碰對側軌道
+            if not is_exit and use_opposite_exit:
+                if position == 1 and curr_ratio >= curr_upper:
+                    is_exit = True
+                elif position == -1 and curr_ratio <= curr_lower:
+                    is_exit = True
+
+            # 固定 TP/SL
+            if not is_exit and use_tp_sl:
+                if position == 1:
+                    tp = entry_ratio * (1 + tp_percent / 100)
+                    sl = entry_ratio * (1 - sl_percent / 100)
+                    if curr_ratio >= tp or curr_ratio <= sl:
+                        is_exit = True
+                elif position == -1:
+                    tp = entry_ratio * (1 - tp_percent / 100)
+                    sl = entry_ratio * (1 + sl_percent / 100)
+                    if curr_ratio <= tp or curr_ratio >= sl:
+                        is_exit = True
+
+            if is_exit:
+                exits.iloc[i] = True
+                position = 0
+                entry_ratio = 0.0
+
+    return entries.fillna(False), exits.fillna(False)
+''',
 }
 
 
@@ -480,6 +588,12 @@ def get_param_space(name: str) -> Dict[str, list]:
             "af_step": [0.01, 0.02, 0.03],
             "af_max": [0.1, 0.2, 0.3],
         },
+        "BTC/ETH 比率配對 (Bollinger)": {
+            "lookback": [50, 100, 150, 200],
+            "sd_mult": [2.0, 2.5, 3.0, 3.5],
+            "tp_percent": [3.0, 5.0, 7.0, 10.0],
+            "sl_percent": [1.5, 2.5, 3.5, 5.0],
+        },
     }
     return spaces.get(name, {})
 
@@ -501,5 +615,6 @@ def get_default_params(name: str) -> Dict[str, Any]:
         "OBV 動量": {"obv_ma": 20},
         "一目均衡表 (Ichimoku)": {"conversion": 9, "base": 26, "span_b": 52},
         "Parabolic SAR 趨勢": {"af_start": 0.02, "af_step": 0.02, "af_max": 0.2},
+        "BTC/ETH 比率配對 (Bollinger)": {"lookback": 100, "sd_mult": 3.0, "tp_percent": 5.0, "sl_percent": 2.5, "use_ma_exit": True, "use_tp_sl": True, "use_opposite_exit": False},
     }
     return defaults.get(name, {})

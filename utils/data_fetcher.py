@@ -276,3 +276,66 @@ def get_bingx_popular_symbols() -> List[Dict[str, str]]:
         {"short": "SHIB",  "full": "SHIB/USDT"},
         {"short": "PEPE",  "full": "PEPE/USDT"},
     ]
+
+
+
+def fetch_pair_data(
+    symbol1: str = "BTC/USDT",
+    symbol2: str = "ETH/USDT",
+    timeframe: str = "1h",
+    days: int = 365,
+    exchange: str = "bingx",
+) -> Optional[pd.DataFrame]:
+    """
+    同時抓取兩個標的的資料，合併成配對交易用的 DataFrame
+
+    回傳的 DataFrame 欄位:
+    - {symbol1}_open, {symbol1}_high, {symbol1}_low, {symbol1}_close, {symbol1}_volume
+    - {symbol2}_open, {symbol2}_high, {symbol2}_low, {symbol2}_close, {symbol2}_volume
+
+    範例:
+    df = fetch_pair_data("BTC/USDT", "ETH/USDT", "1h", 180, "bingx")
+    """
+    print(f"📥 抓取 {symbol1} 資料...")
+    df1 = fetch_crypto_data(symbol1, timeframe, days, exchange)
+    if df1 is None or df1.empty:
+        print(f"❌ {symbol1} 抓取失敗")
+        return None
+
+    print(f"📥 抓取 {symbol2} 資料...")
+    df2 = fetch_crypto_data(symbol2, timeframe, days, exchange)
+    if df2 is None or df2.empty:
+        print(f"❌ {symbol2} 抓取失敗")
+        return None
+
+    # 合併：以時間索引對齊（inner join）
+    df1_renamed = df1.rename(columns={
+        "open": f"{symbol1}_open",
+        "high": f"{symbol1}_high",
+        "low": f"{symbol1}_low",
+        "close": f"{symbol1}_close",
+        "volume": f"{symbol1}_volume",
+    })
+    df2_renamed = df2.rename(columns={
+        "open": f"{symbol2}_open",
+        "high": f"{symbol2}_high",
+        "low": f"{symbol2}_low",
+        "close": f"{symbol2}_close",
+        "volume": f"{symbol2}_volume",
+    })
+
+    merged = df1_renamed.join(df2_renamed, how="inner")
+    merged.dropna(inplace=True)
+
+    print(f"✅ 合併完成: {len(merged)} 根 K 線")
+    return merged
+
+
+def get_pair_templates() -> List[Dict[str, str]]:
+    """回傳熱門的配對交易組合"""
+    return [
+        {"symbol1": "BTC/USDT", "symbol2": "ETH/USDT", "name": "BTC/ETH"},
+        {"symbol1": "BTC/USDT", "symbol2": "SOL/USDT", "name": "BTC/SOL"},
+        {"symbol1": "ETH/USDT", "symbol2": "SOL/USDT", "name": "ETH/SOL"},
+        {"symbol1": "BTC/USDT", "symbol2": "BNB/USDT", "name": "BTC/BNB"},
+    ]

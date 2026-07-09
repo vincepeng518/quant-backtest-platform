@@ -19,6 +19,8 @@ from utils.data_fetcher import (
     get_bingx_popular_symbols,
 )
 from utils.backtester import BacktestEngine
+from utils.pair_backtester import PairBacktestEngine
+from utils.data_fetcher import fetch_pair_data, get_pair_templates
 from utils.walk_forward import WalkForwardValidator
 from utils.optimizer import ParameterOptimizer, calculate_overfit_score
 from strategies.strategy_runner import (
@@ -85,9 +87,12 @@ with st.sidebar:
 
     data_source = st.radio(
         "選擇資料來源",
-        ["加密貨幣 (CCXT)", "上傳 CSV"],
+        ["加密貨幣 (CCXT)", "上傳 CSV", "配對交易 (Pair)"],
         index=0,
     )
+
+    # 是否配對交易
+    is_pair_trading = (data_source == "配對交易 (Pair)")
 
     df = None
     data_info = ""
@@ -154,23 +159,76 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
 
-    else:  # CSV 上傳
-        uploaded = st.file_uploader("上傳 CSV 檔案", type=["csv"])
-        if uploaded is not None:
-            try:
-                df = load_csv_data(uploaded)
-                if df is not None and not df.empty:
-                    st.session_state["df"] = df
-                    st.success(f"✅ 載入 {len(df):,} 筆資料")
-            except Exception as e:
-                st.error(f"❌ {e}")
+    else:  # CSV 上傳 or 配對交易
+        if data_source == "上傳 CSV":
+            uploaded = st.file_uploader("上傳 CSV 檔案", type=["csv"])
+            if uploaded is not None:
+                try:
+                    df = load_csv_data(uploaded)
+                    if df is not None and not df.empty:
+                        st.session_state["df"] = df
+                        st.success(f"✅ 載入 {len(df):,} 筆資料")
+                except Exception as e:
+                    st.error(f"❌ {e}")
+
+        elif data_source == "配對交易 (Pair)":
+            st.caption("📊 配對交易：同時下兩個反向部位（例如買 BTC + 空 ETH）")
+
+            # 配對組合選擇
+            pair_templates = get_pair_templates()
+            pair_labels = {p["name"]: p for p in pair_templates}
+            selected_pair_name = st.selectbox(
+                "選擇配對組合",
+                list(pair_labels.keys()),
+                index=0,
+            )
+            selected_pair = pair_labels[selected_pair_name]
+            st.caption(f"📈 {selected_pair['symbol1']} vs {selected_pair['symbol2']}")
+
+            # 交易所 + 時間框架
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                pair_exchange = st.selectbox("交易所", get_available_exchanges(), index=0,
+                                              format_func=lambda x: f"{get_exchange_display_name(x)} ({x})",
+                                              key="pair_exchange")
+            with pc2:
+                pair_timeframe = st.selectbox("時間框架", get_timeframes(), index=4, key="pair_timeframe")
+
+            pair_days = st.number_input("回看天數", min_value=7, max_value=1825, value=30, key="pair_days")
+
+            if st.button("🔄 抓取配對資料", type="primary", use_container_width=True):
+                with st.spinner(f"正在抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料..."):
+                    try:
+                        pair_df = fetch_pair_data(
+                            selected_pair["symbol1"],
+                            selected_pair["symbol2"],
+                            pair_timeframe,
+                            pair_days,
+                            pair_exchange,
+                        )
+                        if pair_df is not None and not pair_df.empty:
+                            st.session_state["df"] = pair_df
+                            st.session_state["is_pair"] = True
+                            st.session_state["pair_info"] = selected_pair
+                            st.success(f"✅ 抓取 {len(pair_df):,} 根配對 K 線")
+                        else:
+                            st.error("❌ 抓取失敗")
+                    except Exception as e:
+                        st.error(f"❌ {e}")
 
     # 顯示已快取的資料
     if "df" in st.session_state and df is None:
         df = st.session_state["df"]
-        st.info(f"📦 已載入快取資料：{len(df):,} 根 K 線")
+        is_pair = st.session_state.get("is_pair", False)
+        if is_pair:
+            pair_info = st.session_state.get("pair_info", {})
+            st.info(f"📦 配對資料：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根 K 線)")
+        else:
+            st.info(f"📦 已載入快取資料：{len(df):,} 根 K 線")
         if st.button("🗑️ 清除資料", use_container_width=True):
             del st.session_state["df"]
+            st.session_state["is_pair"] = False
+            st.session_state.pop("pair_info", None)
             st.rerun()
 
     if df is not None and not df.empty:
@@ -409,14 +467,34 @@ with main_tab1:
         st.warning("⚠️ 策略沒有產生任何進場訊號")
         st.stop()
 
-    # 跑回測
+    # 判斷是否配對交易
+    is_pair = st.session_state.get("is_pair", False)
+    pair_info = st.session_state.get("pair_info", {})
+
+    # 跑回測（根據是否配對交易選擇引擎）
     with st.spinner("執行回測中..."):
-        engine = BacktestEngine(
-            df, initial_capital=initial_capital,
-            commission=commission_pct, slippage=slippage_pct,
-        )
-        results = engine.run(entries, exits, direction=direction_code,
-                              stop_loss=stop_loss, take_profit=take_profit)
+        if is_pair and pair_info:
+            # 配對交易
+            st.info(f"🔗 配對交易模式：{pair_info.get('symbol1')} + {pair_info.get('symbol2')}")
+            pair_direction = "pair_long" if direction_code == "long" else "pair_short"
+            engine = PairBacktestEngine(
+                df,
+                symbol1=pair_info.get("symbol1", "BTC/USDT"),
+                symbol2=pair_info.get("symbol2", "ETH/USDT"),
+                initial_capital=initial_capital,
+                commission=commission_pct,
+                slippage=slippage_pct,
+            )
+            results = engine.run(entries, exits, direction=pair_direction,
+                                  stop_loss=stop_loss, take_profit=take_profit)
+        else:
+            # 單標的
+            engine = BacktestEngine(
+                df, initial_capital=initial_capital,
+                commission=commission_pct, slippage=slippage_pct,
+            )
+            results = engine.run(entries, exits, direction=direction_code,
+                                  stop_loss=stop_loss, take_profit=take_profit)
 
     result_df = results["data"]
     trades = results["trades"]
