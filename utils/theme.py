@@ -496,13 +496,15 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     color: white;
 }}
 
-/* 桌面版：FAB 整合到 sidebar 內（取代 streamlit 內建按鈕） */
+/* 桌面版：FAB 整合到 sidebar header 右側（取代 streamlit 內建按鈕） */
 @media (min-width: 769px) {{
     #mobile-hamburger-fab {{
         display: flex !important;
-        /* sidebar 內的右上角（取代 streamlit 預設按鈕） */
+        /* sidebar header 的最右側（貼齊右邊）
+         * sidebar 預設寬度 300px，按鈕 44px，右側留 8px
+         * → left = 300 - 44 - 8 = 248px */
         top: 4px;
-        left: 236px;
+        left: 248px;
     }}
     /* sidebar 收合時 → 移到最左上角 */
     body.sidebar-collapsed #mobile-hamburger-fab {{
