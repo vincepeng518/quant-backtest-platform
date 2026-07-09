@@ -41,6 +41,8 @@ from utils.theme import THEMES, get_theme, get_current_theme, list_themes, theme
 
 
 # === 頁面設定 ===
+# 手機版用 query param 控制：?mobile=1 表示窄螢幕
+# 預設用 expanded（讓使用者看到 sidebar）
 st.set_page_config(
     page_title="加密貨幣回測實驗室",
     page_icon="📈",
@@ -66,8 +68,21 @@ st.markdown(
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
-st.markdown('<p class="main-header">📈 加密貨幣回測實驗室</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Crypto Backtesting Lab · 自動參數優化 · Walk-Forward 驗證 · 配對交易</p>', unsafe_allow_html=True)
+# === 手機版漢堡按鈕（永遠顯示在左上角） ===
+# 用 streamlit 真按鈕（React 會監聽）— 按了切換 session_state 控制 sidebar overlay
+if "mobile_sidebar_open" not in st.session_state:
+    st.session_state["mobile_sidebar_open"] = False
+
+# 用 st.columns 把按鈕隔開
+_hamburger_col, _ = st.columns([0.05, 0.95])
+with _hamburger_col:
+    burger_label = "✕" if st.session_state["mobile_sidebar_open"] else "☰"
+    st.markdown('<div class="mobile-hamburger-wrapper">', unsafe_allow_html=True)
+    if st.button(burger_label, key="hamburger", help="展開/收合選單"):
+        st.session_state["mobile_sidebar_open"] = not st.session_state["mobile_sidebar_open"]
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 # === 側邊欄：資料來源 ===
@@ -339,7 +354,6 @@ with st.sidebar:
     else:
         stop_loss = None
         take_profit = None
-
 
 # === 主區域：先檢查資料 ===
 if df is None or df.empty:

@@ -43,25 +43,25 @@ THEMES: Dict[str, Dict[str, str]] = {
     "dark": {
         "name": "🌙 Dark Trading",
         "id": "dark",
-        "bg": "#020617",            # 深背景
-        "bg_subtle": "#0E1223",     # 卡片底色
-        "bg_card": "#0F172A",       # slate-900
-        "border": "#1E293B",        # slate-800
-        "border_strong": "#334155", # slate-700
-        "text_primary": "#F8FAFC",  # slate-50
-        "text_secondary": "#94A3B8",# slate-400
-        "text_muted": "#64748B",    # slate-500
-        "primary": "#3B82F6",       # blue-500（亮一點對暗底）
-        "primary_hover": "#60A5FA",
-        "green": "#22C55E",         # 獲利（亮綠）
-        "green_light": "rgba(34, 197, 94, 0.15)",
-        "green_text": "#4ADE80",    # green-400
-        "red": "#EF4444",
-        "red_light": "rgba(239, 68, 68, 0.15)",
-        "red_text": "#F87171",      # red-400
-        "orange": "#F59E0B",
-        "purple": "#A78BFA",
-        "yellow": "#FACC15",
+        "bg": "#0F172A",            # slate-900（深藍灰，不要全黑）
+        "bg_subtle": "#1E293B",     # slate-800 區塊背景
+        "bg_card": "#1E293B",       # slate-800 卡片底
+        "border": "#334155",        # slate-700
+        "border_strong": "#475569", # slate-600
+        "text_primary": "#F1F5F9",  # slate-100（不要太刺眼的白）
+        "text_secondary": "#CBD5E1",# slate-300
+        "text_muted": "#94A3B8",    # slate-400
+        "primary": "#60A5FA",       # blue-400（亮一點對暗底）
+        "primary_hover": "#93C5FD",
+        "green": "#4ADE80",         # 獲利（亮綠）
+        "green_light": "rgba(74, 222, 128, 0.15)",
+        "green_text": "#86EFAC",    # green-300
+        "red": "#F87171",
+        "red_light": "rgba(248, 113, 113, 0.15)",
+        "red_text": "#FCA5A5",      # red-300
+        "orange": "#FBBF24",
+        "purple": "#C4B5FD",
+        "yellow": "#FDE047",
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
         "font_mono": "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
         "plotly_template": "plotly_dark",
@@ -114,8 +114,25 @@ html, body, [class*="css"] {{
 }}
 
 .main .block-container {{
-    padding-top: 2rem;
+    padding-top: 1rem !important;
     max-width: 1280px;
+}}
+
+/* 隱藏 Streamlit 預設的頂部空白區（手機上看起來很醜） */
+header[data-testid="stHeader"] {{
+    display: none !important;
+}}
+[data-testid="stAppViewBlockContainer"] {{
+    padding-top: 0 !important;
+}}
+
+/* 隱藏 Streamlit Cloud 的「Manage app」按鈕（手機上擋住內容） */
+[data-testid="manage-app-button"],
+[class*="ManageApp"] {{
+    display: none !important;
+}}
+a[href*="streamlit.io/cloud"] {{
+    display: none !important;
 }}
 
 /* === 標題層級（heading-hierarchy） === */
@@ -304,6 +321,7 @@ footer {{visibility: hidden;}}
     .main .block-container {{
         padding-left: 1rem !important;
         padding-right: 1rem !important;
+        padding-top: 0.5rem !important;
     }}
 
     /* 確保 sidebar 內的「<」收合按鈕浮動在左上、明顯可見 */
@@ -320,24 +338,86 @@ footer {{visibility: hidden;}}
     /* 當 sidebar 收合時，Streamlit 的展開按鈕 — 顯示在左上角 */
     [data-testid="stExpandSidebarButton"] {{
         visibility: visible !important;
+        display: flex !important;
         position: fixed !important;
         top: 12px !important;
         left: 12px !important;
+        right: auto !important;
+        bottom: auto !important;
         z-index: 999998 !important;
         background: {theme['primary']} !important;
         color: white !important;
         border-radius: 50% !important;
-        width: 44px !important;
-        height: 44px !important;
-        min-width: 44px !important;
-        min-height: 44px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        max-width: 48px !important;
+        max-height: 48px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
         border: 2px solid white !important;
+        align-items: center !important;
+        justify-content: center !important;
+        opacity: 1 !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
+    /* 強制按鈕內所有元素有大小 */
+    [data-testid="stExpandSidebarButton"] * {{
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
     }}
     [data-testid="stExpandSidebarButton"] svg {{
         color: white !important;
         fill: white !important;
+        width: 24px !important;
+        height: 24px !important;
+        margin: auto !important;
     }}
+    [data-testid="stExpandSidebarButton"]:hover {{
+        background: {theme['primary_hover']} !important;
+        transform: scale(1.05) !important;
+    }}
+
+    /* 主內容區頂部 padding 縮減 */
+    [data-testid="stAppViewBlockContainer"] {{
+        padding-top: 0.5rem !important;
+    }}
+    .main .block-container {{
+        padding-top: 0.5rem !important;
+    }}
+}}
+
+/* === 全域：漢堡按鈕永遠在左上角 === */
+.mobile-hamburger-wrapper {{
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 999999 !important;
+    width: 48px !important;
+    height: 48px !important;
+}}
+.mobile-hamburger-wrapper button {{
+    background: {theme['primary']} !important;
+    color: white !important;
+    border: 2px solid white !important;
+    border-radius: 50% !important;
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 24px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
+    padding: 0 !important;
+}}
+.mobile-hamburger-wrapper button span {{
+    color: white !important;
+    font-size: 24px !important;
+}}
+.mobile-hamburger-wrapper button:hover {{
+    background: {theme['primary_hover']} !important;
+    transform: scale(1.05) !important;
 }}
 
 /* === 桌面版：隱藏 toolbar 內的展開按鈕（用 sidebar 內的「<」就好） === */
