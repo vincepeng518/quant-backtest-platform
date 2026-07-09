@@ -4,6 +4,7 @@ Streamlit 回測網站主應用
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -66,6 +67,69 @@ st.markdown(
 )
 
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
+
+
+# === 注入浮動漢堡按鈕（用 components.html 確保 JS 一定會跑） ===
+# 雖然 streamlit 的 <script> 有時不會被執行，
+# 但 components.html 一定會被執行（在 iframe sandbox 內）
+# 用它來觸發主視窗的 DOM 操作
+components.html(
+    """
+<script>
+(function() {
+    function tryInject() {
+        if (window.parent.document.getElementById('mobile-hamburger-fab')) {
+            return;  // 已存在
+        }
+        // 確認主視窗有 sidebar
+        if (!window.parent.document.querySelector('[data-testid="stSidebar"]')) {
+            return false;
+        }
+        var btn = window.parent.document.createElement('button');
+        btn.id = 'mobile-hamburger-fab';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', '開啟側邊欄');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
+        window.parent.document.body.appendChild(btn);
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var stBtn = window.parent.document.querySelector('button[data-testid="stBaseButton-headerNoPadding"]');
+            if (stBtn) stBtn.click();
+        });
+
+        // 啟動觀察器（讓 body class 跟著 sidebar 狀態變化）
+        function updateSidebarState() {
+            var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+            if (!sidebar) return;
+            var expanded = sidebar.getAttribute('aria-expanded') === 'true';
+            if (expanded) {
+                window.parent.document.body.classList.remove('sidebar-collapsed');
+            } else {
+                window.parent.document.body.classList.add('sidebar-collapsed');
+            }
+        }
+        var observer = new MutationObserver(updateSidebarState);
+        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        observer.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
+        updateSidebarState();
+        setInterval(updateSidebarState, 1000);
+        return true;
+    }
+    if (!tryInject()) {
+        setTimeout(tryInject, 200);
+        setTimeout(tryInject, 500);
+        setTimeout(tryInject, 1000);
+        setTimeout(tryInject, 2000);
+        setTimeout(tryInject, 4000);
+    }
+})();
+</script>
+""",
+    height=0,
+    width=0,
+)
 
 
 

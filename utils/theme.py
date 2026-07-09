@@ -460,10 +460,114 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     fill: white !important;
 }}
 
+/* === 浮動漢堡按鈕（sidebar 收合時顯示） === */
+#mobile-hamburger-fab {{
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 999999;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    background: {theme['primary']};
+    color: white;
+    border: 2px solid white;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    display: none;          /* 預設隱藏 */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    font-size: 0;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms ease, background 120ms ease;
+}}
+#mobile-hamburger-fab:hover {{
+    background: {theme['primary_hover']};
+    transform: scale(1.05);
+}}
+#mobile-hamburger-fab:active {{
+    transform: scale(0.95);
+}}
+/* 當 sidebar 收合（aria-expanded=false）→ 顯示浮動按鈕 */
+body.sidebar-collapsed #mobile-hamburger-fab {{
+    display: flex !important;
+}}
+#mobile-hamburger-fab svg {{
+    width: 22px;
+    height: 22px;
+    fill: white;
+    color: white;
+}}
+
+/* 桌面版：完全隱藏浮動按鈕（用 sidebar 內建的） */
+@media (min-width: 769px) {{
+    #mobile-hamburger-fab {{ display: none !important; }}
+}}
+
 /* === 桌面版：隱藏 toolbar 內的展開按鈕（用 sidebar 內的「<」就好） === */
 @media (min-width: 769px) {{
     [data-testid="stExpandSidebarButton"] {{display: none;}}
     [data-testid="stToolbar"] {{visibility: hidden;}}
 }}
+
+/* === 隱藏 components.html 注入的 0x0 iframe（浮動漢堡按鈕用） === */
+iframe[height="0"] {{
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    border: none !important;
+    position: absolute !important;
+    visibility: hidden !important;
+}}
 </style>
+
+<script>
+(function() {{
+    // 監聽 sidebar 收合狀態，自動切換 body class（控制浮動漢堡按鈕顯示/隱藏）
+    function updateSidebarState() {{
+        var sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) return;
+        var expanded = sidebar.getAttribute('aria-expanded') === 'true';
+        if (expanded) {{
+            document.body.classList.remove('sidebar-collapsed');
+        }} else {{
+            document.body.classList.add('sidebar-collapsed');
+        }}
+    }}
+    // 用 MutationObserver 監聽 aria-expanded 變化
+    var observer = new MutationObserver(updateSidebarState);
+    function startObserving() {{
+        var sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {{
+            observer.observe(sidebar, {{ attributes: true, attributeFilter: ['aria-expanded'] }});
+            updateSidebarState();
+        }}
+    }}
+    // 初次啟動 + DOM 變化時重試（streamlit SPA 會換內容）
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', startObserving);
+    }} else {{
+        startObserving();
+    }}
+    setTimeout(startObserving, 500);
+    setTimeout(startObserving, 2000);
+    // 監聽整個 DOM 變化以處理 streamlit 重新渲染
+    var bodyObserver = new MutationObserver(function() {{
+        var sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar && !sidebar._observed) {{
+            sidebar._observed = true;
+            observer.observe(sidebar, {{ attributes: true, attributeFilter: ['aria-expanded'] }});
+            updateSidebarState();
+        }}
+    }});
+    bodyObserver.observe(document.body, {{ childList: true, subtree: true }});
+    // 每 1 秒檢查一次（保險）
+    setInterval(updateSidebarState, 1000);
+}})();
+</script>
 """
