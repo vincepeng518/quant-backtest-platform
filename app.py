@@ -510,8 +510,13 @@ with st.sidebar:
     commission_pct = st.number_input("手續費 (%)", min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100
     slippage_pct = st.number_input("滑點 (%)", min_value=0.0, max_value=2.0, value=0.05, step=0.01) / 100
 
-    direction = st.selectbox("交易方向", ["long (做多)", "short (做空)"], index=0)
-    direction_code = "long" if direction.startswith("long") else "short"
+    direction = st.selectbox("交易方向", ["long (做多)", "short (做空)", "long_short (雙向持倉)"], index=0)
+    if direction.startswith("short"):
+        direction_code = "short"
+    elif direction.startswith("long_short"):
+        direction_code = "long_short"
+    else:
+        direction_code = "long"
 
     use_sl_tp = st.checkbox("啟用停損/停利")
     if use_sl_tp:
@@ -655,11 +660,13 @@ with main_tab1:
         st.info("👆 點擊「▶️ 執行回測」開始分析")
     else:
         # 執行策略
-        entries, exits, err = execute_user_strategy(strategy_code, df, strategy_params)
+        result = execute_user_strategy(strategy_code, df, strategy_params)
+        entries, exits, err, long_entries, long_exits, short_entries, short_exits = result
 
         if err:
             st.error(err)
-        elif not entries.any():
+        elif (direction_code != "long_short" and not entries.any()) or \
+             (direction_code == "long_short" and not long_entries.any() and not short_entries.any()):
             st.warning("⚠️ 策略沒有產生任何進場訊號")
         else:
             # 跑回測
@@ -681,8 +688,14 @@ with main_tab1:
                         df, initial_capital=initial_capital,
                         commission=commission_pct, slippage=slippage_pct,
                     )
-                    results = engine.run(entries, exits, direction=direction_code,
-                                          stop_loss=stop_loss, take_profit=take_profit)
+                    results = engine.run(
+                        entries, exits, direction=direction_code,
+                        stop_loss=stop_loss, take_profit=take_profit,
+                        long_entries=long_entries,
+                        long_exits=long_exits,
+                        short_entries=short_entries,
+                        short_exits=short_exits,
+                    )
 
             result_df = results["data"]
             trades = results["trades"]

@@ -10,7 +10,7 @@ from typing import Tuple, Dict, Any
 
 def execute_user_strategy(
     code: str, df: pd.DataFrame, params: Dict[str, Any]
-) -> Tuple[pd.Series, pd.Series, str]:
+) -> Tuple[pd.Series, pd.Series, str, pd.Series, pd.Series, pd.Series, pd.Series]:
     # 自動處理配對交易資料：若 df 沒有 'close' 但有兩個 _close 欄位，加 'close' 別名
     if "close" not in df.columns:
         close_cols = [c for c in df.columns if c.endswith("_close")]
@@ -23,14 +23,20 @@ def execute_user_strategy(
             df["close"] = df[close_cols[0]]
     """
     執行使用者策略代碼
-    code: Python 程式碼（需定義 generate_signals(df, params) 函數，回傳 (entries, exits)）
-    df: OHLCV 資料
-    params: 參數 dict
-    回傳: (entries Series, exits Series, error_message)
+
+    支援兩種策略回傳格式：
+    1. 標準格式（向後兼容）: (entries, exits)
+       - 在 long / short 模式下正常運作
+    2. 雙向格式: (long_entries, long_exits, short_entries, short_exits)
+       - 在 long_short 模式下可同時跑多空
+
+    回傳 7 個元素:
+        entries, exits, error_msg,
+        long_entries, long_exits, short_entries, short_exits
     """
     if not code.strip():
         empty = pd.Series(False, index=df.index)
-        return empty, empty, "請輸入策略代碼"
+        return empty, empty, "請輸入策略代碼", empty, empty, empty, empty
 
     # 安全沙箱：限制可用的內建函數
     safe_builtins = {
@@ -53,37 +59,75 @@ def execute_user_strategy(
     try:
         exec(code, namespace)
         if "generate_signals" not in namespace:
+            empty = pd.Series(False, index=df.index)
             return (
-                pd.Series(False, index=df.index),
-                pd.Series(False, index=df.index),
-                "❌ 找不到函數 'generate_signals'。請定義：def generate_signals(df, params):\n    return entries, exits",
+                empty, empty,
+                "❌ 找不到函數 'generate_signals'。請定義：def generate_signals(df, params):\n    return entries, exits\n    # 雙向模式：\n    # return long_entries, long_exits, short_entries, short_exits",
+                empty, empty, empty, empty
             )
 
-        entries, exits = namespace["generate_signals"](df.copy(), params)
+        result = namespace["generate_signals"](df.copy(), params)
 
-        if not isinstance(entries, pd.Series) or not isinstance(exits, pd.Series):
+        empty = pd.Series(False, index=df.index)
+
+        # 判斷回傳格式
+        if isinstance(result, tuple) and len(result) == 4:
+            # 雙向格式: (long_entries, long_exits, short_entries, short_exits)
+            long_entries, long_exits, short_entries, short_exits = result
+
+            for name, s in [("long_entries", long_entries), ("long_exits", long_exits),
+                             ("short_entries", short_entries), ("short_exits", short_exits)]:
+                if not isinstance(s, pd.Series):
+                    return (
+                        empty, empty,
+                        f"❌ {name} 必須是 pandas Series",
+                        empty, empty, empty, empty
+                    )
+
+            long_entries = long_entries.reindex(df.index, fill_value=False).astype(bool)
+            long_exits = long_exits.reindex(df.index, fill_value=False).astype(bool)
+            short_entries = short_entries.reindex(df.index, fill_value=False).astype(bool)
+            short_exits = short_exits.reindex(df.index, fill_value=False).astype(bool)
+
+            # 對於單向模式，entries/exits 用 long 的（向後兼容）
+            return long_entries, long_exits, "", long_entries, long_exits, short_entries, short_exits
+
+        elif isinstance(result, tuple) and len(result) == 2:
+            # 標準格式: (entries, exits)
+            entries, exits = result
+
+            if not isinstance(entries, pd.Series) or not isinstance(exits, pd.Series):
+                return (
+                    empty, empty,
+                    "❌ generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits)",
+                    empty, empty, empty, empty
+                )
+
+            entries = entries.reindex(df.index, fill_value=False).astype(bool)
+            exits = exits.reindex(df.index, fill_value=False).astype(bool)
+
+            # 雙向訊號設為空（單向模式不用）
+            return entries, exits, "", entries, exits, empty, empty
+        else:
             return (
-                pd.Series(False, index=df.index),
-                pd.Series(False, index=df.index),
-                "❌ generate_signals 必須回傳兩個 pandas Series: (entries, exits)",
+                empty, empty,
+                "❌ generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits) 共 2 或 4 個 Series",
+                empty, empty, empty, empty
             )
-
-        entries = entries.reindex(df.index, fill_value=False).astype(bool)
-        exits = exits.reindex(df.index, fill_value=False).astype(bool)
-
-        return entries, exits, ""
 
     except SyntaxError as e:
+        empty = pd.Series(False, index=df.index)
         return (
-            pd.Series(False, index=df.index),
-            pd.Series(False, index=df.index),
+            empty, empty,
             f"❌ 語法錯誤: {e}",
+            empty, empty, empty, empty
         )
     except Exception as e:
+        empty = pd.Series(False, index=df.index)
         return (
-            pd.Series(False, index=df.index),
-            pd.Series(False, index=df.index),
+            empty, empty,
             f"❌ 執行錯誤: {type(e).__name__}: {e}",
+            empty, empty, empty, empty
         )
 
 
@@ -411,6 +455,37 @@ def generate_signals(df, params):
     return entries.fillna(False), exits.fillna(False)
 ''',
 
+    "布林通道 雙向 (Bollinger Bands Long+Short)": '''# 布林通道雙向策略
+# 價格跌破下軌 → 做多（均值回歸）
+# 價格漲破上軌 → 做空（均值回歸）
+# 回到中軌 → 平倉
+#
+# 回傳格式（雙向模式需要 4 個 series）：
+#   long_entries, long_exits, short_entries, short_exits
+
+def generate_signals(df, params):
+    period = params.get("bb_period", 20)
+    num_std = params.get("num_std", 2.0)
+
+    df["bb_mid"] = df["close"].rolling(period).mean()
+    df["bb_std"] = df["close"].rolling(period).std()
+    df["bb_upper"] = df["bb_mid"] + num_std * df["bb_std"]
+    df["bb_lower"] = df["bb_mid"] - num_std * df["bb_std"]
+
+    long_entries = (df["close"] < df["bb_lower"]) & (df["close"].shift(1) >= df["bb_lower"].shift(1))
+    long_exits = (df["close"] > df["bb_mid"]) & (df["close"].shift(1) <= df["bb_mid"].shift(1))
+
+    short_entries = (df["close"] > df["bb_upper"]) & (df["close"].shift(1) <= df["bb_upper"].shift(1))
+    short_exits = (df["close"] < df["bb_mid"]) & (df["close"].shift(1) >= df["bb_mid"].shift(1))
+
+    return (
+        long_entries.fillna(False),
+        long_exits.fillna(False),
+        short_entries.fillna(False),
+        short_exits.fillna(False),
+    )
+''',
+
     "BTC/ETH 比率配對 (Bollinger)": '''# BTC/ETH 比率配對交易策略
 # 進場：比率跌破下軌 → 做多比率（買 BTC + 空 ETH）
 # 進場：比率突破上軌 → 做空比率（空 BTC + 買 ETH）
@@ -540,6 +615,10 @@ def get_param_space(name: str) -> Dict[str, list]:
             "bb_period": [15, 20, 25, 30],
             "num_std": [1.5, 2.0, 2.5, 3.0],
         },
+        "布林通道 雙向 (Bollinger Bands Long+Short)": {
+            "bb_period": [15, 20, 25, 30],
+            "num_std": [1.5, 2.0, 2.5, 3.0],
+        },
         "MACD 交叉": {
             "fast": [8, 10, 12, 15],
             "slow": [20, 24, 26, 30],
@@ -604,6 +683,7 @@ def get_default_params(name: str) -> Dict[str, Any]:
         "均線交叉 (SMA Crossover)": {"fast_period": 20, "slow_period": 50},
         "RSI 超買超賣": {"rsi_period": 14, "entry_level": 30, "exit_level": 70},
         "布林通道 (Bollinger Bands)": {"bb_period": 20, "num_std": 2.0},
+        "布林通道 雙向 (Bollinger Bands Long+Short)": {"bb_period": 20, "num_std": 2.0},
         "MACD 交叉": {"fast": 12, "slow": 26, "signal": 9},
         "網格交易 (Grid Trading)": {"grid_size": 0.02, "lookback": 20},
         "海龜交易 (Turtle)": {"entry_break": 20, "exit_break": 10},

@@ -33,18 +33,42 @@ class BacktestEngine:
         self,
         entries: pd.Series,
         exits: pd.Series,
-        direction: str = "long",  # "long" or "short"
+        direction: str = "long",  # "long" or "short" or "long_short"
         stop_loss: float = None,
         take_profit: float = None,
+        long_entries: pd.Series = None,
+        long_exits: pd.Series = None,
+        short_entries: pd.Series = None,
+        short_exits: pd.Series = None,
     ) -> Dict:
         """
         執行回測
-        entries: bool Series (True 時進場)
-        exits: bool Series (True 時出場)
+        entries: bool Series (True 時進場) — 用於單向模式 (long/short)
+        exits: bool Series (True 時出場) — 用於單向模式
+        long_entries / long_exits / short_entries / short_exits:
+            雙向模式 (long_short) 使用
+
+        direction:
+          - "long": 只做多
+          - "short": 只做空
+          - "long_short": 雙向持倉（需要 long/short entries/exits）
         """
         df = self.data.copy()
         df["entry"] = entries.astype(bool).fillna(False)
         df["exit"] = exits.astype(bool).fillna(False)
+
+        if long_entries is None:
+            long_entries = entries
+        if long_exits is None:
+            long_exits = exits
+        if short_entries is None:
+            short_entries = entries
+        if short_exits is None:
+            short_exits = exits
+        df["long_entry"] = long_entries.astype(bool).fillna(False)
+        df["long_exit"] = long_exits.astype(bool).fillna(False)
+        df["short_entry"] = short_entries.astype(bool).fillna(False)
+        df["short_exit"] = short_exits.astype(bool).fillna(False)
 
         # 產生進出場訊號序列
         position, trades = self._generate_trades(df, direction, stop_loss, take_profit)
@@ -114,17 +138,66 @@ class BacktestEngine:
                         current_pos = 0
 
             # 處理進場訊號
-            if row["entry"] and current_pos == 0:
+            entry_signal = False
+            if direction == "long":
+                entry_signal = bool(row.get("entry", False))
+            elif direction == "short":
+                entry_signal = bool(row.get("entry", False))
+            else:  # long_short
+                if current_pos == 0:
+                    if bool(row.get("long_entry", False)):
+                        entry_signal = True
+                    elif bool(row.get("short_entry", False)):
+                        entry_signal = True
+                else:
+                    # 已持倉，可翻倉（long 翻 short 或 short 翻 long）
+                    if current_pos == 1 and bool(row.get("short_entry", False)):
+                        # 翻空：先平多，再開空
+                        exit_price = price * (1 - self.slippage)
+                        trades.append(
+                            self._make_trade(entry_time, timestamp, entry_price, exit_price, current_pos, "signal")
+                        )
+                        current_pos = 0
+                        entry_signal = True
+                    elif current_pos == -1 and bool(row.get("long_entry", False)):
+                        # 翻多：先平空，再開多
+                        exit_price = price * (1 + self.slippage)
+                        trades.append(
+                            self._make_trade(entry_time, timestamp, entry_price, exit_price, current_pos, "signal")
+                        )
+                        current_pos = 0
+                        entry_signal = True
+
+            if entry_signal and current_pos == 0:
+                # 決定做多或做空
                 if direction == "long":
                     current_pos = 1
+                elif direction == "short":
+                    current_pos = -1
+                else:  # long_short
+                    if bool(row.get("long_entry", False)):
+                        current_pos = 1
+                    elif bool(row.get("short_entry", False)):
+                        current_pos = -1
+                if current_pos == 1:
                     entry_price = price * (1 + self.slippage)
                 else:
-                    current_pos = -1
                     entry_price = price * (1 - self.slippage)
                 entry_time = timestamp
 
             # 處理出場訊號
-            elif row["exit"] and current_pos != 0:
+            exit_signal = False
+            if direction == "long":
+                exit_signal = bool(row.get("exit", False))
+            elif direction == "short":
+                exit_signal = bool(row.get("exit", False))
+            else:  # long_short
+                if current_pos == 1 and bool(row.get("long_exit", False)):
+                    exit_signal = True
+                elif current_pos == -1 and bool(row.get("short_exit", False)):
+                    exit_signal = True
+
+            if exit_signal and current_pos != 0:
                 if current_pos == 1:
                     exit_price = price * (1 - self.slippage)
                 else:
@@ -177,9 +250,12 @@ class BacktestEngine:
 
         # 簡化版：用部位 × 該根 K 線的收益
         # 持倉部位使用「延遲一檔」進場：第 i 根進場 → 第 i+1 根開始才有部位收益
-        if direction == "long":
+        # long (position=1) 賺漲、short (position=-1) 賺跌、long_short (position 1 或 -1) 雙向
+        if direction in ("long", "long_short"):
+            # long 或 long_short：正向持倉賺漲
             strategy_returns = df["position"].shift(1).fillna(0) * df["returns"]
         else:  # short
+            # 純 short：正向持倉代表 short，賺跌
             strategy_returns = -df["position"].shift(1).fillna(0) * df["returns"]
 
         df["strategy_returns"] = strategy_returns
