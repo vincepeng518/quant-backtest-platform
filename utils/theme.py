@@ -141,12 +141,18 @@ header[data-testid="stHeader"] {{
 
 /* 隱藏 Streamlit Cloud 的「Manage app」按鈕（手機上擋住內容） */
 [data-testid="manage-app-button"],
-[class*="ManageApp"] {{
+[class*="ManageApp"],
+[class*="manage-app"],
+a[href*="streamlit.io/cloud"],
+div[id*="manage"] {{
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }}
-a[href*="streamlit.io/cloud"] {{
-    display: none !important;
-}}
+/* 隱藏 footer（雲端版的 "Hosted with Streamlit"） */
+footer {{ display: none !important; }}
+/* 隱藏任何「Hosted with」字樣 */
+*:not(body):not(html):not(div) {{ /* placeholder */ }}
 
 /* === 標題層級（heading-hierarchy） === */
 .main-header {{
