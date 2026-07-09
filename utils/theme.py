@@ -121,9 +121,22 @@ html, body, [class*="css"] {{
 /* 隱藏 Streamlit 預設的頂部空白區（手機上看起來很醜） */
 header[data-testid="stHeader"] {{
     display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+.stAppHeader,
+[class*="stAppHeader"] {{
+    display: none !important;
+    height: 0 !important;
 }}
 [data-testid="stAppViewBlockContainer"] {{
     padding-top: 0 !important;
+    margin-top: 0 !important;
+}}
+.stApp {{
+    margin-top: 0 !important;
 }}
 
 /* 隱藏 Streamlit Cloud 的「Manage app」按鈕（手機上擋住內容） */
@@ -304,15 +317,30 @@ hr {{
 }}
 
 /* === 隱藏預設 UI 元素（但保留 sidebar 展開按鈕） === */
-#MainMenu {{visibility: hidden;}}
-footer {{visibility: hidden;}}
+#MainMenu {{visibility: hidden !important;}}
+footer {{visibility: hidden !important;}}
 /* 隱藏右上角裝飾 */
-[data-testid="stDecoration"] {{visibility: hidden;}}
+[data-testid="stDecoration"] {{visibility: hidden !important;}}
 /* 隱藏 toolbar 內的特定按鈕（MainMenu、Deploy 等） */
-[data-testid="stMainMenuButton"] {{visibility: hidden;}}
-[data-testid="stBaseButton-header"] {{visibility: hidden;}}
+[data-testid="stMainMenuButton"] {{visibility: hidden !important;}}
+[data-testid="stBaseButton-header"] {{visibility: hidden !important;}}
 [data-testid="stBaseButton-headerNoPadding"] {{
     color: {theme['primary']} !important;
+}}
+
+/* 隱藏 Streamlit Cloud 的 Manage app 元素（任何含 'Manage app' 文字的浮動元素） */
+a:has-text("Manage app"),
+div:has-text("Manage app"),
+.stAppDeployButton {{
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}}
+/* 用 JS 注入隱藏任何底部 Deploy 按鈕 */
+[class*="deploy"],
+[class*="Deploy"],
+a[href*="streamlit.io/cloud"] {{
+    display: none !important;
 }}
 
 /* === 手機版：明顯的 sidebar 展開按鈕 === */
@@ -388,6 +416,20 @@ footer {{visibility: hidden;}}
     }}
     .main .block-container {{
         padding-top: 0.5rem !important;
+    }}
+
+    /* 手機版：sidebar 響應 aria-expanded 切換 */
+    [data-testid="stSidebar"][aria-expanded="false"] {{
+        transform: translateX(-100%) !important;
+        margin-left: -21rem !important;
+    }}
+    [data-testid="stSidebar"] {{
+        transition: transform 200ms ease, margin-left 200ms ease !important;
+    }}
+    /* 收合時 main 區填滿 */
+    .main {{
+        margin-left: 0 !important;
+        transition: margin-left 200ms ease !important;
     }}
 }}
 
