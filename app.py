@@ -35,7 +35,6 @@ from utils.strategy_library import (
 from utils.ui_components import (
     render_overview, render_performance_summary,
     render_list_of_trades, render_charts,
-    TV_COLORS,
 )
 
 
@@ -48,37 +47,161 @@ st.set_page_config(
 )
 
 
-# === 自訂 CSS ===
+# === 自訂 CSS - Notion 風格 ===
 st.markdown("""
 <style>
+    /* Notion 字體系統 */
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+                     "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    }
+
+    /* 主標題 */
     .main-header {
-        font-size: 2.5rem;
+        font-size: 1.875rem;
         font-weight: 700;
-        background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0;
+        color: #1F2937;
+        margin-bottom: 4px;
+        letter-spacing: -0.02em;
     }
     .sub-header {
-        color: #888;
-        font-size: 1rem;
-        margin-top: -10px;
-        margin-bottom: 30px;
+        color: #6B7280;
+        font-size: 0.875rem;
+        margin-top: 0;
+        margin-bottom: 28px;
+        font-weight: 400;
     }
+
+    /* 區塊標題 */
+    h3 {
+        font-size: 1.125rem !important;
+        font-weight: 600 !important;
+        color: #1F2937 !important;
+        margin-top: 24px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* 側邊欄標題 */
+    [data-testid="stSidebar"] h2 {
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        color: #9CA3AF !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 16px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Tabs 簡化 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        border-bottom: 1px solid #E5E7EB;
+        background: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
+        border-radius: 0;
+        padding: 8px 16px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6B7280;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #2563EB !important;
+        border-bottom: 2px solid #2563EB !important;
+        background: transparent !important;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #374151;
+    }
+
+    /* 按鈕 */
+    .stButton button {
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 0.875rem;
+        border: 1px solid #E5E7EB;
+        background: white;
+        color: #374151;
+        transition: all 0.15s ease;
+        padding: 0.4rem 0.875rem;
+    }
+    .stButton button:hover {
+        background: #F9FAFB;
+        border-color: #D1D5DB;
+    }
+    .stButton button[kind="primary"] {
+        background: #2563EB;
+        color: white;
+        border: 1px solid #2563EB;
+    }
+    .stButton button[kind="primary"]:hover {
+        background: #1D4ED8;
+        border-color: #1D4ED8;
+    }
+
+    /* 輸入框 */
+    .stTextInput input, .stTextArea textarea, .stNumberInput input,
+    .stSelectbox [data-baseweb="select"] > div {
+        border-radius: 6px;
+        border: 1px solid #E5E7EB;
+        font-size: 0.875rem;
+        background: white;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* 指標卡片 (Notion 風格) */
     .metric-card {
-        background-color: #1E1E1E;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #00C9FF;
+        background: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        border: 1px solid #E5E7EB;
     }
-    .stCodeBlock { font-size: 0.85rem; }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: #F9FAFB !important;
+        border-radius: 6px !important;
+        border: 1px solid #E5E7EB !important;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+    }
+    .streamlit-expanderContent {
+        background: white;
+        border: 1px solid #E5E7EB;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+    }
+
+    /* DataFrame 表格 */
+    .stDataFrame {
+        border: 1px solid #E5E7EB;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    /* 分隔線 */
+    hr {
+        margin: 20px 0 !important;
+        border-color: #E5E7EB !important;
+    }
+
+    /* 隱藏頁尾 */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 
 # === 標題 ===
 st.markdown('<p class="main-header">📈 加密貨幣回測實驗室</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Crypto Backtesting Lab · AI 自動參數優化 · Walk-Forward 驗證</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Crypto Backtesting Lab · 自動參數優化 · Walk-Forward 驗證 · 配對交易</p>', unsafe_allow_html=True)
 
 
 # === 側邊欄：資料來源 ===
@@ -617,9 +740,6 @@ with main_tab2:
 
     run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
 
-    if not run_opt:
-        st.stop()
-
     if not param_space:
         st.error("請設定至少一個要優化的參數")
         st.stop()
@@ -821,9 +941,6 @@ with main_tab3:
                                   key="wf_metric")
 
     run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
-
-    if not run_wf:
-        st.stop()
 
     # 判斷是否配對模式
     is_pair_wf = st.session_state.get("is_pair", False)
