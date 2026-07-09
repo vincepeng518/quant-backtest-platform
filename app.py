@@ -679,9 +679,24 @@ with main_tab1:
     if not run_single:
         st.info("👆 點擊「▶️ 執行回測」開始分析")
     else:
-        # 執行策略
-        result = execute_user_strategy(strategy_code, df, strategy_params)
-        entries, exits, err, long_entries, long_exits, short_entries, short_exits = result
+        # 執行策略（最外層 try 確保任何錯誤都不會導致整個 app 崩潰）
+        try:
+            result = execute_user_strategy(strategy_code, df, strategy_params)
+            # 顯示 debug 資訊（只顯示長度，不暴露內容）
+            result_type = type(result).__name__
+            result_len = len(result) if hasattr(result, '__len__') else 'N/A'
+            # 防護：確保 result 是 7-tuple
+            if not isinstance(result, tuple) or len(result) != 7:
+                st.warning(f"⚠️ 策略回傳了 {result_len} 個元素（type={result_type}），自動補齊為 7 個")
+                empty_series = pd.Series(False, index=df.index)
+                result_list = list(result) if isinstance(result, (tuple, list)) else []
+                while len(result_list) < 7:
+                    result_list.append(empty_series)
+                result = tuple(result_list[:7])
+            entries, exits, err, long_entries, long_exits, short_entries, short_exits = result
+        except Exception as e:
+            st.error(f"❌ 策略執行失敗: {type(e).__name__}: {e}")
+            st.stop()
 
         # 自動判斷方向：策略有 short 訊號 → 用 long_short 模式
         # 判斷依據：short_entries 或 short_exits 是否有任何 True
