@@ -30,6 +30,11 @@ from utils.strategy_library import (
     load_strategy_from_file, load_strategy_from_pasted_code,
     SAMPLE_STRATEGIES,
 )
+from utils.ui_components import (
+    render_overview, render_performance_summary,
+    render_list_of_trades, render_charts,
+    TV_COLORS,
+)
 
 
 # === 頁面設定 ===
@@ -417,99 +422,29 @@ with main_tab1:
     trades = results["trades"]
     metrics = results["metrics"]
 
-    st.header("📊 績效總覽")
     if "error" in metrics:
         st.warning(metrics["error"])
         st.stop()
 
-    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-    with col_m1:
-        total_ret = metrics["total_return_pct"]
-        st.metric("總報酬率", f"{total_ret:+.2f}%", delta=f"{total_ret - metrics['buy_hold_return_pct']:+.2f}% vs 買進持有")
-    with col_m2:
-        st.metric("最終權益", f"${metrics['final_equity']:,.2f}")
-    with col_m3:
-        st.metric("勝率", f"{metrics['win_rate']:.1f}%", delta=f"{metrics['n_trades']} 筆交易")
-    with col_m4:
-        st.metric("最大回撤", f"{metrics['max_drawdown_pct']:.2f}%")
-    with col_m5:
-        st.metric("Sharpe Ratio", f"{metrics['sharpe_ratio']:.2f}")
+    # === TradingView 風格：4 分頁結果顯示 ===
+    result_tab1, result_tab2, result_tab3, result_tab4 = st.tabs([
+        "📊 Overview",
+        "📈 Performance Summary",
+        "📋 List of Trades",
+        "🕯️ Charts"
+    ])
 
-    col_m6, col_m7, col_m8, col_m9, col_m10 = st.columns(5)
-    with col_m6:
-        st.metric("利潤因子", f"{metrics['profit_factor']:.2f}" if metrics['profit_factor'] != np.inf else "∞")
-    with col_m7:
-        st.metric("買進持有報酬", f"{metrics['buy_hold_return_pct']:+.2f}%")
-    with col_m8:
-        st.metric("平均獲利", f"{metrics['avg_win_pct']:+.2f}%")
-    with col_m9:
-        st.metric("平均虧損", f"{metrics['avg_loss_pct']:+.2f}%")
-    with col_m10:
-        st.metric("平均持倉 (h)", f"{metrics['avg_duration_hours']:.1f}")
+    with result_tab1:
+        render_overview(metrics, result_df, initial_capital)
 
-    st.header("📈 圖表分析")
+    with result_tab2:
+        render_performance_summary(trades, metrics)
 
-    fig_tab1, fig_tab2, fig_tab3 = st.tabs(["權益曲線", "價格 + 進出場標記", "交易明細"])
+    with result_tab3:
+        render_list_of_trades(trades)
 
-    with fig_tab1:
-        fig_equity = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-                                    row_heights=[0.7, 0.3],
-                                    subplot_titles=("權益曲線 vs 買進持有", "回撤"))
-        fig_equity.add_trace(go.Scatter(x=result_df.index, y=result_df["equity"], name="策略權益",
-                                         line=dict(color="#00C9FF", width=2)), row=1, col=1)
-        fig_equity.add_trace(go.Scatter(x=result_df.index, y=result_df["buy_hold"], name="買進持有",
-                                         line=dict(color="#FFA500", width=2, dash="dash")), row=1, col=1)
-        cummax = result_df["equity"].cummax()
-        drawdown = (result_df["equity"] - cummax) / cummax * 100
-        fig_equity.add_trace(go.Scatter(x=result_df.index, y=drawdown, name="回撤 (%)",
-                                         fill="tozeroy", line=dict(color="#FF4B4B", width=1)), row=2, col=1)
-        fig_equity.update_layout(height=600, hovermode="x unified", template="plotly_dark")
-        st.plotly_chart(fig_equity, use_container_width=True)
-
-    with fig_tab2:
-        display_df = result_df.tail(200) if len(result_df) > 200 else result_df
-        fig_price = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05,
-                                   row_heights=[0.7, 0.3],
-                                   subplot_titles=("價格走勢 + 進出場訊號", "成交量"))
-        fig_price.add_trace(go.Candlestick(x=display_df.index, open=display_df["open"],
-                                            high=display_df["high"], low=display_df["low"],
-                                            close=display_df["close"], name="K 線"), row=1, col=1)
-        entries_in_view = display_df[display_df["entry"]]
-        if not entries_in_view.empty:
-            fig_price.add_trace(go.Scatter(x=entries_in_view.index, y=entries_in_view["close"],
-                                            mode="markers", name="進場",
-                                            marker=dict(symbol="triangle-up", size=12, color="#00FF7F",
-                                                        line=dict(color="white", width=1))), row=1, col=1)
-        exits_in_view = display_df[display_df["exit"]]
-        if not exits_in_view.empty:
-            fig_price.add_trace(go.Scatter(x=exits_in_view.index, y=exits_in_view["close"],
-                                            mode="markers", name="出場",
-                                            marker=dict(symbol="triangle-down", size=12, color="#FF4B4B",
-                                                        line=dict(color="white", width=1))), row=1, col=1)
-        colors = ["#FF4B4B" if display_df["close"].iloc[i] < display_df["open"].iloc[i] else "#00C9FF"
-                  for i in range(len(display_df))]
-        fig_price.add_trace(go.Bar(x=display_df.index, y=display_df["volume"], name="成交量",
-                                    marker_color=colors), row=2, col=1)
-        fig_price.update_layout(height=700, template="plotly_dark", xaxis_rangeslider_visible=False)
-        st.plotly_chart(fig_price, use_container_width=True)
-
-    with fig_tab3:
-        if trades:
-            trades_df = pd.DataFrame(trades)
-            trades_df["entry_time"] = pd.to_datetime(trades_df["entry_time"]).dt.tz_localize(None)
-            trades_df["exit_time"] = pd.to_datetime(trades_df["exit_time"]).dt.tz_localize(None)
-            trades_df["duration_hours"] = trades_df["duration_hours"].round(2)
-            trades_df["pnl_pct"] = (trades_df["pnl_pct"] * 100).round(2)
-            trades_df["pnl"] = trades_df["pnl"].round(2)
-            trades_df["entry_price"] = trades_df["entry_price"].round(2)
-            trades_df["exit_price"] = trades_df["exit_price"].round(2)
-            st.dataframe(trades_df, use_container_width=True, hide_index=True)
-            csv = trades_df.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 下載交易明細 CSV", data=csv,
-                                file_name=f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                mime="text/csv")
-        else:
-            st.info("無交易記錄")
+    with result_tab4:
+        render_charts(result_df, trades)
 
 
 # ===========================
