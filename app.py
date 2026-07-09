@@ -92,13 +92,21 @@ components.html(
         var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
         if (!fab || !sidebar) return;
 
+        // 如果 sidebar 收合（aria-expanded=false），不覆寫 left
+        // 讓 CSS 的 body.sidebar-collapsed 規則處理（left: 12px）
+        var expanded = sidebar.getAttribute('aria-expanded') === 'true';
+        if (!expanded) {
+            fab.style.removeProperty('left');
+            return;
+        }
+
         // 用 CSS class 控制顯示/位置（CSS 處理大多數情境）
         // 這裡只處理「sidebar 寬度不是 300px」的特殊情境
         // 動態計算：sidebar 寬度 - 44 - 8 = FAB 的 left
         var sbWidth = sidebar.getBoundingClientRect().width;
-        if (sbWidth > 0) {
+        if (sbWidth > 44 + 8) {
             var fabLeft = sbWidth - 44 - 8;
-            fab.style.setProperty('left', fabLeft + 'px', 'important');
+            fab.style.setProperty('left', fabLeft + 'px');
         }
     }
 

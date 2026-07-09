@@ -508,15 +508,15 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
 @media (min-width: 769px) {{
     #mobile-hamburger-fab {{
         display: flex !important;
-        /* sidebar header 的最右側（貼齊右邊）
+        /* sidebar header 的最右側（預設值，JS 會動態覆蓋）
          * sidebar 預設寬度 300px，按鈕 44px，右側留 8px
          * → left = 300 - 44 - 8 = 248px */
         top: 4px;
         left: 248px;
     }}
-    /* sidebar 收合時 → 移到最左上角 */
+    /* sidebar 收合時 → 移到最左上角（用 !important 蓋過 JS 設定） */
     body.sidebar-collapsed #mobile-hamburger-fab {{
-        left: 12px;
+        left: 12px !important;
     }}
     /* === 桌面版：隱藏 streamlit 內建 sidebar 切換按鈕 === */
     /* 因為 FAB 在同位置，避免兩個按鈕重疊 */
