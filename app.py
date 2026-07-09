@@ -825,9 +825,26 @@ with main_tab3:
     if not run_wf:
         st.stop()
 
+    # 判斷是否配對模式
+    is_pair_wf = st.session_state.get("is_pair", False)
+    pair_info_wf = st.session_state.get("pair_info", {})
+
+    # 配對模式提示
+    if is_pair_wf:
+        st.info(f"🔗 配對 WF 模式：{pair_info_wf.get('symbol1')} + {pair_info_wf.get('symbol2')}")
+        # 配對模式用 PairBacktestEngine
+        wf_engine = PairBacktestEngine
+        wf_pair_kwargs = {
+            "symbol1": pair_info_wf.get("symbol1", "BTC/USDT"),
+            "symbol2": pair_info_wf.get("symbol2", "ETH/USDT"),
+        }
+    else:
+        wf_engine = BacktestEngine
+        wf_pair_kwargs = {}
+
     validator = WalkForwardValidator(
         strategy_runner=execute_user_strategy,
-        backtest_engine_class=BacktestEngine,
+        backtest_engine_class=wf_engine,
         n_splits=n_splits,
         train_ratio=train_ratio,
         anchored=anchored,
@@ -841,6 +858,8 @@ with main_tab3:
             commission=commission_pct,
             slippage=slippage_pct,
             direction=direction_code,
+            is_pair=is_pair_wf,
+            pair_kwargs=wf_pair_kwargs,
         )
 
     if "error" in wf_results:
@@ -852,17 +871,35 @@ with main_tab3:
     # 綜合 OOS 指標
     st.subheader("📈 綜合 OOS 表現")
     oos = wf_results["combined_oos_metrics"]
-    col_oof1, col_oof2, col_oof3, col_oof4, col_oof5 = st.columns(5)
-    with col_oof1:
-        st.metric("OOS 交易數", f"{oos.get('n_oos_trades', 0)}")
-    with col_oof2:
-        st.metric("OOS 總報酬", f"{oos.get('oos_total_return_pct', 0):+.2f}%")
-    with col_oof3:
-        st.metric("OOS 勝率", f"{oos.get('oos_win_rate', 0):.1f}%")
-    with col_oof4:
-        st.metric("OOS 平均損益", f"{oos.get('oos_avg_pnl_pct', 0):+.2f}%")
-    with col_oof5:
-        st.metric("最大單筆虧損", f"{oos.get('oos_max_single_loss_pct', 0):.2f}%")
+    is_pair_wf = wf_results.get("is_pair", False)
+
+    if is_pair_wf and "oos_pnl1_pct" in oos:
+        # 配對模式：6 個指標
+        col_oof1, col_oof2, col_oof3, col_oof4, col_oof5, col_oof6 = st.columns(6)
+        with col_oof1:
+            st.metric("OOS 交易數", f"{oos.get('n_oos_trades', 0)}")
+        with col_oof2:
+            st.metric("OOS 總報酬", f"{oos.get('oos_total_return_pct', 0):+.2f}%")
+        with col_oof3:
+            st.metric("OOS 勝率", f"{oos.get('oos_win_rate', 0):.1f}%")
+        with col_oof4:
+            st.metric("OOS 平均損益", f"{oos.get('oos_avg_pnl_pct', 0):+.2f}%")
+        with col_oof5:
+            st.metric(f"{pair_info_wf.get('symbol1', 'S1')} 平均", f"{oos.get('oos_pnl1_pct', 0):+.2f}%")
+        with col_oof6:
+            st.metric(f"{pair_info_wf.get('symbol2', 'S2')} 平均", f"{oos.get('oos_pnl2_pct', 0):+.2f}%")
+    else:
+        col_oof1, col_oof2, col_oof3, col_oof4, col_oof5 = st.columns(5)
+        with col_oof1:
+            st.metric("OOS 交易數", f"{oos.get('n_oos_trades', 0)}")
+        with col_oof2:
+            st.metric("OOS 總報酬", f"{oos.get('oos_total_return_pct', 0):+.2f}%")
+        with col_oof3:
+            st.metric("OOS 勝率", f"{oos.get('oos_win_rate', 0):.1f}%")
+        with col_oof4:
+            st.metric("OOS 平均損益", f"{oos.get('oos_avg_pnl_pct', 0):+.2f}%")
+        with col_oof5:
+            st.metric("最大單筆虧損", f"{oos.get('oos_max_single_loss_pct', 0):.2f}%")
 
     # 過擬合評估
     st.subheader("🎯 過擬合風險評估")

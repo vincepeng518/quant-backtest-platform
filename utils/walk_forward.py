@@ -5,6 +5,10 @@ Walk-Forward 驗證模組
 2. 在 in-sample（訓練）段上最佳化參數
 3. 在 out-of-sample（測試）段上驗證
 4. 拼接所有 OOS 結果，計算綜合表現
+
+支援兩種模式：
+- 單標的：使用 BacktestEngine
+- 配對交易：使用 PairBacktestEngine（傳入 pair_kwargs）
 """
 
 import pandas as pd
@@ -34,7 +38,7 @@ class WalkForwardValidator:
     ):
         """
         strategy_runner: 策略執行函數 execute_user_strategy
-        backtest_engine_class: BacktestEngine 類別
+        backtest_engine_class: BacktestEngine 或 PairBacktestEngine 類別
         n_splits: 切分數量
         train_ratio: 每個 window 中訓練集佔比 (0.7 = 70% 訓練, 30% 測試)
         anchored: True=擴展窗口（從頭開始），False=滾動窗口
@@ -56,18 +60,19 @@ class WalkForwardValidator:
         commission: float = 0.001,
         slippage: float = 0.0005,
         direction: str = "long",
+        is_pair: bool = False,
+        pair_kwargs: Dict[str, Any] = None,
     ) -> Dict:
         """
         執行 walk-forward 驗證
 
-        回傳 dict:
-        - results: 每個 window 的結果
-        - combined_oos_metrics: 全部 OOS 拼接後的指標
-        - degradation: 訓練 vs 測試指標衰退（衡量過擬合程度）
-        - best_params_history: 每個 window 最佳參數
+        is_pair: 是否為配對交易模式
+        pair_kwargs: 配對引擎需要的額外參數（如 symbol1, symbol2）
         """
         if base_params is None:
             base_params = {}
+        if pair_kwargs is None:
+            pair_kwargs = {}
 
         n = len(df)
         # 計算每個 window 的大小
@@ -101,6 +106,11 @@ class WalkForwardValidator:
                 "test_end": test_end,
             })
 
+        # 配對模式的 direction 轉換
+        pair_direction = None
+        if is_pair:
+            pair_direction = "pair_long" if direction == "long" else "pair_short"
+
         # 執行每個 window
         all_results = []
         for win in windows:
@@ -110,7 +120,8 @@ class WalkForwardValidator:
             # 在訓練集上做網格搜尋
             best_params, train_metric = self._grid_search(
                 train_df, strategy_code, param_space, base_params,
-                optimize_metric, initial_capital, commission, slippage, direction
+                optimize_metric, initial_capital, commission, slippage,
+                direction, is_pair, pair_kwargs,
             )
 
             # 用最佳參數在測試集上跑
@@ -128,13 +139,25 @@ class WalkForwardValidator:
                 })
                 continue
 
-            engine = self.backtest_engine_class(
-                test_df,
-                initial_capital=initial_capital,
-                commission=commission,
-                slippage=slippage,
-            )
-            test_results = engine.run(test_entries, test_exits, direction=direction)
+            # 跑回測
+            if is_pair:
+                engine = self.backtest_engine_class(
+                    test_df,
+                    initial_capital=initial_capital,
+                    commission=commission,
+                    slippage=slippage,
+                    **pair_kwargs,
+                )
+                test_results = engine.run(test_entries, test_exits, direction=pair_direction)
+            else:
+                engine = self.backtest_engine_class(
+                    test_df,
+                    initial_capital=initial_capital,
+                    commission=commission,
+                    slippage=slippage,
+                )
+                test_results = engine.run(test_entries, test_exits, direction=direction)
+
             test_metrics = test_results["metrics"]
 
             all_results.append({
@@ -149,7 +172,11 @@ class WalkForwardValidator:
             })
 
         # 計算綜合 OOS 指標
-        combined_oos = self._combine_oos_equity(df, all_results, strategy_code, base_params, initial_capital, commission, slippage, direction)
+        combined_oos = self._combine_oos_equity(
+            df, all_results, strategy_code, base_params,
+            initial_capital, commission, slippage, direction,
+            is_pair, pair_kwargs,
+        )
 
         # 計算過擬合程度
         valid = [r for r in all_results if r.get("test_metric") is not None]
@@ -168,10 +195,12 @@ class WalkForwardValidator:
             "avg_test_metric": avg_test,
             "degradation_pct": degradation,
             "parameter_stability": self._calc_param_stability(all_results),
+            "is_pair": is_pair,
         }
 
     def _grid_search(
-        self, df, strategy_code, param_space, base_params, metric, capital, commission, slippage, direction
+        self, df, strategy_code, param_space, base_params, metric,
+        capital, commission, slippage, direction, is_pair, pair_kwargs,
     ) -> Tuple[Dict, float]:
         """網格搜尋最佳參數"""
         param_names = list(param_space.keys())
@@ -187,8 +216,20 @@ class WalkForwardValidator:
             if err or not entries.any() or entries.sum() < 3:
                 continue
 
-            engine = self.backtest_engine_class(df, initial_capital=capital, commission=commission, slippage=slippage)
-            results = engine.run(entries, exits, direction=direction)
+            # 跑回測
+            if is_pair:
+                engine = self.backtest_engine_class(
+                    df, initial_capital=capital, commission=commission,
+                    slippage=slippage, **pair_kwargs,
+                )
+                pair_dir = "pair_long" if direction == "long" else "pair_short"
+                results = engine.run(entries, exits, direction=pair_dir)
+            else:
+                engine = self.backtest_engine_class(
+                    df, initial_capital=capital, commission=commission, slippage=slippage,
+                )
+                results = engine.run(entries, exits, direction=direction)
+
             metrics = results["metrics"]
 
             if "error" in metrics:
@@ -206,7 +247,8 @@ class WalkForwardValidator:
         return best_params, best_metric
 
     def _combine_oos_equity(
-        self, df, windows_results, strategy_code, base_params, capital, commission, slippage, direction
+        self, df, windows_results, strategy_code, base_params,
+        capital, commission, slippage, direction, is_pair, pair_kwargs,
     ) -> Dict:
         """拼接所有 OOS 段的權益曲線"""
         all_oos_trades = []
@@ -221,8 +263,19 @@ class WalkForwardValidator:
             if err or not entries.any():
                 continue
 
-            engine = self.backtest_engine_class(test_df, initial_capital=capital, commission=commission, slippage=slippage)
-            results = engine.run(entries, exits, direction=direction)
+            if is_pair:
+                engine = self.backtest_engine_class(
+                    test_df, initial_capital=capital, commission=commission,
+                    slippage=slippage, **pair_kwargs,
+                )
+                pair_dir = "pair_long" if direction == "long" else "pair_short"
+                results = engine.run(entries, exits, direction=pair_dir)
+            else:
+                engine = self.backtest_engine_class(
+                    test_df, initial_capital=capital, commission=commission, slippage=slippage,
+                )
+                results = engine.run(entries, exits, direction=direction)
+
             all_oos_trades.extend(results["trades"])
 
         if not all_oos_trades:
@@ -236,13 +289,20 @@ class WalkForwardValidator:
         avg_pnl = trades_df["pnl_pct"].mean() * 100
         max_loss = trades_df["pnl_pct"].min() * 100
 
-        return {
+        result = {
             "n_oos_trades": n_trades,
             "oos_total_return_pct": total_return * 100,
             "oos_win_rate": win_rate,
             "oos_avg_pnl_pct": avg_pnl,
             "oos_max_single_loss_pct": max_loss,
         }
+
+        # 配對模式：加上兩邊各自的損益統計
+        if is_pair and "pnl1_pct" in trades_df.columns:
+            result["oos_pnl1_pct"] = trades_df["pnl1_pct"].mean() * 100
+            result["oos_pnl2_pct"] = trades_df["pnl2_pct"].mean() * 100
+
+        return result
 
     def _calc_param_stability(self, windows_results) -> Dict:
         """計算參數穩定度（不同 window 選出的參數有多接近）"""
