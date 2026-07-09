@@ -25,6 +25,11 @@ from strategies.strategy_runner import (
     execute_user_strategy, get_template, list_templates,
     get_param_space, get_default_params
 )
+from utils.strategy_library import (
+    validate_strategy_code, extract_strategy_name, extract_strategy_description,
+    load_strategy_from_file, load_strategy_from_pasted_code,
+    SAMPLE_STRATEGIES,
+)
 
 
 # === 頁面設定 ===
@@ -169,6 +174,93 @@ with st.sidebar:
 
     st.divider()
 
+    # === 策略管理（共用：所有分頁都能用） ===
+    st.header("📚 策略管理")
+
+    if "user_strategies" not in st.session_state:
+        st.session_state["user_strategies"] = {}  # {name: code}
+
+    with st.expander("📤 上傳 / 貼上策略", expanded=False):
+        st.caption("三種方式加入策略到「我的策略庫」")
+
+        # 方式 1：上傳 .py 檔案
+        st.markdown("**① 上傳 .py 檔案**")
+        uploaded_files = st.file_uploader(
+            "選擇 .py 檔（可多選）",
+            type=["py"],
+            accept_multiple_files=True,
+            key="strategy_uploader",
+        )
+        if uploaded_files:
+            for f in uploaded_files:
+                # 檢查是否已載入
+                if f.name in st.session_state["user_strategies"]:
+                    continue
+                success, result, fname = load_strategy_from_file(f)
+                if success:
+                    name = extract_strategy_name(result, fallback=fname)
+                    st.session_state["user_strategies"][fname] = result
+                    st.success(f"✅ 已載入: **{name}** ({fname})")
+                else:
+                    st.error(result)
+
+        st.divider()
+
+        # 方式 2：貼上代碼
+        st.markdown("**② 貼上 Python 代碼**")
+        pasted_code = st.text_area(
+            "貼上策略代碼",
+            height=120,
+            key="pasted_strategy",
+            placeholder="def generate_signals(df, params):\n    ...",
+        )
+        pasted_name = st.text_input("策略名稱", value="我的策略", key="pasted_name")
+        if st.button("➕ 加入到策略庫", use_container_width=True):
+            if not pasted_code.strip():
+                st.error("請貼上代碼")
+            else:
+                success, result = load_strategy_from_pasted_code(pasted_code)
+                if success:
+                    final_name = pasted_name.strip() or extract_strategy_name(pasted_code)
+                    st.session_state["user_strategies"][final_name] = result
+                    st.success(f"✅ 已加入: **{final_name}**")
+                    st.rerun()
+                else:
+                    st.error(result)
+
+        st.divider()
+
+        # 方式 3：載入社群範本
+        st.markdown("**③ 一鍵載入社群策略範本**")
+        st.caption("內建 4 個進階策略範本")
+        sample_cols = st.columns(2)
+        sample_names = list(SAMPLE_STRATEGIES.keys())
+        for i, sname in enumerate(sample_names):
+            with sample_cols[i % 2]:
+                if sname not in st.session_state["user_strategies"]:
+                    if st.button(f"➕ {sname}", key=f"add_sample_{i}",
+                                  use_container_width=True):
+                        st.session_state["user_strategies"][sname] = SAMPLE_STRATEGIES[sname]
+                        st.success(f"✅ 已加入: {sname}")
+                        st.rerun()
+                else:
+                    st.button(f"✓ {sname}", key=f"has_sample_{i}",
+                              disabled=True, use_container_width=True)
+
+    # 顯示策略庫
+    if st.session_state["user_strategies"]:
+        st.markdown("**📋 我的策略庫**")
+        for sname in list(st.session_state["user_strategies"].keys()):
+            col_s1, col_s2 = st.columns([4, 1])
+            with col_s1:
+                st.caption(f"📄 {sname}")
+            with col_s2:
+                if st.button("🗑️", key=f"del_{sname}", help=f"刪除 {sname}"):
+                    del st.session_state["user_strategies"][sname]
+                    st.rerun()
+
+    st.divider()
+
     # === 回測設定 ===
     st.header("⚙️ 回測參數")
     initial_capital = st.number_input("初始資金 (USDT)", min_value=100.0, value=10000.0, step=1000.0)
@@ -234,19 +326,31 @@ main_tab1, main_tab2, main_tab3 = st.tabs([
 with main_tab1:
     st.header("🧠 策略程式碼")
 
-    col_t1, col_t2 = st.columns([3, 1])
-    with col_t1:
+    # 整合的策略來源選擇
+    col_src1, col_src2 = st.columns([3, 1])
+    with col_src1:
+        # 組合選項：內建範本 + 我的策略庫
+        all_sources = ["（自訂）"] + list_templates()
+        if st.session_state.get("user_strategies"):
+            all_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
         template_choice = st.selectbox(
-            "載入範本（可選）",
-            ["（自訂）"] + list_templates(),
+            "選擇策略來源",
+            all_sources,
             key="template_select",
         )
-    with col_t2:
+    with col_src2:
         st.write("")
         st.write("")
-        if template_choice != "（自訂）" and st.button("📥 載入此範本", key="load_template"):
-            st.session_state["strategy_code"] = get_template(template_choice)
-            st.session_state["current_template"] = template_choice
+        # 判斷來源類型
+        if template_choice.startswith("──"):
+            st.button("📥 載入", key="load_template", disabled=True, use_container_width=True)
+        elif template_choice != "（自訂）" and st.button("📥 載入", key="load_template", use_container_width=True):
+            if template_choice in list_templates():
+                st.session_state["strategy_code"] = get_template(template_choice)
+                st.session_state["current_template"] = template_choice
+            elif template_choice in st.session_state.get("user_strategies", {}):
+                st.session_state["strategy_code"] = st.session_state["user_strategies"][template_choice]
+                st.session_state["current_template"] = template_choice
             st.rerun()
 
     if "strategy_code" not in st.session_state:
@@ -417,15 +521,28 @@ with main_tab2:
 
     col_o1, col_o2 = st.columns([3, 1])
     with col_o1:
-        opt_template = st.selectbox("選擇策略", list_templates(), key="opt_template")
+        # 整合策略來源
+        opt_sources = list_templates()
+        if st.session_state.get("user_strategies"):
+            opt_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+        opt_template = st.selectbox("選擇策略", opt_sources, key="opt_template")
     with col_o2:
         st.write("")
         st.write("")
-        if st.button("📥 載入策略", key="load_opt_template"):
-            st.session_state["opt_code"] = get_template(opt_template)
+        if opt_template.startswith("──"):
+            st.button("📥 載入策略", key="load_opt_template", disabled=True, use_container_width=True)
+        elif st.button("📥 載入策略", key="load_opt_template", use_container_width=True):
+            if opt_template in list_templates():
+                st.session_state["opt_code"] = get_template(opt_template)
+                st.session_state["opt_param_space"] = get_param_space(opt_template)
+                st.session_state["opt_default_params"] = get_default_params(opt_template)
+            elif opt_template in st.session_state.get("user_strategies", {}):
+                # 自訂策略：只載入代碼，參數空間留空
+                st.session_state["opt_code"] = st.session_state["user_strategies"][opt_template]
+                st.session_state["opt_param_space"] = {}
+                st.session_state["opt_default_params"] = {}
+                st.info("自訂策略：請手動設定參數空間")
             st.session_state["opt_current"] = opt_template
-            st.session_state["opt_param_space"] = get_param_space(opt_template)
-            st.session_state["opt_default_params"] = get_default_params(opt_template)
             st.rerun()
 
     if "opt_code" not in st.session_state:
@@ -626,14 +743,24 @@ with main_tab3:
 
     col_w1, col_w2 = st.columns([3, 1])
     with col_w1:
-        wf_template = st.selectbox("選擇策略", list_templates(), key="wf_template")
+        wf_sources = list_templates()
+        if st.session_state.get("user_strategies"):
+            wf_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+        wf_template = st.selectbox("選擇策略", wf_sources, key="wf_template")
     with col_w2:
         st.write("")
         st.write("")
-        if st.button("📥 載入策略", key="load_wf_template"):
-            st.session_state["wf_code"] = get_template(wf_template)
+        if wf_template.startswith("──"):
+            st.button("📥 載入策略", key="load_wf_template", disabled=True, use_container_width=True)
+        elif st.button("📥 載入策略", key="load_wf_template", use_container_width=True):
+            if wf_template in list_templates():
+                st.session_state["wf_code"] = get_template(wf_template)
+                st.session_state["wf_param_space"] = get_param_space(wf_template)
+            elif wf_template in st.session_state.get("user_strategies", {}):
+                st.session_state["wf_code"] = st.session_state["user_strategies"][wf_template]
+                st.session_state["wf_param_space"] = {}
+                st.info("自訂策略：請手動設定參數空間")
             st.session_state["wf_current"] = wf_template
-            st.session_state["wf_param_space"] = get_param_space(wf_template)
             st.rerun()
 
     if "wf_code" not in st.session_state:
