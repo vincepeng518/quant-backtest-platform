@@ -184,7 +184,14 @@ components.html(
                 e.target.closest('label') ||
                 e.target.closest('[role="button"]') ||
                 e.target.closest('[role="combobox"]') ||
-                e.target.closest('[role="tab"]')) {
+                e.target.closest('[role="tab"]') ||
+                e.target.closest('[role="option"]') ||
+                e.target.closest('[role="listbox"]') ||
+                e.target.closest('[role="menu"]') ||
+                e.target.closest('[role="menuitem"]') ||
+                e.target.closest('[data-baseweb="popover"]') ||
+                e.target.closest('[data-baseweb="menu"]') ||
+                e.target.closest('[data-baseweb="select"]')) {
                 return;
             }
             // 收合 sidebar
