@@ -35,6 +35,7 @@ from utils.strategy_library import (
 from utils.ui_components import (
     render_overview, render_performance_summary,
     render_list_of_trades, render_charts,
+    render_monte_carlo,
 )
 
 
@@ -627,12 +628,13 @@ with main_tab1:
         st.warning(metrics["error"])
         st.stop()
 
-    # === TradingView 風格：4 分頁結果顯示 ===
-    result_tab1, result_tab2, result_tab3, result_tab4 = st.tabs([
+    # === Notion 風格：5 分頁結果顯示 ===
+    result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
         "📊 Overview",
         "📈 Performance Summary",
         "📋 List of Trades",
-        "🕯️ Charts"
+        "🕯️ Charts",
+        "🎲 蒙地卡羅",
     ])
 
     with result_tab1:
@@ -646,6 +648,9 @@ with main_tab1:
 
     with result_tab4:
         render_charts(result_df, trades)
+
+    with result_tab5:
+        render_monte_carlo(initial_capital, trades)
 
 
 # ===========================

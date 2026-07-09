@@ -565,3 +565,304 @@ def _max_consecutive(series: pd.Series) -> int:
         else:
             current = 0
     return max_count
+
+
+def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
+    """
+    Notion 風格的蒙地卡羅模擬分頁
+    透過隨機重排交易順序，評估策略的穩健性
+    """
+    st.markdown("### 🎲 蒙地卡羅模擬")
+    st.caption("""
+    透過**隨機重排交易順序** N 次，模擬「如果未來交易以不同順序發生」的各種可能結果。
+    這能幫助您評估策略的**穩健性**——不僅是「賺多少」，更是「在各種情況下表現如何」。
+    """)
+
+    if not trades or len(trades) < 5:
+        st.warning("⚠️ 交易數不足（需要至少 5 筆交易才能進行有意義的蒙地卡羅模擬）")
+        return
+
+    # 設定區
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        n_sims = st.number_input("模擬次數", min_value=100, max_value=10000, value=1000, step=100)
+    with col2:
+        method = st.selectbox("抽樣方法", ["shuffle (重排)", "bootstrap (有放回)"], index=0)
+        method_code = "shuffle" if "shuffle" in method else "bootstrap"
+    with col3:
+        ruin_threshold = st.number_input("破產門檻 (%)", min_value=10, max_value=90, value=50,
+                                          help="虧損超過此百分比視為破產")
+
+    if st.button("🎲 執行蒙地卡羅模擬", type="primary", use_container_width=True):
+        with st.spinner(f"執行 {n_sims} 次模擬中..."):
+            from utils.monte_carlo import MonteCarloSimulator
+            sim = MonteCarloSimulator(initial_capital=initial_capital)
+            mc_results = sim.run(trades, n_simulations=n_sims, method=method_code,
+                                  max_loss_pct=ruin_threshold)
+            st.session_state["mc_results"] = mc_results
+
+    # 顯示結果
+    if "mc_results" in st.session_state and st.session_state["mc_results"]:
+        mc = st.session_state["mc_results"]
+        if "error" in mc:
+            st.error(f"❌ {mc['error']}")
+            return
+
+        p = mc["percentiles"]
+
+        # === 關鍵指標卡片 ===
+        st.markdown(f"""
+        <div style="color: {N_COLORS['text_secondary']}; font-size: 11px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">
+            模擬結果摘要 ({mc['n_simulations']} 次)
+        </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        # 報酬率中位數顏色
+        median_color = N_COLORS["green_text"] if p["return_p50"] >= 0 else N_COLORS["red_text"]
+        # 破產機率顏色
+        ruin_color = N_COLORS["red_text"] if mc["ruin_prob"] > 10 else (
+            N_COLORS["orange"] if mc["ruin_prob"] > 5 else N_COLORS["green_text"]
+        )
+
+        with col1:
+            st.metric("中位數報酬", f"{p['return_p50']:+.2f}%", delta=f"平均 {p['return_mean']:+.2f}%")
+        with col2:
+            st.metric("最壞 5% 報酬", f"{p['return_p5']:+.2f}%",
+                       delta=f"最好 5% {p['return_p95']:+.2f}%")
+        with col3:
+            st.metric("中位數回撤", f"{p['dd_p50']:.2f}%",
+                       delta=f"最壞 {p['dd_p95']:.2f}%")
+        with col4:
+            st.metric("破產機率", f"{mc['ruin_prob']:.2f}%")
+        with col5:
+            st.metric("風險調整比率", f"{p['risk_adj_ratio']:.2f}",
+                       help="平均報酬 / 平均回撤，越高越好")
+
+        # === 圖表：權益曲線分布 ===
+        st.markdown(f"""
+        <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 24px 0 12px 0;">
+            📈 權益曲線分布（隨機路徑）
+        </div>
+        """, unsafe_allow_html=True)
+
+        equity_curves = mc["equity_curves"]
+        n_trades = mc["n_trades"]
+        x_axis = list(range(n_trades + 1))
+        x_labels = [f"#{i}" for i in x_axis]
+
+        # 計算分位數曲線
+        p05 = np.percentile(equity_curves, 5, axis=0)
+        p25 = np.percentile(equity_curves, 25, axis=0)
+        p50 = np.percentile(equity_curves, 50, axis=0)
+        p75 = np.percentile(equity_curves, 75, axis=0)
+        p95 = np.percentile(equity_curves, 95, axis=0)
+
+        fig = go.Figure()
+
+        # 5%-95% 區間（淺綠）
+        fig.add_trace(go.Scatter(
+            x=x_labels + x_labels[::-1],
+            y=list(p95) + list(p05[::-1]),
+            fill="toself",
+            fillcolor="rgba(16, 185, 129, 0.08)",
+            line=dict(color="rgba(255,255,255,0)"),
+            name="5%-95% 區間",
+            showlegend=True,
+        ))
+        # 25%-75% 區間（深綠）
+        fig.add_trace(go.Scatter(
+            x=x_labels + x_labels[::-1],
+            y=list(p75) + list(p25[::-1]),
+            fill="toself",
+            fillcolor="rgba(16, 185, 129, 0.18)",
+            line=dict(color="rgba(255,255,255,0)"),
+            name="25%-75% 區間",
+            showlegend=True,
+        ))
+        # 中位數
+        fig.add_trace(go.Scatter(
+            x=x_labels, y=p50,
+            mode="lines",
+            name="中位數",
+            line=dict(color=N_COLORS["blue"], width=2.5),
+        ))
+
+        # 加幾條隨機樣本路徑（淡色）
+        n_samples = min(30, mc["n_simulations"])
+        sample_indices = np.random.choice(mc["n_simulations"], n_samples, replace=False)
+        for idx in sample_indices[:15]:  # 只顯示 15 條避免太擠
+            fig.add_trace(go.Scatter(
+                x=x_labels, y=equity_curves[idx],
+                mode="lines",
+                line=dict(color="rgba(100, 116, 139, 0.15)", width=0.5),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
+        # 初始資金參考線
+        fig.add_hline(
+            y=initial_capital,
+            line_dash="dash",
+            line_color=N_COLORS["text_muted"],
+            annotation_text=f"初始資金 ${initial_capital:,.0f}",
+            annotation_position="right",
+        )
+
+        fig.update_layout(
+            height=450,
+            template="plotly_white",
+            paper_bgcolor=N_COLORS["bg"],
+            plot_bgcolor=N_COLORS["bg"],
+            font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+            hovermode="x unified",
+            xaxis_title="交易編號",
+            yaxis_title="權益 (USDT)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=50, r=20, t=50, b=30),
+        )
+        fig.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
+        fig.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # === 雙直方圖：報酬率 & 回撤分布 ===
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown(f"""
+            <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 16px 0 8px 0;">
+                📊 最終報酬率分布
+            </div>
+            """, unsafe_allow_html=True)
+
+            fig_ret = go.Figure()
+            fig_ret.add_trace(go.Histogram(
+                x=mc["final_returns"],
+                nbinsx=50,
+                marker_color=N_COLORS["blue"],
+                marker_line_color="white",
+                marker_line_width=1,
+                opacity=0.85,
+                name="報酬率",
+            ))
+            # 中位數線
+            fig_ret.add_vline(
+                x=p["return_p50"],
+                line_dash="dash",
+                line_color=N_COLORS["red"],
+                annotation_text=f"中位數 {p['return_p50']:+.1f}%",
+                annotation_position="top",
+            )
+            # 平均線
+            fig_ret.add_vline(
+                x=p["return_mean"],
+                line_dash="dot",
+                line_color=N_COLORS["green"],
+                annotation_text=f"平均 {p['return_mean']:+.1f}%",
+                annotation_position="bottom",
+            )
+            fig_ret.update_layout(
+                height=350,
+                template="plotly_white",
+                paper_bgcolor=N_COLORS["bg"],
+                plot_bgcolor=N_COLORS["bg"],
+                font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+                xaxis_title="最終報酬率 (%)",
+                yaxis_title="模擬次數",
+                showlegend=False,
+                margin=dict(l=50, r=20, t=20, b=40),
+            )
+            fig_ret.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            fig_ret.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            st.plotly_chart(fig_ret, use_container_width=True)
+
+        with col2:
+            st.markdown(f"""
+            <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 16px 0 8px 0;">
+                📉 最大回撤分布
+            </div>
+            """, unsafe_allow_html=True)
+
+            fig_dd = go.Figure()
+            fig_dd.add_trace(go.Histogram(
+                x=mc["max_drawdowns"],
+                nbinsx=50,
+                marker_color=N_COLORS["red"],
+                marker_line_color="white",
+                marker_line_width=1,
+                opacity=0.85,
+                name="回撤",
+            ))
+            # 中位數線
+            fig_dd.add_vline(
+                x=p["dd_p50"],
+                line_dash="dash",
+                line_color=N_COLORS["blue"],
+                annotation_text=f"中位數 {p['dd_p50']:.1f}%",
+                annotation_position="top",
+            )
+            # 最壞情況線
+            fig_dd.add_vline(
+                x=p["dd_p95"],
+                line_dash="dot",
+                line_color=N_COLORS["orange"],
+                annotation_text=f"最壞 5% {p['dd_p95']:.1f}%",
+                annotation_position="bottom",
+            )
+            fig_dd.update_layout(
+                height=350,
+                template="plotly_white",
+                paper_bgcolor=N_COLORS["bg"],
+                plot_bgcolor=N_COLORS["bg"],
+                font=dict(color=N_COLORS["text_primary"], family="system-ui"),
+                xaxis_title="最大回撤 (%)",
+                yaxis_title="模擬次數",
+                showlegend=False,
+                margin=dict(l=50, r=20, t=20, b=40),
+            )
+            fig_dd.update_xaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            fig_dd.update_yaxes(gridcolor=N_COLORS["border"], zeroline=False)
+            st.plotly_chart(fig_dd, use_container_width=True)
+
+        # === 風險評估總結 ===
+        st.markdown(f"""
+        <div style="font-size: 14px; font-weight: 600; color: {N_COLORS['text_primary']}; margin: 20px 0 12px 0;">
+            📋 風險評估總結
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 智能判斷
+        if mc["ruin_prob"] > 20:
+            risk_level = "🔴 高風險"
+            risk_msg = "破產機率過高（>20%），強烈建議重新設計策略或降低倉位。"
+        elif mc["ruin_prob"] > 10:
+            risk_level = "🟠 中風險"
+            risk_msg = "存在一定風險，建議謹慎使用，考慮加入倉位管理。"
+        elif p["dd_p95"] > 40:
+            risk_level = "🟡 需注意"
+            risk_msg = "破產機率低，但最壞情況回撤可能較大，請做好風險控制。"
+        elif p["return_p5"] > 0:
+            risk_level = "🟢 低風險"
+            risk_msg = "在 95% 信心區間下仍然獲利，策略非常穩健。"
+        else:
+            risk_level = "🟡 觀察中"
+            risk_msg = "整體正向但有風險，建議結合其他指標綜合評估。"
+
+        st.markdown(f"""
+        <div style="background: {N_COLORS['bg_subtle']}; padding: 20px 24px; border-radius: 8px; border: 1px solid {N_COLORS['border']}; margin-top: 8px;">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+                <div style="color: {N_COLORS['text_secondary']}; font-size: 13px;">風險等級</div>
+                <div style="font-size: 16px; font-weight: 600;">{risk_level}</div>
+            </div>
+            <div style="color: {N_COLORS['text_primary']}; font-size: 14px; line-height: 1.6;">
+                {risk_msg}
+            </div>
+            <div style="color: {N_COLORS['text_secondary']}; font-size: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid {N_COLORS['border']};">
+                詳細數據：中位數 {p['return_p50']:+.2f}% · 平均 {p['return_mean']:+.2f}% · 標準差 {p['return_std']:.2f}% ·
+                最壞 5% {p['return_p5']:+.2f}% · 最好 5% {p['return_p95']:+.2f}% ·
+                中位數回撤 {p['dd_p50']:.2f}% · 最壞 5% 回撤 {p['dd_p95']:.2f}%
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
