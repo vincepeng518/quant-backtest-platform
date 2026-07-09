@@ -496,7 +496,7 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     color: white;
 }}
 
-/* 桌面版：FAB 整合到 sidebar 內（跟 streamlit 內建按鈕重疊） */
+/* 桌面版：FAB 整合到 sidebar 內（取代 streamlit 內建按鈕） */
 @media (min-width: 769px) {{
     #mobile-hamburger-fab {{
         display: flex !important;
@@ -507,6 +507,12 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     /* sidebar 收合時 → 移到最左上角 */
     body.sidebar-collapsed #mobile-hamburger-fab {{
         left: 12px;
+    }}
+    /* === 桌面版：隱藏 streamlit 內建 sidebar 切換按鈕 === */
+    /* 因為 FAB 在同位置，避免兩個按鈕重疊 */
+    [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {{
+        display: none !important;
+        visibility: hidden !important;
     }}
 }}
 
