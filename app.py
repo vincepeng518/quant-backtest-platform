@@ -68,54 +68,6 @@ st.markdown(
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
-# === 手機版漢堡按鈕（永遠顯示在左上角） ===
-# 用 st.button + on_click callback + JS 注入切換 sidebar DOM
-if "mobile_sidebar_open" not in st.session_state:
-    st.session_state["mobile_sidebar_open"] = True  # 預設開
-
-# 同步控制 streamlit 預設 sidebar 的 aria-expanded
-_js_sidebar = f"""
-<script>
-(function() {{
-    const isOpen = {str(st.session_state["mobile_sidebar_open"]).lower()};
-    const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-    if (sidebar) {{
-        sidebar.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    }}
-    // 觀察漢堡按鈕點擊，直接切換 sidebar
-    const observeBurger = () => {{
-        const wrap = document.querySelector('.mobile-hamburger-wrapper button');
-        if (wrap && !wrap.dataset.bound) {{
-            wrap.dataset.bound = '1';
-            wrap.addEventListener('click', function() {{
-                setTimeout(function() {{
-                    const s = document.querySelector('section[data-testid="stSidebar"]');
-                    if (s) {{
-                        const current = s.getAttribute('aria-expanded');
-                        s.setAttribute('aria-expanded', current === 'true' ? 'false' : 'true');
-                    }}
-                }}, 100);
-            }});
-        }}
-    }};
-    observeBurger();
-    setTimeout(observeBurger, 500);
-}})();
-</script>
-"""
-st.markdown(_js_sidebar, unsafe_allow_html=True)
-
-# 用 st.columns 把按鈕隔開
-_hamburger_col, _ = st.columns([0.05, 0.95])
-with _hamburger_col:
-    burger_label = "✕" if st.session_state["mobile_sidebar_open"] else "☰"
-    st.markdown('<div class="mobile-hamburger-wrapper">', unsafe_allow_html=True)
-    if st.button(burger_label, key="hamburger", help="展開/收合選單"):
-        st.session_state["mobile_sidebar_open"] = not st.session_state["mobile_sidebar_open"]
-        # 不呼叫 rerun，避免 process crash
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
 
 # === 側邊欄：資料來源 ===
 with st.sidebar:

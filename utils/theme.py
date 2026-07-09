@@ -114,7 +114,8 @@ html, body, [class*="css"] {{
 }}
 
 .main .block-container {{
-    padding-top: 1rem !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
     max-width: 1280px;
 }}
 
@@ -439,33 +440,24 @@ a[href*="streamlit.io/cloud"] {{
     }}
 }}
 
-/* === 全域：漢堡按鈕永遠在左上角 === */
-.mobile-hamburger-wrapper {{
-    position: fixed !important;
-    top: 12px !important;
-    left: 12px !important;
-    z-index: 999999 !important;
-    width: 48px !important;
-    height: 48px !important;
-}}
-.mobile-hamburger-wrapper button {{
+/* === 全域：漢堡按鈕（用 streamlit 預設的 sidebar 切換按鈕） === */
+/* streamlit 的 [data-testid="stBaseButton-headerNoPadding"] 就是 sidebar 切換按鈕 */
+/* 把它重新樣式為圓形漢堡按鈕（在 sidebar 內或外部顯示） */
+button[data-testid="stBaseButton-headerNoPadding"] {{
     background: {theme['primary']} !important;
     color: white !important;
-    border: 2px solid white !important;
     border-radius: 50% !important;
-    width: 48px !important;
-    height: 48px !important;
-    font-size: 24px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
-    padding: 0 !important;
+    border: 2px solid white !important;
+    z-index: 999999 !important;
 }}
-.mobile-hamburger-wrapper button span {{
+button[data-testid="stBaseButton-headerNoPadding"] svg {{
     color: white !important;
-    font-size: 24px !important;
-}}
-.mobile-hamburger-wrapper button:hover {{
-    background: {theme['primary_hover']} !important;
-    transform: scale(1.05) !important;
+    fill: white !important;
 }}
 
 /* === 桌面版：隱藏 toolbar 內的展開按鈕（用 sidebar 內的「<」就好） === */
