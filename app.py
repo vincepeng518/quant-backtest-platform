@@ -892,8 +892,10 @@ with main_tab2:
                     st.session_state["opt_param_space"] = new_space
                     st.session_state["opt_default_params"] = new_default
                     st.session_state["opt_current"] = opt_template
-                    # 同步更新 widget state
+                    # 同步更新 widget state（text_area 已存在需直接設 session_state[key]）
                     st.session_state["opt_code_editor"] = new_code
+                    st.session_state["fixed_params"] = json.dumps(new_default, indent=2, ensure_ascii=False)
+                    st.session_state["param_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
                     st.rerun()
 
     with col_o2:
@@ -920,6 +922,9 @@ with main_tab2:
                     st.session_state["opt_default_params"] = new_default
                     st.session_state["opt_current"] = opt_template
                     st.session_state["opt_code_editor"] = new_code
+                    # 同步更新 JSON widget state
+                    st.session_state["fixed_params"] = json.dumps(new_default, indent=2, ensure_ascii=False)
+                    st.session_state["param_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
                     st.rerun()
 
     if "opt_code" not in st.session_state:
@@ -934,9 +939,14 @@ with main_tab2:
     col_op1, col_op2 = st.columns(2)
     with col_op1:
         st.markdown("**🎛️ 固定參數（所有測試都會使用）**")
+        # 確保 widget 第一次創建時就有正確的 value
+        if "fixed_params" not in st.session_state:
+            st.session_state["fixed_params"] = json.dumps(
+                st.session_state.get("opt_default_params", {}), indent=2, ensure_ascii=False
+            )
         fixed_params_text = st.text_area(
             "固定參數",
-            value=json.dumps(st.session_state["opt_default_params"], indent=2, ensure_ascii=False),
+            value=st.session_state["fixed_params"],
             height=100,
             key="fixed_params"
         )
@@ -948,9 +958,13 @@ with main_tab2:
 
     with col_op2:
         st.markdown("**🔍 要優化的參數空間**")
+        if "param_space" not in st.session_state:
+            st.session_state["param_space"] = json.dumps(
+                st.session_state.get("opt_param_space", {}), indent=2, ensure_ascii=False
+            )
         param_space_text = st.text_area(
             "參數空間（JSON）",
-            value=json.dumps(st.session_state["opt_param_space"], indent=2, ensure_ascii=False),
+            value=st.session_state["param_space"],
             height=200,
             key="param_space"
         )
@@ -1123,9 +1137,11 @@ with main_tab3:
                 if wf_template in list_templates():
                     new_code = get_template(wf_template)
                     new_space = get_param_space(wf_template)
+                    new_default = get_default_params(wf_template)
                 elif wf_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][wf_template]
                     new_space = {}
+                    new_default = {}
                 else:
                     new_code = None
                 if new_code is not None:
@@ -1133,6 +1149,9 @@ with main_tab3:
                     st.session_state["wf_param_space"] = new_space
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
+                    # 同步更新 JSON widget state
+                    st.session_state["wf_fixed"] = json.dumps(new_default, indent=2, ensure_ascii=False)
+                    st.session_state["wf_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
                     st.rerun()
 
     with col_w2:
@@ -1146,9 +1165,11 @@ with main_tab3:
                 if wf_template in list_templates():
                     new_code = get_template(wf_template)
                     new_space = get_param_space(wf_template)
+                    new_default = get_default_params(wf_template)
                 elif wf_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][wf_template]
                     new_space = {}
+                    new_default = {}
                 else:
                     new_code = None
                 if new_code is not None:
@@ -1156,6 +1177,9 @@ with main_tab3:
                     st.session_state["wf_param_space"] = new_space
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
+                    # 同步更新 JSON widget state
+                    st.session_state["wf_fixed"] = json.dumps(new_default, indent=2, ensure_ascii=False)
+                    st.session_state["wf_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
                     st.rerun()
 
     if "wf_code" not in st.session_state:
@@ -1168,9 +1192,15 @@ with main_tab3:
     col_wp1, col_wp2 = st.columns(2)
     with col_wp1:
         st.markdown("**🎛️ 固定參數**")
+        # 確保 widget 第一次創建時就有正確的 value
+        if "wf_fixed" not in st.session_state:
+            st.session_state["wf_fixed"] = json.dumps(
+                get_default_params(st.session_state.get("wf_current", list_templates()[0])),
+                indent=2, ensure_ascii=False
+            )
         wf_fixed_text = st.text_area(
             "固定參數",
-            value=json.dumps(get_default_params(st.session_state["wf_current"]), indent=2, ensure_ascii=False),
+            value=st.session_state["wf_fixed"],
             height=80, key="wf_fixed",
         )
         try:
@@ -1180,9 +1210,14 @@ with main_tab3:
 
     with col_wp2:
         st.markdown("**🔍 優化參數空間**")
+        if "wf_space" not in st.session_state:
+            st.session_state["wf_space"] = json.dumps(
+                st.session_state.get("wf_param_space", {}),
+                indent=2, ensure_ascii=False
+            )
         wf_space_text = st.text_area(
             "參數空間",
-            value=json.dumps(st.session_state["wf_param_space"], indent=2, ensure_ascii=False),
+            value=st.session_state["wf_space"],
             height=150, key="wf_space",
         )
         try:
