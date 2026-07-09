@@ -357,6 +357,39 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
 
+        # 測試資料按鈕：生成固定 K 線，不用網路抓取
+        if st.button("🧪 一鍵測試資料", use_container_width=True, help="生成 500 根固定 seed 的模擬 K 線，無需網路"):
+            try:
+                np.random.seed(42)
+                n = 500
+                # 用幾何布朗運動模擬 BTC 價格
+                base_price = 30000
+                returns = np.random.normal(0.0005, 0.02, n)
+                close = base_price * np.exp(np.cumsum(returns))
+                # 生成對應的 OHLCV
+                high = close * (1 + np.abs(np.random.normal(0, 0.005, n)))
+                low = close * (1 - np.abs(np.random.normal(0, 0.005, n)))
+                open_ = np.roll(close, 1)
+                open_[0] = base_price
+                volume = np.random.uniform(100, 1000, n)
+                test_df = pd.DataFrame({
+                    "open": open_,
+                    "high": high,
+                    "low": low,
+                    "close": close,
+                    "volume": volume,
+                }, index=pd.date_range("2024-01-01", periods=n, freq="1D"))
+                st.session_state["df"] = test_df
+                st.session_state["is_pair"] = False
+                st.session_state["symbol"] = "TEST/USDT"
+                st.session_state["exchange"] = "synthetic"
+                st.session_state["timeframe"] = "1d"
+                st.session_state.pop("pair_info", None)
+                st.success(f"✅ 已生成 {len(test_df):,} 根測試 K 線（價格 ${close[0]:,.0f} → ${close[-1]:,.0f}）")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ 生成測試資料失敗: {e}")
+
     else:  # CSV 上傳 or 配對交易
         if data_source == "上傳 CSV":
             uploaded = st.file_uploader("上傳 CSV 檔案", type=["csv"])
@@ -724,21 +757,29 @@ with main_tab1:
                         commission=commission_pct,
                         slippage=slippage_pct,
                     )
-                    results = engine.run(entries, exits, direction=pair_direction,
-                                          stop_loss=stop_loss, take_profit=take_profit)
+                    try:
+                        results = engine.run(entries, exits, direction=pair_direction,
+                                              stop_loss=stop_loss, take_profit=take_profit)
+                    except Exception as e:
+                        st.error(f"❌ 配對回測引擎錯誤: {type(e).__name__}: {e}")
+                        st.stop()
                 else:
                     engine = BacktestEngine(
                         df, initial_capital=initial_capital,
                         commission=commission_pct, slippage=slippage_pct,
                     )
-                    results = engine.run(
-                        entries, exits, direction=actual_direction,
-                        stop_loss=stop_loss, take_profit=take_profit,
-                        long_entries=long_entries,
-                        long_exits=long_exits,
-                        short_entries=short_entries,
-                        short_exits=short_exits,
-                    )
+                    try:
+                        results = engine.run(
+                            entries, exits, direction=actual_direction,
+                            stop_loss=stop_loss, take_profit=take_profit,
+                            long_entries=long_entries,
+                            long_exits=long_exits,
+                            short_entries=short_entries,
+                            short_exits=short_exits,
+                        )
+                    except Exception as e:
+                        st.error(f"❌ 回測引擎錯誤: {type(e).__name__}: {e}")
+                        st.stop()
 
             result_df = results["data"]
             trades = results["trades"]
