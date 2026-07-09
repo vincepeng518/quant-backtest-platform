@@ -369,9 +369,55 @@ def render_list_of_trades(trades: List[Dict]) -> None:
     )
 
 
+def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
+    """
+    自動偵測並解析圖表需要的欄位
+    - 支援單標的：open/high/low/close/volume
+    - 支援配對交易：BTC/USDT_open、ETH/USDT_open 等
+    """
+    cols = {}
+
+    # 先嘗試直接讀取
+    if all(c in result_df.columns for c in ["open", "high", "low", "close"]):
+        cols["open"] = "open"
+        cols["high"] = "high"
+        cols["low"] = "low"
+        cols["close"] = "close"
+        cols["volume"] = "volume" if "volume" in result_df.columns else None
+        cols["mode"] = "single"
+        return cols
+
+    # 嘗試配對交易：第一個標的（symbol1）
+    close_cols = [c for c in result_df.columns if c.endswith("_close")]
+    if len(close_cols) >= 1:
+        first_sym = close_cols[0].replace("_close", "")
+        cols["open"] = f"{first_sym}_open"
+        cols["high"] = f"{first_sym}_high"
+        cols["low"] = f"{first_sym}_low"
+        cols["close"] = f"{first_sym}_close"
+        cols["volume"] = f"{first_sym}_volume" if f"{first_sym}_volume" in result_df.columns else None
+        cols["symbol"] = first_sym
+        cols["mode"] = "pair"
+        # 也記下第二個標的（如果有）
+        if len(close_cols) >= 2:
+            second_sym = close_cols[1].replace("_close", "")
+            cols["symbol2"] = second_sym
+            cols["close2"] = f"{second_sym}_close"
+        return cols
+
+    return cols
+
+
 def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     """TradingView 風格的圖表區"""
     st.subheader("📈 價格走勢 + 進出場標記")
+
+    # 解析欄位
+    col_map = _resolve_chart_columns(result_df)
+    if not col_map:
+        st.error("❌ 找不到價格欄位（open/high/low/close）")
+        st.info("請確認您的回測資料有正確的 OHLC 欄位")
+        return
 
     # 顯示最近 N 根 K 線
     display_n = st.slider("顯示最近 N 根 K 線", min_value=50, max_value=min(1000, len(result_df)), value=min(200, len(result_df)), step=50)
@@ -387,22 +433,40 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     )
 
     # K 線
+    candlestick_kwargs = {
+        "x": display_df.index,
+        "open": display_df[col_map["open"]],
+        "high": display_df[col_map["high"]],
+        "low": display_df[col_map["low"]],
+        "close": display_df[col_map["close"]],
+        "increasing_line_color": TV_COLORS["green"],
+        "decreasing_line_color": TV_COLORS["red"],
+    }
+
+    if col_map.get("volume"):
+        candlestick_kwargs["name"] = col_map.get("symbol", "K 線")
+    else:
+        candlestick_kwargs["name"] = col_map.get("symbol", "K 線")
+
     fig.add_trace(
-        go.Candlestick(
-            x=display_df.index,
-            open=display_df["open"],
-            high=display_df["high"],
-            low=display_df["low"],
-            close=display_df["close"],
-            name="K 線",
-            increasing_line_color=TV_COLORS["green"],
-            decreasing_line_color=TV_COLORS["red"],
-        ),
+        go.Candlestick(**candlestick_kwargs),
         row=1, col=1
     )
 
+    # 配對模式：加上第二個標的的價格線
+    if col_map.get("mode") == "pair" and "close2" in col_map:
+        fig.add_trace(
+            go.Scatter(
+                x=display_df.index, y=display_df[col_map["close2"]],
+                name=f"{col_map['symbol2']} 價格",
+                line=dict(color=TV_COLORS["orange"], width=1.5, dash="dot"),
+                opacity=0.6,
+            ),
+            row=1, col=1
+        )
+
     # 進場標記
-    entries_in_view = display_df[display_df["entry"]]
+    entries_in_view = display_df[display_df["entry"]] if "entry" in display_df.columns else pd.DataFrame()
     if not entries_in_view.empty:
         # 區分多空
         if "position" in display_df.columns:
@@ -412,10 +476,12 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             long_entries = entries_in_view
             short_entries = pd.DataFrame()
 
+        close_col = col_map["close"]
+
         if not long_entries.empty:
             fig.add_trace(
                 go.Scatter(
-                    x=long_entries.index, y=long_entries["close"],
+                    x=long_entries.index, y=long_entries[close_col],
                     mode="markers+text", name="做多進場",
                     marker=dict(symbol="triangle-up", size=14, color=TV_COLORS["green"],
                                 line=dict(color="white", width=1.5)),
@@ -428,7 +494,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
         if not short_entries.empty:
             fig.add_trace(
                 go.Scatter(
-                    x=short_entries.index, y=short_entries["close"],
+                    x=short_entries.index, y=short_entries[close_col],
                     mode="markers+text", name="做空進場",
                     marker=dict(symbol="triangle-down", size=14, color=TV_COLORS["red"],
                                 line=dict(color="white", width=1.5)),
@@ -439,11 +505,12 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             )
 
     # 出場標記
-    exits_in_view = display_df[display_df["exit"]]
+    exits_in_view = display_df[display_df["exit"]] if "exit" in display_df.columns else pd.DataFrame()
     if not exits_in_view.empty:
+        close_col = col_map["close"]
         fig.add_trace(
             go.Scatter(
-                x=exits_in_view.index, y=exits_in_view["close"],
+                x=exits_in_view.index, y=exits_in_view[close_col],
                 mode="markers+text", name="出場",
                 marker=dict(symbol="x", size=10, color=TV_COLORS["yellow"],
                             line=dict(color="white", width=1)),
@@ -453,18 +520,31 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             row=1, col=1
         )
 
-    # 成交量
-    colors = [TV_COLORS["red"] if display_df["close"].iloc[i] < display_df["open"].iloc[i]
-              else TV_COLORS["green"] for i in range(len(display_df))]
-    fig.add_trace(
-        go.Bar(
-            x=display_df.index, y=display_df["volume"],
-            name="成交量",
-            marker_color=colors,
-            opacity=0.7,
-        ),
-        row=2, col=1
-    )
+    # 成交量（如果有）
+    if col_map.get("volume"):
+        open_col = col_map["open"]
+        close_col = col_map["close"]
+        vol_col = col_map["volume"]
+        colors = [TV_COLORS["red"] if display_df[close_col].iloc[i] < display_df[open_col].iloc[i]
+                  else TV_COLORS["green"] for i in range(len(display_df))]
+        fig.add_trace(
+            go.Bar(
+                x=display_df.index, y=display_df[vol_col],
+                name="成交量",
+                marker_color=colors,
+                opacity=0.7,
+            ),
+            row=2, col=1
+        )
+    else:
+        # 配對模式沒有 volume 欄位，顯示提示
+        fig.add_annotation(
+            text="（配對交易：無成交量資料）",
+            xref="paper", yref="paper",
+            x=0.5, y=0.15,
+            showarrow=False,
+            font=dict(color=TV_COLORS["text_muted"], size=12),
+        )
 
     fig.update_layout(
         height=700,
