@@ -63,7 +63,18 @@ class ParameterOptimizer:
         for i, combo in enumerate(product(*param_values_lists)):
             params = {**base_params, **dict(zip(param_names, combo))}
 
-            entries, exits, err = self.strategy_runner(strategy_code, df, params)
+            # 解構 7 個元素（向後兼容：若只回 3 個也支援）
+            result = self.strategy_runner(strategy_code, df, params)
+            if not isinstance(result, tuple) or len(result) not in (3, 7):
+                results.append({
+                    "params": params,
+                    "error": f"策略回傳格式錯誤（type={type(result).__name__}, len={len(result) if hasattr(result, '__len__') else 'N/A'}）",
+                })
+                continue
+            if len(result) == 7:
+                entries, exits, err, _le, _lx, _se, _sx = result
+            else:
+                entries, exits, err = result
             if err or not entries.any():
                 results.append({
                     "params": params,
@@ -143,7 +154,14 @@ class ParameterOptimizer:
             combo = [random.choice(v) for v in param_values_lists]
             params = {**base_params, **dict(zip(param_names, combo))}
 
-            entries, exits, err = self.strategy_runner(strategy_code, df, params)
+            # 解構 7 個元素（向後兼容 3 個）
+            result = self.strategy_runner(strategy_code, df, params)
+            if not isinstance(result, tuple) or len(result) not in (3, 7):
+                continue
+            if len(result) == 7:
+                entries, exits, err, _le, _lx, _se, _sx = result
+            else:
+                entries, exits, err = result
             if err or not entries.any():
                 continue
 
@@ -218,7 +236,14 @@ class ParameterOptimizer:
                 test_params[pname] = v
                 test_params = {**base_params, **test_params}
 
-                entries, exits, err = self.strategy_runner(strategy_code, df, test_params)
+                # 解構 7 個元素（向後兼容 3 個）
+                result = self.strategy_runner(strategy_code, df, test_params)
+                if not isinstance(result, tuple) or len(result) not in (3, 7):
+                    continue
+                if len(result) == 7:
+                    entries, exits, err, _le, _lx, _se, _sx = result
+                else:
+                    entries, exits, err = result
                 if err or not entries.any():
                     continue
 

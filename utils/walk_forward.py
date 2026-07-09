@@ -126,7 +126,21 @@ class WalkForwardValidator:
 
             # 用最佳參數在測試集上跑
             full_params = {**base_params, **best_params}
-            test_entries, test_exits, err = self.strategy_runner(strategy_code, test_df, full_params)
+            # 解構 7 個元素（向後兼容 3 個）
+            _wf_result = self.strategy_runner(strategy_code, test_df, full_params)
+            if not isinstance(_wf_result, tuple) or len(_wf_result) not in (3, 7):
+                all_results.append({
+                    **win,
+                    "best_params": best_params,
+                    "train_metric": train_metric,
+                    "test_metric": None,
+                    "error": f"策略回傳格式錯誤",
+                })
+                continue
+            if len(_wf_result) == 7:
+                test_entries, test_exits, err, _le, _lx, _se, _sx = _wf_result
+            else:
+                test_entries, test_exits, err = _wf_result
 
             if err or not test_entries.any():
                 # 沒有交易，記錄空結果
@@ -212,7 +226,14 @@ class WalkForwardValidator:
         for combo in product(*param_values):
             params = {**base_params, **dict(zip(param_names, combo))}
 
-            entries, exits, err = self.strategy_runner(strategy_code, df, params)
+            # 解構 7 個元素（向後兼容 3 個）
+            _wf_result = self.strategy_runner(strategy_code, df, params)
+            if not isinstance(_wf_result, tuple) or len(_wf_result) not in (3, 7):
+                continue
+            if len(_wf_result) == 7:
+                entries, exits, err, _le, _lx, _se, _sx = _wf_result
+            else:
+                entries, exits, err = _wf_result
             if err or not entries.any() or entries.sum() < 3:
                 continue
 
@@ -259,7 +280,14 @@ class WalkForwardValidator:
             test_df = df.iloc[win["test_start"]:win["test_end"]].copy()
             full_params = {**base_params, **win["best_params"]}
 
-            entries, exits, err = self.strategy_runner(strategy_code, test_df, full_params)
+            # 解構 7 個元素（向後兼容 3 個）
+            _wf_result = self.strategy_runner(strategy_code, test_df, full_params)
+            if not isinstance(_wf_result, tuple) or len(_wf_result) not in (3, 7):
+                continue
+            if len(_wf_result) == 7:
+                entries, exits, err, _le, _lx, _se, _sx = _wf_result
+            else:
+                entries, exits, err = _wf_result
             if err or not entries.any():
                 continue
 
