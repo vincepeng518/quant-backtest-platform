@@ -510,13 +510,12 @@ with st.sidebar:
     commission_pct = st.number_input("手續費 (%)", min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100
     slippage_pct = st.number_input("滑點 (%)", min_value=0.0, max_value=2.0, value=0.05, step=0.01) / 100
 
-    direction = st.selectbox("交易方向", ["long (做多)", "short (做空)", "long_short (雙向持倉)"], index=0)
-    if direction.startswith("short"):
-        direction_code = "short"
-    elif direction.startswith("long_short"):
-        direction_code = "long_short"
-    else:
-        direction_code = "long"
+    # direction 由 strategy 自動決定（不讓用戶選）：
+    # - 如果 strategy 回傳 4 個 series (long_entries, long_exits, short_entries, short_exits)
+    #   → 自動用 long_short 模式
+    # - 否則 → 預設 long 模式
+    # 這裡先預設 long，執行回測時再依 strategy 結果自動切換
+    direction_code = "long"
 
     use_sl_tp = st.checkbox("啟用停損/停利")
     if use_sl_tp:
@@ -598,6 +597,9 @@ with main_tab1:
                 st.session_state["current_template"] = template_choice
                 # 同步更新 text_area 的 widget state，否則 key 已存在會忽略新 value
                 st.session_state["strategy_code_editor"] = new_code
+                # 同步更新策略參數（JSON 格式）
+                default_p = get_default_params(template_choice)
+                st.session_state["params_text"] = json.dumps(default_p, indent=2, ensure_ascii=False)
                 st.rerun()
 
     with col_src2:
@@ -617,6 +619,9 @@ with main_tab1:
                     st.session_state["strategy_code"] = new_code
                     st.session_state["current_template"] = template_choice
                     st.session_state["strategy_code_editor"] = new_code
+                    # 同步更新策略參數（JSON 格式）
+                    default_p = get_default_params(template_choice)
+                    st.session_state["params_text"] = json.dumps(default_p, indent=2, ensure_ascii=False)
                     st.rerun()
 
     if "strategy_code" not in st.session_state:
@@ -639,7 +644,9 @@ with main_tab1:
             default_params = {"period": 20}
         default_json = json.dumps(default_params, indent=2, ensure_ascii=False)
 
-        params_text = st.text_area("參數", value=default_json, height=100, key="params_text")
+        # 確保 params_text 與當前策略一致
+        # session_state["params_text"] 會在切換策略時被自動設定
+        params_text = st.text_area("參數", value=st.session_state.get("params_text", default_json), height=100, key="params_text")
         try:
             strategy_params = json.loads(params_text)
         except json.JSONDecodeError as e:
@@ -656,6 +663,12 @@ with main_tab1:
             st.success("已儲存")
 
     # 關鍵：只在按下按鈕時才執行後續，否則「自然結束」這個 tab
+    # 方向由 strategy 自動決定（不讓用戶選）：
+    # - 如果 strategy 回傳 4 個 series (long_entries, long_exits, short_entries, short_exits)
+    #   → 自動用 long_short 模式
+    # - 如果 strategy 回傳 2 個 series (entries, exits)
+    #   → 預設 long 模式
+    # 透過檢查 long_entries/short_entries 是否有訊號來自動選擇
     if not run_single:
         st.info("👆 點擊「▶️ 執行回測」開始分析")
     else:
@@ -663,16 +676,24 @@ with main_tab1:
         result = execute_user_strategy(strategy_code, df, strategy_params)
         entries, exits, err, long_entries, long_exits, short_entries, short_exits = result
 
+        # 自動判斷方向：策略有 short 訊號 → 用 long_short 模式
+        # 判斷依據：short_entries 或 short_exits 是否有任何 True
+        if short_entries is not None and short_entries.any():
+            actual_direction = "long_short"
+        else:
+            actual_direction = "long"
+
         if err:
             st.error(err)
-        elif (direction_code != "long_short" and not entries.any()) or \
-             (direction_code == "long_short" and not long_entries.any() and not short_entries.any()):
+        elif actual_direction == "long_short" and not long_entries.any() and not short_entries.any():
+            st.warning("⚠️ 策略沒有產生任何進場訊號（long/short 都沒有）")
+        elif actual_direction == "long" and not entries.any():
             st.warning("⚠️ 策略沒有產生任何進場訊號")
         else:
             # 跑回測
             with st.spinner("執行回測中..."):
                 if is_pair and pair_info:
-                    pair_direction = "pair_long" if direction_code == "long" else "pair_short"
+                    pair_direction = "pair_long" if actual_direction == "long" else "pair_short"
                     engine = PairBacktestEngine(
                         df,
                         symbol1=pair_info.get("symbol1", "BTC/USDT"),
@@ -689,7 +710,7 @@ with main_tab1:
                         commission=commission_pct, slippage=slippage_pct,
                     )
                     results = engine.run(
-                        entries, exits, direction=direction_code,
+                        entries, exits, direction=actual_direction,
                         stop_loss=stop_loss, take_profit=take_profit,
                         long_entries=long_entries,
                         long_exits=long_exits,

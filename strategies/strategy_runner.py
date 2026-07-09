@@ -115,7 +115,7 @@ def execute_user_strategy(
                 empty, empty, empty, empty
             )
 
-    except SyntaxError as e:
+    except (SyntaxError, IndentationError, ValueError, TypeError) as e:
         empty = pd.Series(False, index=df.index)
         return (
             empty, empty,
