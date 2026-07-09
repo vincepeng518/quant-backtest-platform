@@ -496,9 +496,18 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     color: white;
 }}
 
-/* 桌面版：完全隱藏浮動按鈕（用 sidebar 內建的） */
+/* 桌面版：FAB 整合到 sidebar 內（跟 streamlit 內建按鈕重疊） */
 @media (min-width: 769px) {{
-    #mobile-hamburger-fab {{ display: none !important; }}
+    #mobile-hamburger-fab {{
+        display: flex !important;
+        /* sidebar 內的右上角（取代 streamlit 預設按鈕） */
+        top: 4px;
+        left: 236px;
+    }}
+    /* sidebar 收合時 → 移到最左上角 */
+    body.sidebar-collapsed #mobile-hamburger-fab {{
+        left: 12px;
+    }}
 }}
 
 /* === 桌面版：隱藏 toolbar 內的展開按鈕（用 sidebar 內的「<」就好） === */

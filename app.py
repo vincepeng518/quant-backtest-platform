@@ -94,6 +94,12 @@ components.html(
         var expanded = sidebar.getAttribute('aria-expanded') === 'true';
         btn.innerHTML = expanded ? ICON_CLOSE : ICON_MENU;
         btn.setAttribute('aria-label', expanded ? '關閉側邊欄' : '開啟側邊欄');
+        // 同步 body class（給 CSS 用來調整 FAB 位置）
+        if (expanded) {
+            window.parent.document.body.classList.remove('sidebar-collapsed');
+        } else {
+            window.parent.document.body.classList.add('sidebar-collapsed');
+        }
     }
 
     function createFab() {
