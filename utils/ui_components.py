@@ -17,7 +17,6 @@ from utils.theme import get_current_theme
 
 
 def get_colors() -> Dict[str, str]:
-    C = get_colors()
     """動態取得當前主題配色（每次渲染都讀最新 session_state）"""
     t = get_current_theme()
     return {

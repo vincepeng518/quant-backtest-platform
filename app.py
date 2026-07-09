@@ -505,6 +505,13 @@ with main_tab1:
             trades = results["trades"]
             metrics = results["metrics"]
 
+            # 存到 session_state，讓切到 MC tab 後還能使用
+            st.session_state["bt_result_df"] = result_df
+            st.session_state["bt_trades"] = trades
+            st.session_state["bt_metrics"] = metrics
+            st.session_state["bt_is_pair"] = is_pair and bool(pair_info)
+            st.session_state["bt_pair_info"] = pair_info
+
             if "error" in metrics:
                 st.warning(metrics["error"])
             else:
@@ -531,6 +538,37 @@ with main_tab1:
 
                 with result_tab5:
                     render_monte_carlo(initial_capital, trades)
+
+    # 即使沒按「▶️ 執行回測」，若有先前結果 → 顯示結果 tabs
+    if not run_single and "bt_result_df" in st.session_state and st.session_state.get("bt_trades"):
+        result_df = st.session_state["bt_result_df"]
+        trades = st.session_state["bt_trades"]
+        metrics = st.session_state["bt_metrics"]
+
+        st.info("📊 顯示先前的回測結果（如需重新執行請按「▶️ 執行回測」）")
+
+        result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
+            "📊 Overview",
+            "📈 Performance Summary",
+            "📋 List of Trades",
+            "🕯️ Charts",
+            "🎲 蒙地卡羅",
+        ])
+
+        with result_tab1:
+            render_overview(metrics, result_df, initial_capital)
+
+        with result_tab2:
+            render_performance_summary(trades, metrics)
+
+        with result_tab3:
+            render_list_of_trades(trades)
+
+        with result_tab4:
+            render_charts(result_df, trades)
+
+        with result_tab5:
+            render_monte_carlo(initial_capital, trades)
 
 
 # ===========================
