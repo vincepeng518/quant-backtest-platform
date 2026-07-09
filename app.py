@@ -14,7 +14,9 @@ import time
 
 from utils.data_fetcher import (
     fetch_crypto_data, load_csv_data,
-    get_available_exchanges, get_timeframes
+    get_available_exchanges, get_timeframes,
+    get_exchange_display_name, get_default_symbol,
+    get_bingx_popular_symbols,
 )
 from utils.backtester import BacktestEngine
 from utils.walk_forward import WalkForwardValidator
@@ -81,32 +83,62 @@ with st.sidebar:
     data_info = ""
 
     if data_source == "加密貨幣 (CCXT)":
+        # 交易所選擇（用顯示名稱）
+        exchange_ids = get_available_exchanges()
+        exchange_labels = {eid: get_exchange_display_name(eid) for eid in exchange_ids}
+        # BingX 預設
+        default_idx = exchange_ids.index("bingx") if "bingx" in exchange_ids else 0
         col1, col2 = st.columns(2)
         with col1:
-            exchange = st.selectbox("交易所", get_available_exchanges(), index=0)
+            selected_exchange = st.selectbox(
+                "交易所",
+                exchange_ids,
+                index=default_idx,
+                format_func=lambda x: f"{exchange_labels.get(x, x)}  ({x})",
+            )
         with col2:
-            symbol = st.text_input("交易對", value="BTC/USDT")
+            # 預設交易對
+            default_sym = get_default_symbol(selected_exchange)
+            symbol = st.text_input("交易對", value=default_sym, key="symbol_input")
+
+        # BingX 熱門交易對快速選擇
+        if selected_exchange == "bingx":
+            popular = get_bingx_popular_symbols()
+            with st.expander("⭐ BingX 熱門交易對快速選擇", expanded=False):
+                st.caption("點擊按鈕快速填入交易對")
+                cols = st.columns(4)
+                for i, sym in enumerate(popular):
+                    with cols[i % 4]:
+                        if st.button(sym, key=f"sym_{sym}", use_container_width=True):
+                            st.session_state["symbol_input"] = sym
+                            st.rerun()
 
         col3, col4 = st.columns(2)
         with col3:
-            timeframe = st.selectbox("時間框架", get_timeframes(), index=4)
+            timeframe = st.selectbox("時間框架", get_timeframes(), index=4, key="timeframe_input")
         with col4:
-            days = st.number_input("回看天數", min_value=7, max_value=1825, value=180)
+            days = st.number_input("回看天數", min_value=7, max_value=1825, value=180, key="days_input")
 
         if st.button("🔄 抓取資料", type="primary", use_container_width=True):
-            with st.spinner(f"正在從 {exchange} 抓取 {symbol} 資料..."):
+            with st.spinner(f"正在從 {get_exchange_display_name(selected_exchange)} 抓取 {symbol} 資料..."):
                 try:
-                    df = fetch_crypto_data(symbol, timeframe, days, exchange)
+                    df = fetch_crypto_data(symbol, timeframe, days, selected_exchange)
                     if df is not None and not df.empty:
                         st.session_state["df"] = df
-                        st.session_state["exchange"] = exchange
+                        st.session_state["exchange"] = selected_exchange
                         st.session_state["symbol"] = symbol
                         st.session_state["timeframe"] = timeframe
-                        st.success(f"✅ 抓取 {len(df):,} 根 K 線")
+                        st.success(f"✅ 從 {get_exchange_display_name(selected_exchange)} 抓取 {len(df):,} 根 K 線")
                     else:
-                        st.error("❌ 抓取失敗：無資料")
+                        st.error("❌ 抓取失敗：無資料（請檢查交易對是否正確）")
+                except ValueError as e:
+                    st.error(f"❌ 參數錯誤: {e}")
+                except ConnectionError as e:
+                    st.error(f"❌ 連線問題: {e}")
+                except RuntimeError as e:
+                    st.error(f"❌ 交易所錯誤: {e}")
                 except Exception as e:
-                    st.error(f"❌ 錯誤: {e}")
+                    st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
 
     else:  # CSV 上傳
         uploaded = st.file_uploader("上傳 CSV 檔案", type=["csv"])
