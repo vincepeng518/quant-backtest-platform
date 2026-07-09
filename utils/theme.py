@@ -359,15 +359,11 @@ a[href*="streamlit.io/cloud"] {{
         padding-top: 0.5rem !important;
     }}
 
-    /* 確保 sidebar 內的「<」收合按鈕浮動在左上、明顯可見 */
+    /* === 手機版：隱藏 streamlit 內建的 sidebar 切換按鈕 === */
+    /* 用戶只需要看我們的浮動 FAB，避免兩個按鈕混淆 */
     [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {{
-        z-index: 999999 !important;
-        background: {theme['primary']} !important;
-        color: white !important;
-        border-radius: 50% !important;
-        width: 40px !important;
-        height: 40px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        display: none !important;
+        visibility: hidden !important;
     }}
 
     /* 當 sidebar 收合時，Streamlit 的展開按鈕 — 顯示在左上角 */

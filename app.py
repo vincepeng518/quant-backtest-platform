@@ -74,65 +74,13 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 # 1. FAB 永遠顯示在左上角，sidebar 開啟時顯示 X（關閉），收合時顯示 ☰（開啟）
 # 2. 點 FAB 切換 sidebar
 # 3. 點主內容區（不含 sidebar 與 FAB）時，若 sidebar 是開啟的就收合它
+# 4. 用 MutationObserver 持續監聽 DOM，確保 FAB 不會被 streamlit 重新渲染清掉
 components.html(
     """
 <script>
 (function() {
-    // SVG 圖示
     var ICON_MENU = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
     var ICON_CLOSE = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="white"/></svg>';
-
-    function tryInject() {
-        if (window.parent.document.getElementById('mobile-hamburger-fab')) {
-            updateFabIcon();
-            return;
-        }
-        if (!window.parent.document.querySelector('[data-testid="stSidebar"]')) {
-            return false;
-        }
-        var btn = window.parent.document.createElement('button');
-        btn.id = 'mobile-hamburger-fab';
-        btn.type = 'button';
-        btn.setAttribute('aria-label', '切換側邊欄');
-        btn.innerHTML = ICON_MENU;
-        window.parent.document.body.appendChild(btn);
-
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSidebar();
-        });
-
-        // 主內容區點擊 → 若 sidebar 開啟則收合
-        // 用 capturing phase 確保優先觸發
-        window.parent.document.addEventListener('click', function(e) {
-            var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-            if (!sidebar) return;
-            var expanded = sidebar.getAttribute('aria-expanded') === 'true';
-            if (!expanded) return;
-            // 點到 sidebar 內、FAB 上 → 略過
-            if (e.target.closest('[data-testid="stSidebar"]')) return;
-            if (e.target.closest('#mobile-hamburger-fab')) return;
-            // 點到 streamlit widget 內（button/input/select/textarea/a）→ 略過
-            // 避免使用者操作 widget 時被誤關 sidebar
-            if (e.target.closest('button') ||
-                e.target.closest('input') ||
-                e.target.closest('select') ||
-                e.target.closest('textarea') ||
-                e.target.closest('a') ||
-                e.target.closest('label') ||
-                e.target.closest('[role="button"]') ||
-                e.target.closest('[role="combobox"]') ||
-                e.target.closest('[role="tab"]')) {
-                return;
-            }
-            // 收合 sidebar
-            toggleSidebar();
-        }, true);
-
-        updateFabIcon();
-        return true;
-    }
 
     function toggleSidebar() {
         var stBtn = window.parent.document.querySelector('button[data-testid="stBaseButton-headerNoPadding"]');
@@ -148,25 +96,122 @@ components.html(
         btn.setAttribute('aria-label', expanded ? '關閉側邊欄' : '開啟側邊欄');
     }
 
-    // 監聽 sidebar 狀態變化 → 更新 FAB 圖示
-    function startObserver() {
-        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar && !sidebar._fabObserved) {
-            sidebar._fabObserved = true;
-            var observer = new MutationObserver(updateFabIcon);
-            observer.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
+    function createFab() {
+        if (window.parent.document.getElementById('mobile-hamburger-fab')) {
+            return null;  // 已存在
         }
+        var btn = window.parent.document.createElement('button');
+        btn.id = 'mobile-hamburger-fab';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', '切換側邊欄');
+        btn.innerHTML = ICON_MENU;
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidebar();
+        });
+        return btn;
     }
 
-    if (!tryInject()) {
-        setTimeout(function() { tryInject(); startObserver(); }, 200);
-        setTimeout(function() { tryInject(); startObserver(); }, 500);
-        setTimeout(function() { tryInject(); startObserver(); }, 1000);
-        setTimeout(function() { tryInject(); startObserver(); }, 2000);
-        setTimeout(function() { tryInject(); startObserver(); }, 4000);
-    } else {
-        setTimeout(startObserver, 1000);
+    function tryInject() {
+        // 等 sidebar 元素出現後再注入
+        if (!window.parent.document.querySelector('[data-testid="stSidebar"]')) {
+            return false;
+        }
+        var existing = window.parent.document.getElementById('mobile-hamburger-fab');
+        if (existing) {
+            updateFabIcon();
+            return true;
+        }
+        var btn = createFab();
+        if (btn) {
+            window.parent.document.body.appendChild(btn);
+            updateFabIcon();
+            return true;
+        }
+        return false;
     }
+
+    // === 全域：點主內容區 → 收合 sidebar ===
+    function setupMainClickHandler() {
+        if (window._fabMainClickInstalled) return;
+        window._fabMainClickInstalled = true;
+        window.parent.document.addEventListener('click', function(e) {
+            var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+            if (!sidebar) return;
+            var expanded = sidebar.getAttribute('aria-expanded') === 'true';
+            if (!expanded) return;
+            // 點到 sidebar 內、FAB 上 → 略過
+            if (e.target.closest('[data-testid="stSidebar"]')) return;
+            if (e.target.closest('#mobile-hamburger-fab')) return;
+            // 點到 streamlit widget 內（button/input/select/textarea/a）→ 略過
+            if (e.target.closest('button') ||
+                e.target.closest('input') ||
+                e.target.closest('select') ||
+                e.target.closest('textarea') ||
+                e.target.closest('a') ||
+                e.target.closest('label') ||
+                e.target.closest('[role="button"]') ||
+                e.target.closest('[role="combobox"]') ||
+                e.target.closest('[role="tab"]')) {
+                return;
+            }
+            // 收合 sidebar
+            toggleSidebar();
+        }, true);
+    }
+
+    // === 持續監聽 DOM 變化，FAB 不見就重建 ===
+    function setupBodyObserver() {
+        if (window._fabBodyObserverInstalled) return;
+        window._fabBodyObserverInstalled = true;
+        var observer = new MutationObserver(function(mutations) {
+            // 檢查 FAB 是否還在
+            if (!window.parent.document.getElementById('mobile-hamburger-fab')) {
+                // 不見了 → 重新注入
+                tryInject();
+            } else {
+                // 還在 → 更新圖示（sidebar 狀態可能變了）
+                updateFabIcon();
+            }
+        });
+        observer.observe(window.parent.document.body, {
+            childList: true,
+            subtree: false  // 只監聽 body 直接子節點
+        });
+        // 監聽 sidebar 的 aria-expanded 變化
+        var sidebarObserver = new MutationObserver(updateFabIcon);
+        function observeSidebar() {
+            var sb = window.parent.document.querySelector('[data-testid="stSidebar"]');
+            if (sb && !sb._fabObserved) {
+                sb._fabObserved = true;
+                sidebarObserver.observe(sb, { attributes: true, attributeFilter: ['aria-expanded'] });
+            }
+        }
+        observeSidebar();
+        // 持續檢查 sidebar（streamlit 重渲染時 sidebar 會被替換）
+        setInterval(function() {
+            observeSidebar();
+            if (!window.parent.document.getElementById('mobile-hamburger-fab')) {
+                tryInject();
+            }
+        }, 500);
+    }
+
+    // === 啟動 ===
+    setupMainClickHandler();
+
+    // 多重 retry 確保一定注入
+    if (!tryInject()) {
+        setTimeout(tryInject, 200);
+        setTimeout(tryInject, 500);
+        setTimeout(tryInject, 1000);
+        setTimeout(tryInject, 2000);
+        setTimeout(tryInject, 4000);
+    }
+    // 等 sidebar 出來後啟動 observer
+    setTimeout(setupBodyObserver, 1000);
+    setTimeout(setupBodyObserver, 3000);
 })();
 </script>
 """,
