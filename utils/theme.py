@@ -185,7 +185,15 @@ h3 {{
 [data-testid="stSidebar"] {{
     background: {theme['bg_subtle']};
     border-right: 1px solid {theme['border']};
+    color: {theme['text_primary']} !important;
 }}
+/* 深色模式：強制覆蓋 streamlit 預設的深色文字 */
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] .stMarkdown {{
+    color: {theme['text_primary']} !important;
+}}
+/* 淺色模式：sidebar header (h2) 用 secondary 顏色 */
 [data-testid="stSidebar"] h2 {{
     font-size: 0.75rem !important;
     font-weight: 600 !important;

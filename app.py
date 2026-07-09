@@ -87,6 +87,21 @@ components.html(
         if (stBtn) stBtn.click();
     }
 
+    function updateFabPosition() {
+        var fab = window.parent.document.getElementById('mobile-hamburger-fab');
+        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (!fab || !sidebar) return;
+
+        // 用 CSS class 控制顯示/位置（CSS 處理大多數情境）
+        // 這裡只處理「sidebar 寬度不是 300px」的特殊情境
+        // 動態計算：sidebar 寬度 - 44 - 8 = FAB 的 left
+        var sbWidth = sidebar.getBoundingClientRect().width;
+        if (sbWidth > 0) {
+            var fabLeft = sbWidth - 44 - 8;
+            fab.style.setProperty('left', fabLeft + 'px', 'important');
+        }
+    }
+
     function updateFabIcon() {
         var btn = window.parent.document.getElementById('mobile-hamburger-fab');
         var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
@@ -100,6 +115,8 @@ components.html(
         } else {
             window.parent.document.body.classList.add('sidebar-collapsed');
         }
+        // 動態更新 FAB 位置
+        updateFabPosition();
     }
 
     function createFab() {
@@ -200,6 +217,8 @@ components.html(
             observeSidebar();
             if (!window.parent.document.getElementById('mobile-hamburger-fab')) {
                 tryInject();
+            } else {
+                updateFabPosition();  // 動態調整位置
             }
         }, 500);
     }
