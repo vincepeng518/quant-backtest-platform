@@ -286,10 +286,64 @@ hr {{
     font-size: 0.8125rem !important;
 }}
 
-/* === 隱藏預設 UI 元素 === */
+/* === 隱藏預設 UI 元素（但保留 sidebar 展開按鈕） === */
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
-[data-testid="stToolbar"] {{visibility: hidden;}}
+/* 隱藏右上角裝飾 */
 [data-testid="stDecoration"] {{visibility: hidden;}}
+/* 隱藏 toolbar 內的特定按鈕（MainMenu、Deploy 等） */
+[data-testid="stMainMenuButton"] {{visibility: hidden;}}
+[data-testid="stBaseButton-header"] {{visibility: hidden;}}
+[data-testid="stBaseButton-headerNoPadding"] {{
+    color: {theme['primary']} !important;
+}}
+
+/* === 手機版：明顯的 sidebar 展開按鈕 === */
+@media (max-width: 768px) {{
+    /* 主內容區加大左 padding 避免被浮動按鈕擋住 */
+    .main .block-container {{
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }}
+
+    /* 確保 sidebar 內的「<」收合按鈕浮動在左上、明顯可見 */
+    [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {{
+        z-index: 999999 !important;
+        background: {theme['primary']} !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }}
+
+    /* 當 sidebar 收合時，Streamlit 的展開按鈕 — 顯示在左上角 */
+    [data-testid="stExpandSidebarButton"] {{
+        visibility: visible !important;
+        position: fixed !important;
+        top: 12px !important;
+        left: 12px !important;
+        z-index: 999998 !important;
+        background: {theme['primary']} !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+        border: 2px solid white !important;
+    }}
+    [data-testid="stExpandSidebarButton"] svg {{
+        color: white !important;
+        fill: white !important;
+    }}
+}}
+
+/* === 桌面版：隱藏 toolbar 內的展開按鈕（用 sidebar 內的「<」就好） === */
+@media (min-width: 769px) {{
+    [data-testid="stExpandSidebarButton"] {{display: none;}}
+    [data-testid="stToolbar"] {{visibility: hidden;}}
+}}
 </style>
 """
