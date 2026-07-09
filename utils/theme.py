@@ -460,7 +460,7 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     fill: white !important;
 }}
 
-/* === 浮動漢堡按鈕（sidebar 收合時顯示） === */
+/* === 浮動漢堡按鈕（永遠顯示，sidebar 開啟時變成 X 表示關閉） === */
 #mobile-hamburger-fab {{
     position: fixed;
     top: 12px;
@@ -475,7 +475,7 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
     color: white;
     border: 2px solid white;
     box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-    display: none;          /* 預設隱藏 */
+    display: flex;          /* 永遠顯示 */
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -492,10 +492,6 @@ button[data-testid="stBaseButton-headerNoPadding"] svg {{
 }}
 #mobile-hamburger-fab:active {{
     transform: scale(0.95);
-}}
-/* 當 sidebar 收合（aria-expanded=false）→ 顯示浮動按鈕 */
-body.sidebar-collapsed #mobile-hamburger-fab {{
-    display: flex !important;
 }}
 #mobile-hamburger-fab svg {{
     width: 22px;

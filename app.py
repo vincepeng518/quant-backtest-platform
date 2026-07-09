@@ -70,59 +70,102 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
 # === 注入浮動漢堡按鈕（用 components.html 確保 JS 一定會跑） ===
-# 雖然 streamlit 的 <script> 有時不會被執行，
-# 但 components.html 一定會被執行（在 iframe sandbox 內）
-# 用它來觸發主視窗的 DOM 操作
+# 功能：
+# 1. FAB 永遠顯示在左上角，sidebar 開啟時顯示 X（關閉），收合時顯示 ☰（開啟）
+# 2. 點 FAB 切換 sidebar
+# 3. 點主內容區（不含 sidebar 與 FAB）時，若 sidebar 是開啟的就收合它
 components.html(
     """
 <script>
 (function() {
+    // SVG 圖示
+    var ICON_MENU = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
+    var ICON_CLOSE = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="white"/></svg>';
+
     function tryInject() {
         if (window.parent.document.getElementById('mobile-hamburger-fab')) {
-            return;  // 已存在
+            updateFabIcon();
+            return;
         }
-        // 確認主視窗有 sidebar
         if (!window.parent.document.querySelector('[data-testid="stSidebar"]')) {
             return false;
         }
         var btn = window.parent.document.createElement('button');
         btn.id = 'mobile-hamburger-fab';
         btn.type = 'button';
-        btn.setAttribute('aria-label', '開啟側邊欄');
-        btn.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
+        btn.setAttribute('aria-label', '切換側邊欄');
+        btn.innerHTML = ICON_MENU;
         window.parent.document.body.appendChild(btn);
 
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            var stBtn = window.parent.document.querySelector('button[data-testid="stBaseButton-headerNoPadding"]');
-            if (stBtn) stBtn.click();
+            toggleSidebar();
         });
 
-        // 啟動觀察器（讓 body class 跟著 sidebar 狀態變化）
-        function updateSidebarState() {
+        // 主內容區點擊 → 若 sidebar 開啟則收合
+        // 用 capturing phase 確保優先觸發
+        window.parent.document.addEventListener('click', function(e) {
             var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
             if (!sidebar) return;
             var expanded = sidebar.getAttribute('aria-expanded') === 'true';
-            if (expanded) {
-                window.parent.document.body.classList.remove('sidebar-collapsed');
-            } else {
-                window.parent.document.body.classList.add('sidebar-collapsed');
+            if (!expanded) return;
+            // 點到 sidebar 內、FAB 上 → 略過
+            if (e.target.closest('[data-testid="stSidebar"]')) return;
+            if (e.target.closest('#mobile-hamburger-fab')) return;
+            // 點到 streamlit widget 內（button/input/select/textarea/a）→ 略過
+            // 避免使用者操作 widget 時被誤關 sidebar
+            if (e.target.closest('button') ||
+                e.target.closest('input') ||
+                e.target.closest('select') ||
+                e.target.closest('textarea') ||
+                e.target.closest('a') ||
+                e.target.closest('label') ||
+                e.target.closest('[role="button"]') ||
+                e.target.closest('[role="combobox"]') ||
+                e.target.closest('[role="tab"]')) {
+                return;
             }
-        }
-        var observer = new MutationObserver(updateSidebarState);
-        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-        observer.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
-        updateSidebarState();
-        setInterval(updateSidebarState, 1000);
+            // 收合 sidebar
+            toggleSidebar();
+        }, true);
+
+        updateFabIcon();
         return true;
     }
+
+    function toggleSidebar() {
+        var stBtn = window.parent.document.querySelector('button[data-testid="stBaseButton-headerNoPadding"]');
+        if (stBtn) stBtn.click();
+    }
+
+    function updateFabIcon() {
+        var btn = window.parent.document.getElementById('mobile-hamburger-fab');
+        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (!btn || !sidebar) return;
+        var expanded = sidebar.getAttribute('aria-expanded') === 'true';
+        btn.innerHTML = expanded ? ICON_CLOSE : ICON_MENU;
+        btn.setAttribute('aria-label', expanded ? '關閉側邊欄' : '開啟側邊欄');
+    }
+
+    // 監聽 sidebar 狀態變化 → 更新 FAB 圖示
+    function startObserver() {
+        var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar && !sidebar._fabObserved) {
+            sidebar._fabObserved = true;
+            var observer = new MutationObserver(updateFabIcon);
+            observer.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
+        }
+    }
+
     if (!tryInject()) {
-        setTimeout(tryInject, 200);
-        setTimeout(tryInject, 500);
-        setTimeout(tryInject, 1000);
-        setTimeout(tryInject, 2000);
-        setTimeout(tryInject, 4000);
+        setTimeout(function() { tryInject(); startObserver(); }, 200);
+        setTimeout(function() { tryInject(); startObserver(); }, 500);
+        setTimeout(function() { tryInject(); startObserver(); }, 1000);
+        setTimeout(function() { tryInject(); startObserver(); }, 2000);
+        setTimeout(function() { tryInject(); startObserver(); }, 4000);
+    } else {
+        setTimeout(startObserver, 1000);
     }
 })();
 </script>
