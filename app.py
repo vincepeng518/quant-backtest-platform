@@ -938,9 +938,9 @@ with main_tab2:
 
     # === 可見性（放在外面，label + widget 並排格式）===
     st.markdown("**👁️ 可見性**")
-    vis_left, vis_right = st.columns([1, 2])
+    vis_left, vis_right = st.columns([1, 3])
     with vis_left:
-        st.markdown("<div style='padding-top: 8px;'>搜尋方法</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>搜尋方法</div>", unsafe_allow_html=True)
     with vis_right:
         search_method = st.radio(
             "搜尋方法",
@@ -950,9 +950,9 @@ with main_tab2:
         )
     method_code = "grid" if "網格" in search_method else "random"
 
-    vis_left2, vis_right2 = st.columns([1, 2])
+    vis_left2, vis_right2 = st.columns([1, 3])
     with vis_left2:
-        st.markdown("<div style='padding-top: 8px;'>優化目標</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>優化目標</div>", unsafe_allow_html=True)
     with vis_right2:
         opt_metric = st.selectbox(
             "優化目標",
@@ -962,9 +962,9 @@ with main_tab2:
         )
 
     if method_code == "random":
-        vis_left3, vis_right3 = st.columns([1, 2])
+        vis_left3, vis_right3 = st.columns([1, 3])
         with vis_left3:
-            st.markdown("<div style='padding-top: 8px;'>迭代次數</div>", unsafe_allow_html=True)
+            st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>迭代次數</div>", unsafe_allow_html=True)
         with vis_right3:
             n_iter = st.number_input("迭代次數", min_value=10, max_value=2000, value=100,
                                      key="opt_n_iter", label_visibility="collapsed")
@@ -1229,30 +1229,30 @@ with main_tab3:
 
     # === 可見性（放在外面，label + widget 並排格式）===
     st.markdown("**👁️ 可見性**")
-    vis_left1, vis_right1 = st.columns([1, 2])
+    vis_left1, vis_right1 = st.columns([1, 3])
     with vis_left1:
-        st.markdown("<div style='padding-top: 8px;'>切分數量</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>切分數量</div>", unsafe_allow_html=True)
     with vis_right1:
         n_splits = st.slider("切分數量", min_value=3, max_value=10, value=5, key="wf_n_splits",
                               label_visibility="collapsed")
 
-    vis_left2, vis_right2 = st.columns([1, 2])
+    vis_left2, vis_right2 = st.columns([1, 3])
     with vis_left2:
-        st.markdown("<div style='padding-top: 8px;'>訓練集佔比</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>訓練集佔比</div>", unsafe_allow_html=True)
     with vis_right2:
         train_ratio = st.slider("訓練集佔比", min_value=0.5, max_value=0.9, value=0.7, step=0.05,
                                  key="wf_train_ratio", label_visibility="collapsed")
 
-    vis_left3, vis_right3 = st.columns([1, 2])
+    vis_left3, vis_right3 = st.columns([1, 3])
     with vis_left3:
-        st.markdown("<div style='padding-top: 8px;'>錨定窗口</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>錨定窗口</div>", unsafe_allow_html=True)
     with vis_right3:
         anchored = st.checkbox("錨定窗口（從頭開始）", value=False, key="wf_anchored",
                                 label_visibility="collapsed")
 
-    vis_left4, vis_right4 = st.columns([1, 2])
+    vis_left4, vis_right4 = st.columns([1, 3])
     with vis_left4:
-        st.markdown("<div style='padding-top: 8px;'>優化目標</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>優化目標</div>", unsafe_allow_html=True)
     with vis_right4:
         wf_metric = st.selectbox(
             "優化目標",
