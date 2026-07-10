@@ -76,7 +76,9 @@ def calc_alpha(strategy_return: float, buy_hold_return: float) -> float:
 def _palette() -> Dict[str, str]:
     t = get_current_theme()
     return {
-        "bg": t["bg"],
+        # 向下相容：保留 'bg' 別名
+        "bg": t.get("bg") or t.get("bg_primary", "#131722"),
+        "bg_primary": t.get("bg_primary", "#131722"),
         "bg_subtle": t["bg_subtle"],
         "bg_card": t["bg_card"],
         "border": t["border"],
@@ -85,6 +87,7 @@ def _palette() -> Dict[str, str]:
         "text_secondary": t["text_secondary"],
         "text_muted": t["text_muted"],
         "primary": t["primary"],
+        "primary_hover": t.get("primary_hover", t["primary"]),
         "green": t["green"],
         "green_light": t["green_light"],
         "green_text": t["green_text"],
@@ -96,6 +99,9 @@ def _palette() -> Dict[str, str]:
         "purple": t["purple"],
         "font_family": t["font_family"],
         "font_mono": t["font_mono"],
+        "shadow": t.get("shadow", "none"),
+        "shadow_strong": t.get("shadow_strong", t.get("shadow", "none")),
+        "radius": t.get("radius", "8px"),
     }
 
 
