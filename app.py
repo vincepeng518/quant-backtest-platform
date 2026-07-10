@@ -563,58 +563,142 @@ components.html(
 
 
 
-# === 側邊欄：資料來源 ===
+# === 側邊欄 ===
+# v10 改進：分區塊折疊收納，減少視覺壓迫感
+# 區塊 1：交易所與基本設定（預設展開）
+# 區塊 2：回測時間與數據（預設展開）
+# 區塊 3：策略核心參數（預設展開）
+# 進階（策略管理、BingX 熱門）內嵌 expander 折疊
 with st.sidebar:
-    st.markdown(section_header("資料來源", "", current_theme, size="md"), unsafe_allow_html=True)
+    # === 區塊 1：交易所與基本設定 ===
+    with st.expander("🏛️ 交易所與基本設定", expanded=True):
+        data_source = st.radio(
+            "選擇資料來源",
+            ["加密貨幣 (CCXT)", "上傳 CSV", "配對交易 (Pair)"],
+            index=0,
+            help="選擇要回測的標的類型（加密貨幣即時抓取 / CSV 上傳 / 配對交易）",
+        )
+        is_pair_trading = (data_source == "配對交易 (Pair)")
 
-    data_source = st.radio(
-        "選擇資料來源",
-        ["加密貨幣 (CCXT)", "上傳 CSV", "配對交易 (Pair)"],
-        index=0,
-    )
-
-    is_pair_trading = (data_source == "配對交易 (Pair)")
-
-    df = None
-    data_info = ""
-
-    if data_source == "加密貨幣 (CCXT)":
-        exchange_ids = get_available_exchanges()
-        exchange_labels = {eid: get_exchange_display_name(eid) for eid in exchange_ids}
-        default_idx = exchange_ids.index("bingx") if "bingx" in exchange_ids else 0
-        col1, col2 = st.columns(2)
-        with col1:
+        if data_source == "加密貨幣 (CCXT)":
+            exchange_ids = get_available_exchanges()
+            exchange_labels = {eid: get_exchange_display_name(eid) for eid in exchange_ids}
+            default_idx = exchange_ids.index("bingx") if "bingx" in exchange_ids else 0
             selected_exchange = st.selectbox(
                 "交易所",
                 exchange_ids,
                 index=default_idx,
                 format_func=lambda x: f"{exchange_labels.get(x, x)}  ({x})",
+                help="選擇要抓取資料的交易所",
             )
-        with col2:
             default_sym = get_default_symbol(selected_exchange)
-            symbol = st.text_input("交易對", value=default_sym, key="symbol_input")
+            symbol = st.text_input(
+                "交易對",
+                value=default_sym,
+                key="symbol_input",
+                placeholder="例如: BTC/USDT",
+                help="輸入想回測的交易對代號，格式: 基礎幣/報價幣（如 BTC/USDT）",
+            )
 
-        if selected_exchange == "bingx":
-            popular = get_bingx_popular_symbols()
-            with st.expander("⭐ BingX 熱門交易對", expanded=False):
-                st.caption("點擊按鈕快速填入交易對")
-                for i in range(0, len(popular), 2):
-                    cols = st.columns(2)
-                    for j, item in enumerate(popular[i:i+2]):
-                        with cols[j]:
-                            label = f"**{item['short']}**"
-                            if st.button(label, key=f"sym_{item['full']}",
-                                          use_container_width=True):
-                                st.session_state["symbol_input"] = item["full"]
-                                st.rerun()
+            if selected_exchange == "bingx":
+                popular = get_bingx_popular_symbols()
+                with st.expander("⭐ BingX 熱門交易對（快速填入）", expanded=False):
+                    st.caption("點擊按鈕快速填入交易對")
+                    for i in range(0, len(popular), 2):
+                        cols = st.columns(2)
+                        for j, item in enumerate(popular[i:i+2]):
+                            with cols[j]:
+                                label = f"**{item['short']}**"
+                                if st.button(label, key=f"sym_{item['full']}",
+                                              use_container_width=True):
+                                    st.session_state["symbol_input"] = item["full"]
+                                    st.rerun()
 
-        col3, col4 = st.columns(2)
-        with col3:
-            timeframe = st.selectbox("時間框架", get_timeframes(), index=4, key="timeframe_input")
-        with col4:
-            days = st.number_input("回看天數", min_value=7, max_value=1825, value=180, key="days_input")
+        elif data_source == "上傳 CSV":
+            uploaded = st.file_uploader(
+                "上傳 CSV 檔案",
+                type=["csv"],
+                help="CSV 需含欄位: open, high, low, close（volume 選填）",
+            )
+            if uploaded is not None:
+                try:
+                    df = load_csv_data(uploaded)
+                    if df is not None and not df.empty:
+                        st.session_state["df"] = df
+                        st.session_state["is_pair"] = False
+                        st.session_state["current_step"] = 1
+                        st.success(f"✅ 載入 {len(df):,} 筆資料")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"❌ {e}")
 
-        if st.button("🔄 抓取資料", type="primary", use_container_width=True):
+        elif data_source == "配對交易 (Pair)":
+            st.caption("配對交易：同時下兩個反向部位")
+            pair_templates = get_pair_templates()
+            pair_labels = {p["name"]: p for p in pair_templates}
+            selected_pair_name = st.selectbox(
+                "選擇配對組合",
+                list(pair_labels.keys()),
+                index=0,
+                help="選擇內建的配對交易組合（如 BTC/ETH 比率）",
+            )
+            selected_pair = pair_labels[selected_pair_name]
+            st.caption(f"📊 {selected_pair['symbol1']} vs {selected_pair['symbol2']}")
+
+    df = None
+
+    # === 區塊 2：回測時間與數據 ===
+    with st.expander("📅 回測時間與數據", expanded=True):
+        if data_source == "加密貨幣 (CCXT)":
+            timeframe = st.selectbox(
+                "時間框架",
+                get_timeframes(),
+                index=4,
+                key="timeframe_input",
+                help="K 線週期：1m, 5m, 15m, 1h, 4h, 1d, 1w 等",
+            )
+            days = st.number_input(
+                "回看天數",
+                min_value=7,
+                max_value=1825,
+                value=180,
+                step=7,
+                key="days_input",
+                help="回測歷史資料的天數（最少 7 天，最多 5 年）",
+            )
+        elif data_source == "配對交易 (Pair)":
+            pc1, pc2 = st.columns(2, gap="small")
+            with pc1:
+                pair_exchange = st.selectbox(
+                    "交易所",
+                    get_available_exchanges(),
+                    index=0,
+                    format_func=lambda x: f"{get_exchange_display_name(x)} ({x})",
+                    key="pair_exchange",
+                    help="配對標的使用的交易所",
+                )
+            with pc2:
+                pair_timeframe = st.selectbox(
+                    "時間框架",
+                    get_timeframes(),
+                    index=4,
+                    key="pair_timeframe",
+                    help="配對標的的 K 線週期",
+                )
+            pair_days = st.number_input(
+                "回看天數",
+                min_value=7,
+                max_value=1825,
+                value=30,
+                step=7,
+                key="pair_days",
+                help="配對回測歷史天數（最少 7 天，最多 5 年）",
+            )
+
+    # === 核心動作按鈕：放最顯眼處（不藏在 expander 內）===
+    if data_source == "加密貨幣 (CCXT)":
+        if st.button("🔄 抓取資料", type="primary", use_container_width=True,
+                     help=f"從 {get_exchange_display_name(selected_exchange)} 抓取 {symbol} 的 {timeframe} K 線"):
             with st.spinner(f"正在從 {get_exchange_display_name(selected_exchange)} 抓取 {symbol} 資料..."):
                 try:
                     df = fetch_crypto_data(symbol, timeframe, days, selected_exchange)
@@ -624,7 +708,6 @@ with st.sidebar:
                         st.session_state["symbol"] = symbol
                         st.session_state["timeframe"] = timeframe
                         st.session_state["is_pair"] = False
-                        # v9：載入成功 → 自動前進步進器到「選擇策略」
                         st.session_state["current_step"] = 1
                         st.success(f"✅ 從 {get_exchange_display_name(selected_exchange)} 抓取 {len(df):,} 根 K 線")
                         st.rerun()
@@ -639,27 +722,21 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
 
-        # 測試資料按鈕：生成固定 K 線，不用網路抓取
-        if st.button("一鍵測試資料", use_container_width=True, help="生成 500 根固定 seed 的模擬 K 線，無需網路"):
+        if st.button("⚡ 一鍵測試資料", use_container_width=True,
+                     help="生成 500 根固定 seed 的模擬 K 線，無需網路（適合快速體驗）"):
             try:
                 np.random.seed(42)
                 n = 500
-                # 用幾何布朗運動模擬 BTC 價格
                 base_price = 30000
                 returns = np.random.normal(0.0005, 0.02, n)
                 close = base_price * np.exp(np.cumsum(returns))
-                # 生成對應的 OHLCV
                 high = close * (1 + np.abs(np.random.normal(0, 0.005, n)))
                 low = close * (1 - np.abs(np.random.normal(0, 0.005, n)))
                 open_ = np.roll(close, 1)
                 open_[0] = base_price
                 volume = np.random.uniform(100, 1000, n)
                 test_df = pd.DataFrame({
-                    "open": open_,
-                    "high": high,
-                    "low": low,
-                    "close": close,
-                    "volume": volume,
+                    "open": open_, "high": high, "low": low, "close": close, "volume": volume,
                 }, index=pd.date_range("2024-01-01", periods=n, freq="1D"))
                 st.session_state["df"] = test_df
                 st.session_state["is_pair"] = False
@@ -667,88 +744,49 @@ with st.sidebar:
                 st.session_state["exchange"] = "synthetic"
                 st.session_state["timeframe"] = "1d"
                 st.session_state.pop("pair_info", None)
-                # v9：載入成功 → 自動前進步進器到「選擇策略」
                 st.session_state["current_step"] = 1
-                st.success(f"✅ 已生成 {len(test_df):,} 根測試 K 線（價格 ${close[0]:,.0f} → ${close[-1]:,.0f}）")
+                st.success(f"✅ 已生成 {len(test_df):,} 根測試 K 線（${close[0]:,.0f} → ${close[-1]:,.0f}）")
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ 生成測試資料失敗: {e}")
 
-    else:  # CSV 上傳 or 配對交易
-        if data_source == "上傳 CSV":
-            uploaded = st.file_uploader("上傳 CSV 檔案", type=["csv"])
-            if uploaded is not None:
+    elif data_source == "配對交易 (Pair)":
+        if st.button("🔄 抓取配對資料", type="primary", use_container_width=True,
+                     help=f"抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料"):
+            with st.spinner(f"正在抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料..."):
                 try:
-                    df = load_csv_data(uploaded)
-                    if df is not None and not df.empty:
-                        st.session_state["df"] = df
-                        st.session_state["is_pair"] = False
-                        # v9：載入成功 → 自動前進步進器到「選擇策略」
+                    pair_df = fetch_pair_data(
+                        selected_pair["symbol1"],
+                        selected_pair["symbol2"],
+                        pair_timeframe,
+                        pair_days,
+                        pair_exchange,
+                    )
+                    if pair_df is not None and not pair_df.empty:
+                        st.session_state["df"] = pair_df
+                        st.session_state["is_pair"] = True
+                        st.session_state["pair_info"] = selected_pair
                         st.session_state["current_step"] = 1
-                        st.success(f"✅ 載入 {len(df):,} 筆資料")
+                        st.success(f"✅ 抓取 {len(pair_df):,} 根配對 K 線")
                         st.rerun()
+                    else:
+                        st.error("❌ 抓取失敗")
                 except Exception as e:
                     st.error(f"❌ {e}")
 
-        elif data_source == "配對交易 (Pair)":
-            st.caption("配對交易：同時下兩個反向部位")
-
-            pair_templates = get_pair_templates()
-            pair_labels = {p["name"]: p for p in pair_templates}
-            selected_pair_name = st.selectbox(
-                "選擇配對組合",
-                list(pair_labels.keys()),
-                index=0,
-            )
-            selected_pair = pair_labels[selected_pair_name]
-            st.caption(f"{selected_pair['symbol1']} vs {selected_pair['symbol2']}")
-
-            pc1, pc2 = st.columns(2)
-            with pc1:
-                pair_exchange = st.selectbox("交易所", get_available_exchanges(), index=0,
-                                              format_func=lambda x: f"{get_exchange_display_name(x)} ({x})",
-                                              key="pair_exchange")
-            with pc2:
-                pair_timeframe = st.selectbox("時間框架", get_timeframes(), index=4, key="pair_timeframe")
-
-            pair_days = st.number_input("回看天數", min_value=7, max_value=1825, value=30, key="pair_days")
-
-            if st.button("🔄 抓取配對資料", type="primary", use_container_width=True):
-                with st.spinner(f"正在抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料..."):
-                    try:
-                        pair_df = fetch_pair_data(
-                            selected_pair["symbol1"],
-                            selected_pair["symbol2"],
-                            pair_timeframe,
-                            pair_days,
-                            pair_exchange,
-                        )
-                        if pair_df is not None and not pair_df.empty:
-                            st.session_state["df"] = pair_df
-                            st.session_state["is_pair"] = True
-                            st.session_state["pair_info"] = selected_pair
-                            # v9：載入成功 → 自動前進步進器到「選擇策略」
-                            st.session_state["current_step"] = 1
-                            st.success(f"✅ 抓取 {len(pair_df):,} 根配對 K 線")
-                            st.rerun()
-                        else:
-                            st.error("❌ 抓取失敗")
-                    except Exception as e:
-                        st.error(f"❌ {e}")
-
+    # === 載入狀態顯示（如果有資料） ===
     if "df" in st.session_state and df is None:
         df = st.session_state["df"]
         is_pair = st.session_state.get("is_pair", False)
         if is_pair:
             pair_info = st.session_state.get("pair_info", {})
-            st.info(f"配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
+            st.success(f"📦 配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
         else:
-            st.info(f"已載入快取資料：{len(df):,} 根 K 線")
-        if st.button("清除資料", use_container_width=True):
+            st.success(f"📦 已載入快取資料：{len(df):,} 根 K 線")
+        if st.button("🗑️ 清除資料", use_container_width=True, help="清除目前載入的資料並重置步進器"):
             del st.session_state["df"]
             st.session_state["is_pair"] = False
             st.session_state.pop("pair_info", None)
-            # v9：清除資料 → 重置步進器回步驟 0
             st.session_state["current_step"] = 0
             st.rerun()
 
@@ -756,15 +794,12 @@ with st.sidebar:
         data_info = f"{len(df):,} 根 K 線 | {df.index[0].strftime('%Y-%m-%d')} → {df.index[-1].strftime('%Y-%m-%d')}"
         st.caption(data_info)
 
-    st.divider()
+    # === 進階：策略管理（折疊收納，預設關閉）===
+    with st.expander("🧩 策略管理（進階）", expanded=False):
+        st.caption("管理自訂策略：上傳 .py / 貼上代碼 / 載入社群範本")
 
-    st.markdown(section_header("策略管理", "", current_theme, size="md"), unsafe_allow_html=True)
-
-    if "user_strategies" not in st.session_state:
-        st.session_state["user_strategies"] = {}
-
-    with st.expander("上傳 / 貼上策略", expanded=False):
-        st.caption("三種方式加入策略到「我的策略庫」")
+        if "user_strategies" not in st.session_state:
+            st.session_state["user_strategies"] = {}
 
         st.markdown("**① 上傳 .py 檔案**")
         uploaded_files = st.file_uploader(
@@ -772,6 +807,7 @@ with st.sidebar:
             type=["py"],
             accept_multiple_files=True,
             key="strategy_uploader",
+            help="上傳自訂策略的 Python 檔案",
         )
         if uploaded_files:
             for f in uploaded_files:
@@ -785,15 +821,23 @@ with st.sidebar:
                 else:
                     st.error(result)
 
-        st.divider()
-
         st.markdown("**② 貼上 Python 代碼**")
         pasted_code = st.text_area(
-            "貼上策略代碼", height=120, key="pasted_strategy",
+            "貼上策略代碼",
+            height=120,
+            key="pasted_strategy",
             placeholder="def generate_signals(df, params):\n    ...",
+            help="貼上策略的 Python 代碼（需含 generate_signals 函數）",
         )
-        pasted_name = st.text_input("策略名稱", value="我的策略", key="pasted_name")
-        if st.button("加入到策略庫", use_container_width=True):
+        pasted_name = st.text_input(
+            "策略名稱",
+            value="我的策略",
+            key="pasted_name",
+            placeholder="給這個策略取個名字",
+            help="策略在策略庫中顯示的名稱",
+        )
+        if st.button("➕ 加入到策略庫", use_container_width=True, key="add_pasted_strategy",
+                     help="將貼上的代碼加入「我的策略庫」"):
             if not pasted_code.strip():
                 st.error("請貼上代碼")
             else:
@@ -806,8 +850,6 @@ with st.sidebar:
                 else:
                     st.error(result)
 
-        st.divider()
-
         st.markdown("**③ 一鍵載入社群策略範本**")
         st.caption("內建 4 個進階策略範本")
         sample_cols = st.columns(2)
@@ -815,50 +857,90 @@ with st.sidebar:
         for i, sname in enumerate(sample_names):
             with sample_cols[i % 2]:
                 if sname not in st.session_state["user_strategies"]:
-                    if st.button(f"{sname}", key=f"add_sample_{i}",
-                                  use_container_width=True):
+                    if st.button(f"📥 {sname}", key=f"add_sample_{i}",
+                                  use_container_width=True,
+                                  help=f"載入「{sname}」範本到策略庫"):
                         st.session_state["user_strategies"][sname] = SAMPLE_STRATEGIES[sname]
                         st.success(f"✅ 已加入: {sname}")
                         st.rerun()
                 else:
-                    st.button(f"{sname}", key=f"has_sample_{i}",
-                              disabled=True, use_container_width=True)
+                    st.button(f"✓ {sname}", key=f"has_sample_{i}",
+                              disabled=True, use_container_width=True,
+                              help="已在策略庫中")
 
-    if st.session_state["user_strategies"]:
-        st.markdown("**我的策略庫**")
-        for sname in list(st.session_state["user_strategies"].keys()):
-            col_s1, col_s2 = st.columns([4, 1])
-            with col_s1:
-                st.caption(f"{sname}")
-            with col_s2:
-                if st.button("刪除", key=f"del_{sname}", help=f"刪除 {sname}"):
-                    del st.session_state["user_strategies"][sname]
-                    st.rerun()
+        if st.session_state["user_strategies"]:
+            st.markdown("**📚 我的策略庫**")
+            for sname in list(st.session_state["user_strategies"].keys()):
+                col_s1, col_s2 = st.columns([4, 1])
+                with col_s1:
+                    st.caption(f"• {sname}")
+                with col_s2:
+                    if st.button("刪除", key=f"del_{sname}", help=f"刪除 {sname}"):
+                        del st.session_state["user_strategies"][sname]
+                        st.rerun()
 
     st.divider()
 
-    st.markdown(section_header("回測參數", "", current_theme, size="md"), unsafe_allow_html=True)
-    initial_capital = st.number_input("初始資金 (USDT)", min_value=100.0, value=10000.0, step=1000.0)
-    commission_pct = st.number_input("手續費 (%)", min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100
-    slippage_pct = st.number_input("滑點 (%)", min_value=0.0, max_value=2.0, value=0.05, step=0.01) / 100
+    # === 區塊 3：策略核心參數（回測設定） ===
+    with st.expander("⚙️ 策略核心參數（回測設定）", expanded=True):
+        initial_capital = st.number_input(
+            "初始資金 (USDT)",
+            min_value=100.0,
+            max_value=10_000_000.0,
+            value=10000.0,
+            step=1000.0,
+            help="回測起始資金（最少 100，最多 1,000 萬 USDT）",
+        )
+        fee_col1, fee_col2 = st.columns(2, gap="small")
+        with fee_col1:
+            commission_pct = st.number_input(
+                "手續費 (%)",
+                min_value=0.0,
+                max_value=5.0,
+                value=0.1,
+                step=0.05,
+                help="每筆交易的單邊手續費率（0-5%）",
+            ) / 100
+        with fee_col2:
+            slippage_pct = st.number_input(
+                "滑點 (%)",
+                min_value=0.0,
+                max_value=2.0,
+                value=0.05,
+                step=0.01,
+                help="每筆交易的單邊滑點（0-2%）",
+            ) / 100
 
-    # direction 由 strategy 自動決定（不讓用戶選）：
-    # - 如果 strategy 回傳 4 個 series (long_entries, long_exits, short_entries, short_exits)
-    #   → 自動用 long_short 模式
-    # - 否則 → 預設 long 模式
-    # 這裡先預設 long，執行回測時再依 strategy 結果自動切換
-    direction_code = "long"
+        use_sl_tp = st.checkbox(
+            "啟用停損/停利",
+            value=False,
+            help="勾選後可設定停損（SL）與停利（TP）百分比",
+        )
+        if use_sl_tp:
+            sl_tp_col1, sl_tp_col2 = st.columns(2, gap="small")
+            with sl_tp_col1:
+                stop_loss = st.number_input(
+                    "停損 (%)",
+                    min_value=0.1,
+                    max_value=50.0,
+                    value=2.0,
+                    step=0.5,
+                    help="觸發停損的虧損百分比（0.1-50%）",
+                ) / 100
+            with sl_tp_col2:
+                take_profit = st.number_input(
+                    "停利 (%)",
+                    min_value=0.1,
+                    max_value=100.0,
+                    value=4.0,
+                    step=0.5,
+                    help="觸發停利的獲利百分比（0.1-100%）",
+                ) / 100
+        else:
+            stop_loss = None
+            take_profit = None
 
-    use_sl_tp = st.checkbox("啟用停損/停利")
-    if use_sl_tp:
-        col5, col6 = st.columns(2)
-        with col5:
-            stop_loss = st.number_input("停損 (%)", min_value=0.1, max_value=50.0, value=2.0, step=0.5) / 100
-        with col6:
-            take_profit = st.number_input("停利 (%)", min_value=0.1, max_value=100.0, value=4.0, step=0.5) / 100
-    else:
-        stop_loss = None
-        take_profit = None
+
 
 # === 主區域：先檢查資料 ===
 # v9 改進：用 st.session_state["current_step"] 動態管理步進器
