@@ -936,18 +936,19 @@ with main_tab2:
     opt_code = st.text_area("策略代碼（可編輯）", value=st.session_state["opt_code"],
                               height=250, key="opt_code_editor")
 
-    col_op1, col_op2 = st.columns(2)
-    with col_op1:
-        st.markdown("**🎛️ 固定參數（所有測試都會使用）**")
-        # 確保 widget 第一次創建時就有正確的 value
+    # 三個 tab：輸入（固定參數）/ 模式（參數空間）/ 可見性（搜尋+優化目標）
+    tab_input, tab_mode, tab_visibility = st.tabs(["🎛️ 輸入", "🔍 模式", "👁️ 可見性"])
+
+    with tab_input:
+        st.caption("固定參數（所有測試都會使用）")
         if "fixed_params" not in st.session_state:
             st.session_state["fixed_params"] = json.dumps(
                 st.session_state.get("opt_default_params", {}), indent=2, ensure_ascii=False
             )
         fixed_params_text = st.text_area(
-            "固定參數",
+            "固定參數（JSON）",
             value=st.session_state["fixed_params"],
-            height=100,
+            height=200,
             key="fixed_params"
         )
         try:
@@ -956,8 +957,8 @@ with main_tab2:
             st.error(f"❌ JSON 錯誤: {e}")
             fixed_params = {}
 
-    with col_op2:
-        st.markdown("**🔍 要優化的參數空間**")
+    with tab_mode:
+        st.caption("要優化的參數空間（每個 key 是參數名，value 是候選值清單）")
         if "param_space" not in st.session_state:
             st.session_state["param_space"] = json.dumps(
                 st.session_state.get("opt_param_space", {}), indent=2, ensure_ascii=False
@@ -965,7 +966,7 @@ with main_tab2:
         param_space_text = st.text_area(
             "參數空間（JSON）",
             value=st.session_state["param_space"],
-            height=200,
+            height=300,
             key="param_space"
         )
         try:
@@ -974,17 +975,20 @@ with main_tab2:
             st.error(f"❌ JSON 錯誤: {e}")
             param_space = {}
 
-    st.divider()
-
-    col_set1, col_set2, col_set3 = st.columns(3)
-    with col_set1:
-        search_method = st.radio("搜尋方法", ["網格搜尋（完整）", "隨機搜尋（快速）"])
-        method_code = "grid" if "網格" in search_method else "random"
-    with col_set2:
-        opt_metric = st.selectbox("優化目標", ["sharpe_ratio", "total_return_pct", "calmar_ratio", "profit_factor", "win_rate"])
-    with col_set3:
+    with tab_visibility:
+        st.caption("搜尋方法、優化目標與進階選項")
+        col_set1, col_set2 = st.columns(2)
+        with col_set1:
+            search_method = st.radio("搜尋方法", ["網格搜尋（完整）", "隨機搜尋（快速）"], key="opt_search_method")
+            method_code = "grid" if "網格" in search_method else "random"
+        with col_set2:
+            opt_metric = st.selectbox(
+                "優化目標",
+                ["sharpe_ratio", "total_return_pct", "calmar_ratio", "profit_factor", "win_rate"],
+                key="opt_metric"
+            )
         if method_code == "random":
-            n_iter = st.number_input("迭代次數", min_value=10, max_value=2000, value=100)
+            n_iter = st.number_input("迭代次數", min_value=10, max_value=2000, value=100, key="opt_n_iter")
         else:
             total_combos = 1
             for v in param_space.values():
@@ -992,7 +996,7 @@ with main_tab2:
                     total_combos *= len(v)
             st.metric("組合總數", f"{total_combos:,}")
 
-    run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
+        run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
 
     if not run_opt:
         st.info("👆 設定參數空間後點擊「🚀 開始優化」")
@@ -1196,53 +1200,57 @@ with main_tab3:
 
     wf_code = st.text_area("策略代碼", value=st.session_state["wf_code"], height=200, key="wf_code_editor")
 
-    col_wp1, col_wp2 = st.columns(2)
-    with col_wp1:
-        st.markdown("**🎛️ 固定參數**")
-        # 確保 widget 第一次創建時就有正確的 value
+    # 三個 tab：輸入（固定參數）/ 模式（參數空間）/ 可見性（切分設定）
+    wf_tab_input, wf_tab_mode, wf_tab_visibility = st.tabs(["🎛️ 輸入", "🔍 模式", "👁️ 可見性"])
+
+    with wf_tab_input:
+        st.caption("固定參數")
         if "wf_fixed" not in st.session_state:
             st.session_state["wf_fixed"] = json.dumps(
                 get_default_params(st.session_state.get("wf_current", list_templates()[0])),
                 indent=2, ensure_ascii=False
             )
         wf_fixed_text = st.text_area(
-            "固定參數",
+            "固定參數（JSON）",
             value=st.session_state["wf_fixed"],
-            height=80, key="wf_fixed",
+            height=200, key="wf_fixed",
         )
         try:
             wf_fixed = json.loads(wf_fixed_text)
         except json.JSONDecodeError:
             wf_fixed = {}
 
-    with col_wp2:
-        st.markdown("**🔍 優化參數空間**")
+    with wf_tab_mode:
+        st.caption("優化參數空間（每個 key 是參數名，value 是候選值清單）")
         if "wf_space" not in st.session_state:
             st.session_state["wf_space"] = json.dumps(
                 st.session_state.get("wf_param_space", {}),
                 indent=2, ensure_ascii=False
             )
         wf_space_text = st.text_area(
-            "參數空間",
+            "參數空間（JSON）",
             value=st.session_state["wf_space"],
-            height=150, key="wf_space",
+            height=300, key="wf_space",
         )
         try:
             wf_param_space = json.loads(wf_space_text)
         except json.JSONDecodeError:
             wf_param_space = {}
 
-    st.divider()
-
-    col_ws1, col_ws2, col_ws3 = st.columns(3)
-    with col_ws1:
-        n_splits = st.slider("切分數量", min_value=3, max_value=10, value=5)
-    with col_ws2:
-        train_ratio = st.slider("訓練集佔比", min_value=0.5, max_value=0.9, value=0.7, step=0.05)
-    with col_ws3:
-        anchored = st.checkbox("錨定窗口（從頭開始）", value=False)
-        wf_metric = st.selectbox("優化目標", ["sharpe_ratio", "total_return_pct", "calmar_ratio"],
-                                  key="wf_metric")
+    with wf_tab_visibility:
+        st.caption("切分設定與優化目標")
+        col_ws1, col_ws2, col_ws3 = st.columns(3)
+        with col_ws1:
+            n_splits = st.slider("切分數量", min_value=3, max_value=10, value=5, key="wf_n_splits")
+        with col_ws2:
+            train_ratio = st.slider("訓練集佔比", min_value=0.5, max_value=0.9, value=0.7, step=0.05, key="wf_train_ratio")
+        with col_ws3:
+            anchored = st.checkbox("錨定窗口（從頭開始）", value=False, key="wf_anchored")
+            wf_metric = st.selectbox(
+                "優化目標",
+                ["sharpe_ratio", "total_return_pct", "calmar_ratio"],
+                key="wf_metric"
+            )
 
     run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
 
