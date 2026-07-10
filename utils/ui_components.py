@@ -1435,7 +1435,24 @@ def render_list_of_trades(trades: List[Dict]) -> None:
     # v2: 用 streamlit-aggrid 支援 row click → 圖表高亮
     st.caption("提示：點擊任一交易，圖表會自動顯示該交易的進出場位置與損益")
 
-    from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
+    # 雙重保險：若 streamlit-aggrid 未安裝，用 st.dataframe 替代而不崩潰
+    try:
+        from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
+        _HAS_AGGRID = True
+    except ImportError:
+        _HAS_AGGRID = False
+        st.warning("⚠️ streamlit-aggrid 未安裝，使用簡易表格替代（功能受限）")
+        st.dataframe(trades_df_display.drop(columns=["累計 PnL"], errors="ignore"),
+                      use_container_width=True, hide_index=True)
+        st.download_button(
+            "下載交易明細 CSV",
+            data=trades_df_display.drop(columns=["#"]).to_csv(index=False).encode("utf-8"),
+            file_name=f"trades_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            key="trades_csv_simple",
+        )
+        return
+
     import streamlit as st_lib  # 用別名避免 shadowing
 
     # 給每個 trade 唯一 ID（用 index）
