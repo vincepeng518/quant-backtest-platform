@@ -391,12 +391,324 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-# === Overview 頁：KPI 卡片 + 主圖 + 交易統計 ===
-def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: float) -> None:
-    """TradingView 風格 Overview。"""
+def _tv_kpi_card_html(
+    label: str,
+    value: str,
+    sub: str = "",
+    sub_color: str = None,
+    icon_svg: str = "",
+    tooltip: str = "",
+) -> str:
+    """TradingView 風格單個 KPI 卡（極簡，無 sentiment 顏色編碼）。
+
+    設計參考 TradingView Strategy Tester：
+    - 標題小寫灰字
+    - 數值大，monospace
+    - 副標題小字（百分比變化紅綠）
+    - 右上角 ? tooltip icon（optional）
+    """
+    p = _palette()
+    if sub_color is None:
+        sub_color = p["text_muted"]
+    info_icon = ""
+    if tooltip:
+        info_icon = (
+            '<span style="color: ' + p["text_muted"] + '; margin-left: 4px; font-size: 12px; cursor: help;" '
+            'title="' + tooltip + '">ⓘ</span>'
+        )
+    sub_block = ""
+    if sub:
+        sub_block = (
+            '<div style="color: ' + sub_color + '; font-size: 11px; margin-top: 2px; font-weight: 500;">'
+            + sub + '</div>'
+        )
+    # 主卡片結構
+    return (
+        '<div style="'
+        'background: ' + p["bg_card"] + '; '
+        'border: 1px solid ' + p["border"] + '; '
+        'border-radius: 6px; '
+        'padding: 14px 18px; '
+        'min-height: 72px;'
+        '">'
+        '<div style="'
+        'color: ' + p["text_secondary"] + '; '
+        'font-size: 11px; '
+        'font-weight: 500; '
+        'display: flex; '
+        'align-items: center; '
+        'justify-content: space-between;'
+        '">'
+        '<span>' + label + '</span>'
+        + info_icon +
+        '</div>'
+        '<div style="'
+        'color: ' + p["text_primary"] + '; '
+        'font-family: ' + p["font_mono"] + '; '
+        'font-size: 22px; '
+        'font-weight: 600; '
+        'line-height: 1.2; '
+        'margin-top: 6px;'
+        '">' + value + '</div>'
+        + sub_block +
+        '</div>'
+    )
+
+
+def render_tv_overview(
+    metrics: Dict,
+    result_df: pd.DataFrame,
+    initial_capital: float,
+) -> None:
+    """TradingView Strategy Tester 風格的 Overview 頁面。
+
+    結構（與截圖一致）：
+    ┌─ Strategy Backtest Report 標題列（含 Buy & Hold toggle、Absolute/Percent toggle）┐
+    ├─ 5 大核心 KPI 卡片列（Total P&L / Max Drawdown / Total Trades / Profitable / Profit Factor）┤
+    ├─ 6 個次要 KPI 卡片列（Buy & Hold / Sharpe / Calmar / CAGR / Sortino / Recovery）┤
+    ├─ 主圖：權益曲線 + Buy & Hold + Drawdown 子圖┤
+    ├─ 交易統計 4×3 網格 KPI┤
+    """
     p = _palette()
 
-    # 區段標題
+    # === 數據準備 ===
+    metrics_with_cap = {**metrics, "initial_capital": initial_capital}
+    total_return = metrics.get("total_return_pct", 0)
+    final_equity = metrics.get("final_equity", initial_capital)
+    net_profit = final_equity - initial_capital
+    max_dd = metrics.get("max_drawdown_pct", 0)
+    max_dd_amount = initial_capital * abs(max_dd) / 100 if max_dd else 0
+    win_rate = metrics.get("win_rate", 0)
+    n_trades = metrics.get("n_trades", 0)
+    sharpe = metrics.get("sharpe_ratio", 0)
+    profit_factor = metrics.get("profit_factor", 0)
+    buy_hold = metrics.get("buy_hold_return_pct", 0)
+    avg_win = metrics.get("avg_win_pct", 0)
+    avg_loss = metrics.get("avg_loss_pct", 0)
+    n_wins = int(n_trades * win_rate / 100) if n_trades > 0 else 0
+
+    returns = (
+        result_df["strategy_returns"].dropna()
+        if "strategy_returns" in result_df.columns
+        else pd.Series()
+    )
+    sortino = calc_sortino_ratio(returns) if len(returns) > 0 else 0
+    calmar = calc_calmar_ratio(total_return, max_dd)
+    recovery = calc_recovery_factor(total_return, max_dd)
+    rr = abs(avg_win / avg_loss) if avg_loss != 0 else 0
+
+    # CAGR 計算（從時間頻率推斷）
+    periods_per_year = 252
+    if (
+        "equity" in result_df.columns
+        and len(result_df) > 1
+        and isinstance(result_df.index, pd.DatetimeIndex)
+    ):
+        try:
+            median_diff = result_df.index.to_series().diff().median().total_seconds()
+            if median_diff <= 60:
+                periods_per_year = 252 * 24 * 60
+            elif median_diff <= 3600:
+                periods_per_year = 252 * 24
+            elif median_diff <= 86400:
+                periods_per_year = 252
+            elif median_diff <= 86400 * 7:
+                periods_per_year = 52
+            else:
+                periods_per_year = 12
+        except Exception:
+            periods_per_year = 252
+    cagr = (
+        calc_cagr(result_df["equity"], periods_per_year)
+        if "equity" in result_df.columns
+        else total_return
+    )
+
+    # === 1. 頁面標題列（TradingView 風格）===
+    # 動態時間範圍（從資料時間）
+    if isinstance(result_df.index, pd.DatetimeIndex) and len(result_df) > 0:
+        date_start = result_df.index.min().strftime("%b %-d, %Y")
+        date_end = result_df.index.max().strftime("%b %-d, %Y")
+    else:
+        date_start = "—"
+        date_end = "—"
+
+    # 損益顏色：正綠、負紅
+    pnl_color = p["green_text"] if net_profit >= 0 else p["red_text"]
+    pnl_sign = "+" if net_profit >= 0 else ""
+
+    # 標題列 HTML（含 Buy & Hold toggle、Absolute/Percent toggle）
+    # 注意：用 session_state 儲存 toggle 狀態
+    if "show_buy_hold" not in st.session_state:
+        st.session_state["show_buy_hold"] = True
+    if "show_absolute" not in st.session_state:
+        st.session_state["show_absolute"] = True  # True=金額 / False=百分比
+
+    # 標題列分兩行：左邊標題，右邊 controls
+    # 用 columns 讓 toggle 用 st.checkbox（可互動）
+    title_col, toggle_col = st.columns([3, 1])
+
+    with title_col:
+        st.markdown(f"""
+<div>
+    <h2 style="
+        color: {p['text_primary']};
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+    ">📊 Strategy Backtest Report</h2>
+    <div style="
+        color: {p['text_muted']};
+        font-size: 12px;
+        font-family: {p['font_mono']};
+    ">{date_start} → {date_end} · {n_trades} trades · Initial ${initial_capital:,.0f}</div>
+</div>
+""", unsafe_allow_html=True)
+
+    with toggle_col:
+        # Buy & Hold toggle（checkbox）— 在 chart 渲染前設定，這樣下面 _render_tv_equity_chart 才讀得到
+        st.markdown(f"""
+<div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 16px;">
+    <label style="display: flex; align-items: center; gap: 6px; color: {p['orange']};
+                  font-size: 12px; font-weight: 500; cursor: pointer;
+                  padding: 4px 10px; border: 1px solid {p['border']}; border-radius: 4px;
+                  background: {p['bg_card']};">
+        <input type="checkbox" id="bh-toggle-tv" {'checked' if st.session_state['show_buy_hold'] else ''}
+               style="accent-color: {p['orange']}; cursor: pointer;"/>
+        Buy &amp; hold
+    </label>
+</div>
+""", unsafe_allow_html=True)
+
+        # 用 st.checkbox 觸發 session_state 更新
+        st.session_state["show_buy_hold"] = st.checkbox(
+            "Buy & hold 線",
+            value=st.session_state["show_buy_hold"],
+            key="tv_show_buy_hold",
+            label_visibility="collapsed",
+        )
+
+        # 絕對/百分比 toggle
+        cur_abs = st.session_state["show_absolute"]
+        st.markdown(f"""
+<div style="display: inline-flex; border: 1px solid {p['border']}; border-radius: 4px;
+            overflow: hidden; font-size: 12px; margin-left: 6px;">
+    <button id="abs-btn-tv" style="padding: 4px 12px; background: {p['primary'] if cur_abs else p['bg_subtle']};
+            color: {('white' if cur_abs else p['text_secondary'])}; font-weight: 600; border: none;
+            cursor: pointer;">Absolute</button>
+    <button id="pct-btn-tv" style="padding: 4px 12px; background: {p['bg_subtle'] if cur_abs else p['primary']};
+            color: {p['text_secondary'] if cur_abs else 'white'}; font-weight: 600; border: none;
+            cursor: pointer;">Percentage</button>
+</div>
+""", unsafe_allow_html=True)
+        # 簡化：兩個 radio button 在 col 內（用 st.radio）
+        abs_val = st.radio(
+            "Display unit",
+            options=["Absolute", "Percentage"],
+            index=0 if cur_abs else 1,
+            key="tv_show_absolute",
+            label_visibility="collapsed",
+            horizontal=True,
+        )
+        st.session_state["show_absolute"] = (abs_val == "Absolute")
+
+    # 分隔線
+    st.markdown(f"""
+<div style="border-bottom: 1px solid {p['border']}; margin: 8px 0 16px 0;"></div>
+""", unsafe_allow_html=True)
+
+    # === 2. 5 大核心 KPI 卡片列（TradingView 風格）===
+    # 與截圖完全對應：Total P&L / Max Equity Drawdown / Total Trades / Profitable Trades / Profit Factor
+    k1, k2, k3, k4, k5 = st.columns(5)
+
+    with k1:
+        st.markdown(_tv_kpi_card_html(
+            "Total P&amp;L",
+            f"<span style='color: {pnl_color};'>{pnl_sign}${abs(net_profit):,.0f}</span>",
+            sub=f"<span style='color: {pnl_color};'>{total_return:+.2f}%</span>",
+            tooltip="總損益金額與百分比",
+        ), unsafe_allow_html=True)
+    with k2:
+        st.markdown(_tv_kpi_card_html(
+            "Max equity drawdown",
+            f"<span style='color: {p['red_text']};'>${max_dd_amount:,.2f}</span>",
+            sub=f"<span style='color: {p['red_text']};'>{max_dd:.2f}%</span>",
+            tooltip="歷史最大資金回撤",
+        ), unsafe_allow_html=True)
+    with k3:
+        st.markdown(_tv_kpi_card_html(
+            "Total trades",
+            f"{n_trades:,}",
+            sub="<span style='color: " + p["text_muted"] + ";'>全部交易</span>",
+            tooltip="策略執行的總交易次數",
+        ), unsafe_allow_html=True)
+    with k4:
+        win_color = p["green_text"] if win_rate >= 50 else p["red_text"]
+        st.markdown(_tv_kpi_card_html(
+            "Profitable trades",
+            f"{n_wins:,}<span style='color: {p['text_muted']}; font-size: 16px;'>/{n_trades:,}</span>",
+            sub=f"<span style='color: {win_color};'>{win_rate:.2f}%</span>",
+            tooltip="獲利交易數 / 總交易數 / 勝率",
+        ), unsafe_allow_html=True)
+    with k5:
+        pf_str = f"{profit_factor:.3f}" if np.isfinite(profit_factor) else "∞"
+        pf_color = p["green_text"] if profit_factor > 1.5 else (p["text_primary"] if profit_factor > 1 else p["red_text"])
+        st.markdown(_tv_kpi_card_html(
+            "Profit factor",
+            f"<span style='color: {pf_color};'>{pf_str}</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>毛利 / 毛損</span>",
+            tooltip="總獲利 / 總虧損（>1 為獲利策略）",
+        ), unsafe_allow_html=True)
+
+    # === 3. 次要 6 指標列 ===
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    with k1:
+        bh_color = p["green_text"] if buy_hold >= 0 else p["red_text"]
+        st.markdown(_tv_kpi_card_html(
+            "Buy &amp; Hold",
+            f"<span style='color: {bh_color};'>{buy_hold:+.2f}%</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>基準報酬</span>",
+        ), unsafe_allow_html=True)
+    with k2:
+        alpha = total_return - buy_hold
+        a_color = p["green_text"] if alpha > 0 else p["red_text"]
+        st.markdown(_tv_kpi_card_html(
+            "α 超額報酬",
+            f"<span style='color: {a_color};'>{alpha:+.2f}%</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>策略 - B&H</span>",
+        ), unsafe_allow_html=True)
+    with k3:
+        sh_color = p["green_text"] if sharpe > 1 else (p["text_primary"] if sharpe > 0 else p["red_text"])
+        st.markdown(_tv_kpi_card_html(
+            "Sharpe",
+            f"<span style='color: {sh_color};'>{sharpe:.2f}</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>風險調整報酬</span>",
+        ), unsafe_allow_html=True)
+    with k4:
+        so_color = p["green_text"] if sortino > 1 else (p["text_primary"] if sortino > 0 else p["red_text"])
+        st.markdown(_tv_kpi_card_html(
+            "Sortino",
+            f"<span style='color: {so_color};'>{sortino:.2f}</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>下行風險調整</span>",
+        ), unsafe_allow_html=True)
+    with k5:
+        ca_color = p["green_text"] if cagr >= 0 else p["red_text"]
+        st.markdown(_tv_kpi_card_html(
+            "CAGR",
+            f"<span style='color: {ca_color};'>{cagr:+.2f}%</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>年化報酬</span>",
+        ), unsafe_allow_html=True)
+    with k6:
+        cm_color = p["green_text"] if calmar > 1 else (p["text_primary"] if calmar > 0 else p["red_text"])
+        st.markdown(_tv_kpi_card_html(
+            "Calmar",
+            f"<span style='color: {cm_color};'>{calmar:.2f}</span>",
+            sub="<span style='color: " + p["text_muted"] + ";'>CAGR / MaxDD</span>",
+        ), unsafe_allow_html=True)
+
+    # === 4. 主圖：權益曲線 + Buy & Hold + Drawdown（TradingView 風格）===
     st.markdown(f"""
 <div style="
     color: {p['text_secondary']};
@@ -404,19 +716,15 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
-    margin-bottom: 8px;
-    margin-top: 4px;
-">關鍵指標</div>
+    margin: 24px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid {p['border']};
+">📈 Equity Curve &amp; Drawdown</div>
 """, unsafe_allow_html=True)
 
-    # 修正：將 initial_capital 補進 metrics（render_kpi_cards 用）
-    metrics_with_cap = {**metrics, "initial_capital": initial_capital}
-    render_kpi_cards(metrics_with_cap, result_df)
+    _render_tv_equity_chart(result_df, metrics_with_cap, st.session_state["show_buy_hold"])
 
-    # 區段間距
-    st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
-
-    # 主圖區段
+    # === 5. 交易統計 KPI 網格（4×3 = 12 個）===
     st.markdown(f"""
 <div style="
     color: {p['text_secondary']};
@@ -424,12 +732,270 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
-    margin-bottom: 8px;
-">權益曲線</div>
+    margin: 28px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid {p['border']};
+">📊 Trade Statistics</div>
 """, unsafe_allow_html=True)
 
-    metrics_with_cap = {**metrics, "initial_capital": initial_capital}
-    render_equity_chart(result_df, metrics_with_cap)
+    _render_trade_stats_grid(metrics, n_trades, n_wins, win_rate, profit_factor, avg_win, avg_loss, rr, recovery, p)
+
+
+def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hold: bool = True) -> None:
+    """TradingView 風格主圖（權益 + Drawdown）— 比 render_equity_chart 更 TV 化。"""
+    p = _palette()
+    initial_capital = metrics.get("initial_capital", 10000)
+    net_profit = metrics.get("final_equity", initial_capital) - initial_capital
+    is_profit = net_profit >= 0
+
+    equity_color = p["green"] if is_profit else p["red"]
+    fill_rgba = "rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
+
+    equity = result_df["equity"]
+    cummax = equity.cummax()
+    drawdown_pct = (equity - cummax) / cummax * 100
+
+    # === 主圖 + Drawdown 子圖（70% / 30%）===
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.05,
+        row_heights=[0.72, 0.28],
+    )
+
+    # 1. 策略權益曲線（粗線 + 填充）
+    fig.add_trace(go.Scatter(
+        x=result_df.index,
+        y=equity,
+        name="策略",
+        mode="lines",
+        line=dict(color=equity_color, width=2.2),
+        fill="tozeroy",
+        fillcolor=fill_rgba,
+        hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>策略權益：$%{y:,.2f}<extra></extra>",
+    ), row=1, col=1)
+
+    # 2. Buy & Hold 基準線（虛線）
+    if show_buy_hold and "buy_hold" in result_df.columns:
+        fig.add_trace(go.Scatter(
+            x=result_df.index,
+            y=result_df["buy_hold"],
+            name="Buy &amp; Hold",
+            mode="lines",
+            line=dict(color=p["orange"], width=1.3, dash="dash"),
+            opacity=0.85,
+            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy &amp; Hold：$%{y:,.2f}<extra></extra>",
+        ), row=1, col=1)
+
+    # 3. 進場做多 marker（綠色向上三角）
+    if "entry" in result_df.columns and "position" in result_df.columns:
+        long_mask = result_df["entry"] & (result_df["position"] == 1)
+        long_entries = result_df[long_mask]
+        if not long_entries.empty:
+            close_col = "close" if "close" in result_df.columns else "equity"
+            fig.add_trace(go.Scatter(
+                x=long_entries.index,
+                y=long_entries[close_col] if close_col in long_entries.columns else long_entries["equity"],
+                mode="markers",
+                name="做多進場",
+                marker=dict(
+                    symbol="triangle-up",
+                    size=8,
+                    color=p["green"],
+                    line=dict(color="white", width=1),
+                ),
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做多進場<br>價：$%{y:,.2f}<extra></extra>",
+            ), row=1, col=1)
+
+        # 4. 進場做空 marker（紅色向下三角）
+        short_mask = result_df["entry"] & (result_df["position"] == -1)
+        short_entries = result_df[short_mask]
+        if not short_entries.empty:
+            fig.add_trace(go.Scatter(
+                x=short_entries.index,
+                y=short_entries[close_col] if close_col in short_entries.columns else short_entries["equity"],
+                mode="markers",
+                name="做空進場",
+                marker=dict(
+                    symbol="triangle-down",
+                    size=8,
+                    color=p["red"],
+                    line=dict(color="white", width=1),
+                ),
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做空進場<br>價：$%{y:,.2f}<extra></extra>",
+            ), row=1, col=1)
+
+    # 5. 出場 marker（橙色叉）
+    if "exit" in result_df.columns:
+        exits = result_df[result_df["exit"]]
+        if not exits.empty:
+            fig.add_trace(go.Scatter(
+                x=exits.index,
+                y=exits[close_col] if close_col in exits.columns else exits["equity"],
+                mode="markers",
+                name="出場",
+                marker=dict(
+                    symbol="x-thin",
+                    size=8,
+                    color=p["orange"],
+                    line=dict(color=p["orange"], width=2),
+                ),
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>出場<br>價：$%{y:,.2f}<extra></extra>",
+            ), row=1, col=1)
+
+    # 6. Drawdown 子圖（紅色面積）
+    fig.add_trace(go.Scatter(
+        x=result_df.index,
+        y=drawdown_pct,
+        name="回撤",
+        mode="lines",
+        line=dict(color=p["red"], width=1, shape="linear"),
+        fill="tozeroy",
+        fillcolor="rgba(239, 68, 68, 0.15)",
+        hovertemplate="<b>%{x|%Y-%m-%d}</b><br>回撤：%{y:.2f}%<extra></extra>",
+    ), row=2, col=1)
+
+    # === Layout（TradingView 風格）===
+    fig.update_layout(
+        height=540,
+        hovermode="x unified",
+        template=get_current_theme()["plotly_template"],
+        paper_bgcolor=p["bg"],
+        plot_bgcolor=p["bg"],
+        font=dict(color=p["text_primary"], family="system-ui", size=12),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", y=1.0,
+            xanchor="left", x=0,
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(size=11, color=p["text_secondary"]),
+        ),
+        margin=dict(l=70, r=24, t=8, b=40),
+        xaxis=dict(
+            gridcolor=p["border"],
+            showgrid=True,
+            zeroline=False,
+            rangeslider=dict(visible=False),
+            showline=False,
+        ),
+        xaxis2=dict(
+            gridcolor=p["border"],
+            showgrid=False,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            gridcolor=p["border"],
+            showgrid=True,
+            zeroline=False,
+            side="left",
+            title=None,
+            tickfont=dict(size=11, color=p["text_secondary"], family=p["font_mono"]),
+        ),
+        yaxis2=dict(
+            gridcolor=p["border"],
+            showgrid=True,
+            zeroline=False,
+            side="left",
+            title=None,
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
+        ),
+    )
+
+    # X 軸時間格式（自動）
+    try:
+        if isinstance(result_df.index, pd.DatetimeIndex):
+            median_diff = result_df.index.to_series().diff().median().total_seconds()
+            if median_diff <= 86400 * 3:
+                fig.update_xaxes(tickformat="%Y-%m-%d")
+            else:
+                fig.update_xaxes(tickformat="%Y-%m")
+    except Exception:
+        pass
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_trade_stats_grid(
+    metrics: Dict,
+    n_trades: int,
+    n_wins: int,
+    win_rate: float,
+    profit_factor: float,
+    avg_win: float,
+    avg_loss: float,
+    rr: float,
+    recovery: float,
+    p: Dict[str, str],
+) -> None:
+    """交易統計 KPI 4×3 網格。"""
+    n_losses = n_trades - n_wins
+    net_profit = metrics.get("final_equity", 10000) - metrics.get("initial_capital", 10000)
+    max_dd = metrics.get("max_drawdown_pct", 0)
+    total_return = metrics.get("total_return_pct", 0)
+    largest_win = metrics.get("largest_win_pct", 0)
+    largest_loss = metrics.get("largest_loss_pct", 0)
+    buy_hold = metrics.get("buy_hold_return_pct", 0)
+    sharpe = metrics.get("sharpe_ratio", 0)
+    max_consec_w = metrics.get("max_consecutive_wins", 0)
+    max_consec_l = metrics.get("max_consecutive_losses", 0)
+    avg_trade_duration = metrics.get("avg_trade_duration_hours", 0)
+
+    rows_data = [
+        # 第 1 列：交易概覽
+        [
+            ("Total trades", f"{n_trades:,}", "中性"),
+            ("Profitable trades", f"{n_wins:,}", "正" if n_wins > 0 else "中性"),
+            ("Losing trades", f"{n_losses:,}", "負" if n_losses > 0 else "中性"),
+            ("Win rate", f"{win_rate:.2f}%", "正" if win_rate >= 50 else "負"),
+        ],
+        # 第 2 列：利潤統計
+        [
+            ("Net profit", f"${net_profit:+,.2f}", "正" if net_profit > 0 else "負"),
+            ("Total return", f"{total_return:+.2f}%", "正" if total_return >= 0 else "負"),
+            ("Avg win", f"{avg_win:+.2f}%", "正"),
+            ("Avg loss", f"{avg_loss:+.2f}%", "負"),
+        ],
+        # 第 3 列：風險指標
+        [
+            ("Profit factor", f"{profit_factor:.2f}" if np.isfinite(profit_factor) else "∞",
+             "正" if profit_factor > 1.5 else "中性"),
+            ("Risk/Reward", f"{rr:.2f}" if rr > 0 else "∞", "正" if rr > 1 else "負"),
+            ("Max drawdown", f"{abs(max_dd):.2f}%", "負" if abs(max_dd) > 20 else "中性"),
+            ("Recovery factor", f"{recovery:.2f}", "正" if recovery > 1 else "中性"),
+        ],
+        # 第 4 列：極值 + 連續
+        [
+            ("Largest win", f"{largest_win:+.2f}%", "正"),
+            ("Largest loss", f"{largest_loss:+.2f}%", "負"),
+            ("Max consec. wins", f"{max_consec_w}", "正"),
+            ("Max consec. losses", f"{max_consec_l}", "負"),
+        ],
+    ]
+
+    for r_idx, row_data in enumerate(rows_data):
+        cols = st.columns(4)
+        for c_idx, (label, value, sentiment) in enumerate(row_data):
+            if sentiment == "正":
+                color = p["green_text"]
+            elif sentiment == "負":
+                color = p["red_text"]
+            else:
+                color = p["text_primary"]
+            with cols[c_idx]:
+                st.markdown(_tv_kpi_card_html(
+                    label,
+                    f"<span style='color: {color};'>{value}</span>",
+                ), unsafe_allow_html=True)
+        if r_idx < len(rows_data) - 1:
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
+
+# === Overview 頁：KPI 卡片 + 主圖 + 交易統計 ===
+def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: float) -> None:
+    """TradingView Strategy Tester 風格 Overview。"""
+    # v4+ 改為 TradingView 風格（重設計）
+    render_tv_overview(metrics, result_df, initial_capital)
 
 
 def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
