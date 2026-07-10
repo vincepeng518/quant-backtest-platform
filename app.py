@@ -60,13 +60,14 @@ st.set_page_config(
 )
 
 
-# === 自動偵測並套用主題 ===
-# v8 改進：完全交由 Streamlit 原生主題機制處理
-# 不再自製 FAB / radio 切換；<html data-theme> 由 JS 自動跟隨
-# Streamlit 的 .stApp theme 屬性（colorScheme: "light" | "dark"）
-current_theme = get_theme("light")  # CSS 變數用 light 作為預設渲染（兩組都會輸出，CSS 自動切換）
+# === 主題切換：session_state 驅動 ===
+# 用 st.session_state["theme"] 控制，sidebar 有開關
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "light"
 
-# Google Fonts（不內嵌 @import，避免干擾系統 emoji 字體）
+current_theme = get_theme(st.session_state["theme"])
+
+# Google Fonts
 st.markdown(
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -74,51 +75,39 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 自動偵測 Streamlit 當前主題 + 系統偏好 → 套用到 <html data-theme>
-# 這樣 CSS variables 會自動切換，無需用戶手動操作
+# 根據 session_state 的 theme 設定 <html data-theme>
+_theme_id = st.session_state["theme"]
 st.markdown(
-    """
+    f"""
 <script>
-(function() {
-    function applyThemeFromStreamlit() {
-        try {
-            // 讀取 Streamlit 套用於 <body> 的 data-theme 屬性
-            // Streamlit 1.30+ 在 .stApp 容器上設置 colorScheme 樣式
-            var app = document.querySelector('.stApp');
-            var computedDark = false;
-            if (app) {
-                var cs = window.getComputedStyle(app);
-                var bg = cs.getPropertyValue('background-color') || '';
-                // Streamlit dark theme 的背景色偏深（< 60 亮度）
-                if (bg) {
-                    var m = bg.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
-                    if (m) {
-                        var brightness = (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) / 3;
-                        if (brightness < 60) computedDark = true;
-                    }
-                }
-            }
-            var theme = computedDark ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', theme);
-        } catch (e) {
-            // 兜底：跟隨系統
-            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-        }
-    }
-    applyThemeFromStreamlit();
-    // 監聽 Streamlit 主題變化（用戶用右上角 menu 切換時觸發）
-    setTimeout(applyThemeFromStreamlit, 200);
-    setTimeout(applyThemeFromStreamlit, 600);
-    // 監聽系統主題變化
-    try {
-        var mq = window.matchMedia('(prefers-color-scheme: dark)');
-        if (mq && mq.addEventListener) {
-            mq.addEventListener('change', applyThemeFromStreamlit);
-        }
-    } catch (e) {}
-})();
+(function() {{
+    document.documentElement.setAttribute('data-theme', '{_theme_id}');
+    // 持續確保 data-theme 正確（Streamlit rerun 後 DOM 重建）
+    setTimeout(function() {{
+        document.documentElement.setAttribute('data-theme', '{_theme_id}');
+    }}, 50);
+    setTimeout(function() {{
+        document.documentElement.setAttribute('data-theme', '{_theme_id}');
+    }}, 200);
+}})();
 </script>
+<style>
+/* 強制覆寫 Streamlit 背景，確保深色模式生效 */
+[data-theme="dark"] .stApp {{
+    background-color: #131722 !important;
+    color: #D1D4DC !important;
+}}
+[data-theme="dark"] [data-testid="stSidebar"] {{
+    background-color: #1A1E2A !important;
+}}
+[data-theme="dark"] .stMarkdown, [data-theme="dark"] .stText {{
+    color: #D1D4DC !important;
+}}
+[data-theme="light"] .stApp {{
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+}}
+</style>
 """,
     unsafe_allow_html=True,
 )
@@ -610,6 +599,19 @@ components.html(
 # 區塊 3：策略核心參數（預設展開）
 # 進階（策略管理、BingX 熱門）內嵌 expander 折疊
 with st.sidebar:
+    # === 主題切換開關 ===
+    _theme_col1, _theme_col2 = st.columns([3, 2])
+    with _theme_col1:
+        st.caption("深色模式")
+    with _theme_col2:
+        _is_dark = st.session_state.get("theme") == "dark"
+        if st.toggle("深色模式", value=_is_dark, key="theme_toggle"):
+            st.session_state["theme"] = "dark"
+        else:
+            st.session_state["theme"] = "light"
+
+    st.divider()
+
     # === 區塊 1：交易所與基本設定 ===
     with st.expander(" 交易所與基本設定", expanded=True):
         data_source = st.radio(
