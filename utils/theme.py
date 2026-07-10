@@ -12,7 +12,7 @@ from typing import Dict
 THEMES: Dict[str, Dict[str, str]] = {
     # Data-Dense Dashboard 亮色（金融工具首選）
     "light": {
-        "name": "🌞 Light Pro",
+        "name": "Light Pro",
         "id": "light",
         "bg": "#F8FAFC",            # slate-50 頁面背景
         "bg_subtle": "#F1F5F9",     # slate-100 區塊背景
@@ -41,7 +41,7 @@ THEMES: Dict[str, Dict[str, str]] = {
     },
     # Financial Dashboard 暗色（TradingView 風格）
     "dark": {
-        "name": "🌙 Dark Trading",
+        "name": "Dark Trading",
         "id": "dark",
         "bg": "#0F172A",            # slate-900（深藍灰，不要全黑）
         "bg_subtle": "#1E293B",     # slate-800 區塊背景

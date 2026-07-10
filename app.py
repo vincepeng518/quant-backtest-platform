@@ -55,7 +55,7 @@ from utils.theme import THEMES, get_theme, get_current_theme, list_themes, theme
 # 預設用 expanded（讓使用者看到 sidebar）
 st.set_page_config(
     page_title="加密貨幣回測實驗室",
-    page_icon="📈",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -147,7 +147,7 @@ st.markdown("""
 
 # === 注入浮動漢堡按鈕（用 components.html 確保 JS 一定會跑） ===
 # 功能：
-# 1. FAB 永遠顯示在左上角，sidebar 開啟時顯示 X（關閉），收合時顯示 ☰（開啟）
+# 1. FAB 永遠顯示在左上角，sidebar 開啟時顯示 X（關閉），收合時顯示（開啟）
 # 2. 點 FAB 切換 sidebar
 # 3. 點主內容區（不含 sidebar 與 FAB）時，若 sidebar 是開啟的就收合它
 # 4. 用 MutationObserver 持續監聽 DOM，確保 FAB 不會被 streamlit 重新渲染清掉
@@ -554,8 +554,8 @@ components.html(
             var sun = pdoc.getElementById('icon-sun');
             var moon = pdoc.getElementById('icon-moon');
             if (!sun || !moon) return;
-            // 淺色 = 太陽 ☀️（白天天亮了）
-            // 深色 = 月亮 🌙（夜晚）
+            // 淺色 = 太陽（白天天亮了）
+            // 深色 = 月亮（夜晚）
             if (theme === 'light') {
                 sun.style.display = 'block';
                 moon.style.display = 'none';
@@ -675,7 +675,7 @@ components.html(
 
 # === 側邊欄：資料來源 ===
 with st.sidebar:
-    st.markdown(section_header("主題", "🎨", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("主題", "", current_theme, size="md"), unsafe_allow_html=True)
 
     theme_options = list_themes()
     current_idx = list(theme_options.keys()).index(st.session_state["theme"]) \
@@ -698,7 +698,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown(section_header("資料來源", "📊", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("資料來源", "", current_theme, size="md"), unsafe_allow_html=True)
 
     data_source = st.radio(
         "選擇資料來源",
@@ -770,7 +770,7 @@ with st.sidebar:
                     st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
 
         # 測試資料按鈕：生成固定 K 線，不用網路抓取
-        if st.button("🧪 一鍵測試資料", use_container_width=True, help="生成 500 根固定 seed 的模擬 K 線，無需網路"):
+        if st.button("一鍵測試資料", use_container_width=True, help="生成 500 根固定 seed 的模擬 K 線，無需網路"):
             try:
                 np.random.seed(42)
                 n = 500
@@ -816,7 +816,7 @@ with st.sidebar:
                     st.error(f"❌ {e}")
 
         elif data_source == "配對交易 (Pair)":
-            st.caption("📊 配對交易：同時下兩個反向部位")
+            st.caption("配對交易：同時下兩個反向部位")
 
             pair_templates = get_pair_templates()
             pair_labels = {p["name"]: p for p in pair_templates}
@@ -826,7 +826,7 @@ with st.sidebar:
                 index=0,
             )
             selected_pair = pair_labels[selected_pair_name]
-            st.caption(f"📈 {selected_pair['symbol1']} vs {selected_pair['symbol2']}")
+            st.caption(f"{selected_pair['symbol1']} vs {selected_pair['symbol2']}")
 
             pc1, pc2 = st.columns(2)
             with pc1:
@@ -863,10 +863,10 @@ with st.sidebar:
         is_pair = st.session_state.get("is_pair", False)
         if is_pair:
             pair_info = st.session_state.get("pair_info", {})
-            st.info(f"📦 配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
+            st.info(f"配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
         else:
-            st.info(f"📦 已載入快取資料：{len(df):,} 根 K 線")
-        if st.button("🗑️ 清除資料", use_container_width=True):
+            st.info(f"已載入快取資料：{len(df):,} 根 K 線")
+        if st.button("清除資料", use_container_width=True):
             del st.session_state["df"]
             st.session_state["is_pair"] = False
             st.session_state.pop("pair_info", None)
@@ -878,12 +878,12 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown(section_header("策略管理", "📚", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("策略管理", "", current_theme, size="md"), unsafe_allow_html=True)
 
     if "user_strategies" not in st.session_state:
         st.session_state["user_strategies"] = {}
 
-    with st.expander("📤 上傳 / 貼上策略", expanded=False):
+    with st.expander("上傳 / 貼上策略", expanded=False):
         st.caption("三種方式加入策略到「我的策略庫」")
 
         st.markdown("**① 上傳 .py 檔案**")
@@ -913,7 +913,7 @@ with st.sidebar:
             placeholder="def generate_signals(df, params):\n    ...",
         )
         pasted_name = st.text_input("策略名稱", value="我的策略", key="pasted_name")
-        if st.button("➕ 加入到策略庫", use_container_width=True):
+        if st.button("加入到策略庫", use_container_width=True):
             if not pasted_code.strip():
                 st.error("請貼上代碼")
             else:
@@ -935,29 +935,29 @@ with st.sidebar:
         for i, sname in enumerate(sample_names):
             with sample_cols[i % 2]:
                 if sname not in st.session_state["user_strategies"]:
-                    if st.button(f"➕ {sname}", key=f"add_sample_{i}",
+                    if st.button(f"{sname}", key=f"add_sample_{i}",
                                   use_container_width=True):
                         st.session_state["user_strategies"][sname] = SAMPLE_STRATEGIES[sname]
                         st.success(f"✅ 已加入: {sname}")
                         st.rerun()
                 else:
-                    st.button(f"✓ {sname}", key=f"has_sample_{i}",
+                    st.button(f"{sname}", key=f"has_sample_{i}",
                               disabled=True, use_container_width=True)
 
     if st.session_state["user_strategies"]:
-        st.markdown("**📋 我的策略庫**")
+        st.markdown("**我的策略庫**")
         for sname in list(st.session_state["user_strategies"].keys()):
             col_s1, col_s2 = st.columns([4, 1])
             with col_s1:
-                st.caption(f"📄 {sname}")
+                st.caption(f"{sname}")
             with col_s2:
-                if st.button("🗑️", key=f"del_{sname}", help=f"刪除 {sname}"):
+                if st.button("刪除", key=f"del_{sname}", help=f"刪除 {sname}"):
                     del st.session_state["user_strategies"][sname]
                     st.rerun()
 
     st.divider()
 
-    st.markdown(section_header("回測參數", "⚙️", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("回測參數", "", current_theme, size="md"), unsafe_allow_html=True)
     initial_capital = st.number_input("初始資金 (USDT)", min_value=100.0, value=10000.0, step=1000.0)
     commission_pct = st.number_input("手續費 (%)", min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100
     slippage_pct = st.number_input("滑點 (%)", min_value=0.0, max_value=2.0, value=0.05, step=0.01) / 100
@@ -983,7 +983,7 @@ with st.sidebar:
 # === 主區域：先檢查資料 ===
 if df is None or df.empty:
     # Impeccable 風格空狀態（取代原本 st.info + 大塊 markdown）
-    st.markdown(section_header("快速開始", "🚀", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(section_header("快速開始", "", current_theme, size="lg"), unsafe_allow_html=True)
     st.markdown(step_indicator(
         ["選擇資料來源", "載入資料", "選擇策略", "執行回測", "檢視結果"],
         current=0,
@@ -992,10 +992,10 @@ if df is None or df.empty:
     st.markdown(empty_state(
         "從左側開始",
         "選擇資料來源（加密貨幣 / CSV / 配對交易），按「一鍵測試資料」即可用 500 根模擬 K 線快速體驗。",
-        icon="📊",
+        icon="·",
         theme=current_theme,
     ), unsafe_allow_html=True)
-    st.markdown(section_header("內建策略範本", "🧠", current_theme, size="sm"), unsafe_allow_html=True)
+    st.markdown(section_header("內建策略範本", "", current_theme, size="sm"), unsafe_allow_html=True)
     st.caption("SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對")
     st.stop()
 
@@ -1018,7 +1018,7 @@ main_tab1, main_tab2, main_tab3 = st.tabs([
 # ===========================
 with main_tab1:
     # 流程指示器（Impeccable）
-    st.markdown(section_header("策略程式碼", "🧠", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(section_header("策略程式碼", "", current_theme, size="lg"), unsafe_allow_html=True)
     st.markdown(step_indicator(
         ["選擇策略", "編輯代碼", "執行回測", "檢視結果"],
         current=1,
@@ -1029,7 +1029,7 @@ with main_tab1:
     with col_src1:
         all_sources = ["（自訂）"] + list_templates()
         if st.session_state.get("user_strategies"):
-            all_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+            all_sources += ["── 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
 
         # 計算 selectbox 當前 index
         prev_template = st.session_state.get("current_template", "（自訂）")
@@ -1066,7 +1066,7 @@ with main_tab1:
     with col_src2:
         st.write("")
         if template_choice.startswith("──"):
-            st.button("📥 載入", key="load_template", disabled=True, use_container_width=True)
+            st.button("載入", key="load_template", disabled=True, use_container_width=True)
         else:
             if st.button("🔄 重新載入", key="load_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
@@ -1138,7 +1138,7 @@ with main_tab1:
     #   → 預設 long 模式
     # 透過檢查 long_entries/short_entries 是否有訊號來自動選擇
     if not run_single:
-        st.info("👆 點擊「▶️ 執行回測」開始分析")
+        st.info("點擊「▶️ 執行回測」開始分析")
     else:
         # 執行策略（最外層 try 確保任何錯誤都不會導致整個 app 崩潰）
         try:
@@ -1253,7 +1253,7 @@ with main_tab1:
         trades = st.session_state["bt_trades"]
         metrics = st.session_state["bt_metrics"]
 
-        st.info("📊 顯示先前的回測結果（如需重新執行請按「▶️ 執行回測」）")
+        st.info("顯示先前的回測結果（如需重新執行請按「▶️ 執行回測」）")
 
         result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
             "Overview",
@@ -1283,14 +1283,14 @@ with main_tab1:
 # 分頁 2：自動參數優化
 # ===========================
 with main_tab2:
-    st.markdown(section_header("自動參數優化", "🤖", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(section_header("自動參數優化", "", current_theme, size="lg"), unsafe_allow_html=True)
     st.caption("自動測試所有參數組合，找出最佳表現。支援 Grid Search 與 Bayesian Optimization。")
 
     col_o1, col_o2 = st.columns([3, 1])
     with col_o1:
         opt_sources = list_templates()
         if st.session_state.get("user_strategies"):
-            opt_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+            opt_sources += ["── 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
         # 計算 selectbox 當前 index
         prev_opt = st.session_state.get("opt_current", list_templates()[0])
         opt_idx = opt_sources.index(prev_opt) if prev_opt in opt_sources else 0
@@ -1335,7 +1335,7 @@ with main_tab2:
         st.write("")
         st.write("")
         if opt_template.startswith("──"):
-            st.button("📥 載入", key="load_opt_template", disabled=True, use_container_width=True)
+            st.button("載入", key="load_opt_template", disabled=True, use_container_width=True)
         else:
             if st.button("🔄 重新載入", key="load_opt_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
@@ -1375,7 +1375,7 @@ with main_tab2:
                               height=200, key="opt_code_editor")
 
     # === 可見性（放在外面，label + widget 並排格式）===
-    st.markdown(section_header("可見性", "👁️", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("可見性", "", current_theme, size="md"), unsafe_allow_html=True)
 
     vis_left, vis_right = st.columns([1, 3])
     with vis_left:
@@ -1383,7 +1383,7 @@ with main_tab2:
     with vis_right:
         opt_mode = st.radio(
             "優化模式",
-            ["🧠 Bayesian (Optuna)", "📊 Grid Search", "🎲 Random Search"],
+            ["Bayesian (Optuna)", "Grid Search", "Random Search"],
             key="opt_mode",
             label_visibility="collapsed",
             horizontal=True,
@@ -1445,7 +1445,7 @@ with main_tab2:
     with tab_mode:
         if mode_code == "bayesian":
             # Bayesian 模式：範圍型參數編輯器
-            st.caption("🧠 **Bayesian 模式**：每個參數 = 名稱 + 型態 + 範圍。支援 int / float / float_log / categorical")
+            st.caption("**Bayesian 模式**：每個參數 = 名稱 + 型態 + 範圍。支援 int / float / float_log / categorical")
             param_specs = render_param_space_editor(
                 label="參數空間（範圍型）",
                 current_specs=st.session_state.get("opt_param_specs", []),
@@ -1475,7 +1475,7 @@ with main_tab2:
                     st.metric("搜尋效率", f"{reduction:.0f}%")
         else:
             # Grid / Random 模式：候選值清單型
-            st.caption("📊 **Grid / Random 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+            st.caption("**Grid / Random 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
             from utils.param_editor import render_param_editor
             param_space = render_param_editor(
                 label="參數空間",
@@ -1492,10 +1492,10 @@ with main_tab2:
                         _total *= 1
                 st.metric("組合總數", f"{_total:,}")
 
-    run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
+    run_opt = st.button("開始優化", type="primary", use_container_width=True)
 
     if not run_opt:
-        st.info("👆 設定參數空間後點擊「🚀 開始優化」")
+        st.info("設定參數空間後點擊「開始優化」")
     else:
         # === 統一檢查 ===
         if mode_code == "bayesian":
@@ -1615,7 +1615,7 @@ with main_tab2:
             st.error("❌ 沒有找到任何有效組合，請放寬參數空間或檢查策略代碼")
         else:
             best = result["best_metrics"]
-            st.success(f"🎉 找到最佳參數！")
+            st.success(f"找到最佳參數！")
 
             col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns(5)
             with col_r1:
@@ -1629,12 +1629,12 @@ with main_tab2:
             with col_r5:
                 st.metric("勝率", f"{best.get('win_rate', 0):.1f}%")
 
-            st.subheader("🏆 最佳參數組合")
+            st.subheader("最佳參數組合")
             st.json(result["best_params"])
 
             # === 過擬合評估（Grid/Random 模式）===
             if mode_code in ("grid", "random") and result.get("valid_results"):
-                st.subheader("🔍 過擬合風險評估")
+                st.subheader("過擬合風險評估")
                 overfit = calculate_overfit_score(result["valid_results"], top_n=10)
                 col_of1, col_of2, col_of3 = st.columns([1, 1, 2])
                 with col_of1:
@@ -1646,7 +1646,7 @@ with main_tab2:
 
             # === 擾動測試（Bayesian 模式）===
             if mode_code == "bayesian" and result.get("best_params"):
-                st.subheader("🧪 參數穩定性測試（Perturbation Test）")
+                st.subheader("參數穩定性測試（Perturbation Test）")
                 with st.spinner("擾動測試中..."):
                     try:
                         from utils.objective_builder import get_objective_fn
@@ -1680,7 +1680,7 @@ with main_tab2:
 
             # === 參數重要性（Bayesian 模式）===
             if mode_code == "bayesian" and result.get("param_importances"):
-                st.subheader("📊 參數重要性分析（fANOVA）")
+                st.subheader("參數重要性分析（fANOVA）")
                 imp = result["param_importances"]
                 if imp:
                     imp_df = pd.DataFrame([
@@ -1704,7 +1704,7 @@ with main_tab2:
                     st.plotly_chart(fig_imp, use_container_width=True)
 
             # === 複製按鈕 ===
-            if st.button("📋 複製到單次回測", key="copy_to_single"):
+            if st.button("複製到單次回測", key="copy_to_single"):
                 st.session_state["strategy_code"] = opt_code
                 st.session_state["current_template"] = st.session_state.get("opt_current", "")
                 merged = {**fixed_params, **result["best_params"]}
@@ -1713,7 +1713,7 @@ with main_tab2:
                 st.success("✅ 已複製到「單回目測」分頁，請切換查看")
 
             # === Top 10 結果 ===
-            st.subheader(f"📊 Top 10 結果")
+            st.subheader(f"Top 10 結果")
             top_display = []
             valid_list = result.get("valid_results", [])
             if not valid_list and "all_trials" in result and not result["all_trials"].empty:
@@ -1743,7 +1743,7 @@ with main_tab2:
 
             # === 熱力圖（Grid + 2 個參數）===
             if mode_code == "grid" and isinstance(param_space, dict) and len(param_space) == 2 and valid_list:
-                st.subheader("🔥 參數熱力圖")
+                st.subheader("參數熱力圖")
                 pname1, pname2 = list(param_space.keys())
                 pvals1 = param_space[pname1] if isinstance(param_space[pname1], list) else [param_space[pname1]]
                 pvals2 = param_space[pname2] if isinstance(param_space[pname2], list) else [param_space[pname2]]
@@ -1776,7 +1776,7 @@ with main_tab2:
                 trials_df = result["all_trials"]
                 trials_df = trials_df[trials_df["value"].notna()].sort_values("number")
                 if not trials_df.empty:
-                    st.subheader("📈 優化歷史")
+                    st.subheader("優化歷史")
                     fig_hist = go.Figure()
                     fig_hist.add_trace(go.Scatter(
                         x=trials_df["number"], y=trials_df["value"],
@@ -1801,7 +1801,7 @@ with main_tab2:
 # 分頁 3：Walk-Forward 驗證
 # ===========================
 with main_tab3:
-    st.markdown(section_header("Walk-Forward 驗證", "📊", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(section_header("Walk-Forward 驗證", "", current_theme, size="lg"), unsafe_allow_html=True)
     st.caption("""
     將資料切成多個 in-sample（訓練）與 out-of-sample（測試）區段，
     確保策略在「未見過的資料」上也能獲利，避免過擬合。
@@ -1811,7 +1811,7 @@ with main_tab3:
     with col_w1:
         wf_sources = list_templates()
         if st.session_state.get("user_strategies"):
-            wf_sources += ["── 📚 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
+            wf_sources += ["── 我的策略庫 ──"] + list(st.session_state["user_strategies"].keys())
         # 計算 selectbox 當前 index
         prev_wf = st.session_state.get("wf_current", list_templates()[0])
         wf_idx = wf_sources.index(prev_wf) if prev_wf in wf_sources else 0
@@ -1855,7 +1855,7 @@ with main_tab3:
         st.write("")
         st.write("")
         if wf_template.startswith("──"):
-            st.button("📥 載入", key="load_wf_template", disabled=True, use_container_width=True)
+            st.button("載入", key="load_wf_template", disabled=True, use_container_width=True)
         else:
             if st.button("🔄 重新載入", key="load_wf_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
@@ -1893,7 +1893,7 @@ with main_tab3:
     wf_code = st.text_area("策略代碼", value=st.session_state["wf_code"], height=200, key="wf_code_editor")
 
     # === 可見性（放在外面，label + widget 並排格式）===
-    st.markdown(section_header("可見性", "👁️", current_theme, size="md"), unsafe_allow_html=True)
+    st.markdown(section_header("可見性", "", current_theme, size="md"), unsafe_allow_html=True)
     vis_left1, vis_right1 = st.columns([1, 3])
     with vis_left1:
         st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>切分數量</div>", unsafe_allow_html=True)
@@ -1933,7 +1933,7 @@ with main_tab3:
     with vis_right5:
         wf_inner_opt = st.radio(
             "內部優化器",
-            ["🧠 Optuna (Bayesian)", "📊 Grid Search"],
+            ["Optuna (Bayesian)", "Grid Search"],
             key="wf_inner_opt",
             label_visibility="collapsed",
             horizontal=True,
@@ -1973,7 +1973,7 @@ with main_tab3:
 
     with wf_tab_mode:
         if wf_inner_code == "optuna":
-            st.caption("🧠 **Optuna 模式**：每個參數 = 名稱 + 型態 + 範圍")
+            st.caption("**Optuna 模式**：每個參數 = 名稱 + 型態 + 範圍")
             wf_param_specs = render_param_space_editor(
                 label="參數空間（範圍型）",
                 current_specs=st.session_state.get("wf_param_specs", get_default_specs_for_strategy(wf_template)),
@@ -1982,7 +1982,7 @@ with main_tab3:
             )
             wf_param_space = None
         else:
-            st.caption("📊 **Grid 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+            st.caption("**Grid 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
             from utils.param_editor import render_param_editor
             wf_param_space = render_param_editor(
                 label="參數空間",
@@ -1992,14 +1992,14 @@ with main_tab3:
             )
             wf_param_specs = None
 
-    run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
+    run_wf = st.button("執行 Walk-Forward 驗證", type="primary", use_container_width=True)
 
     if not run_wf:
-        st.info("👆 設定參數後點擊「🚀 執行 Walk-Forward 驗證」")
+        st.info("設定參數後點擊「執行 Walk-Forward 驗證」")
     else:
         # 配對模式設定
         if is_pair and pair_info:
-            st.info(f"🔗 配對 WF 模式：{pair_info.get('symbol1')} + {pair_info.get('symbol2')}")
+            st.info(f"配對 WF 模式：{pair_info.get('symbol1')} + {pair_info.get('symbol2')}")
             wf_engine = PairBacktestEngine
             wf_pair_kwargs = {
                 "symbol1": pair_info.get("symbol1", "BTC/USDT"),
@@ -2052,7 +2052,7 @@ with main_tab3:
         else:
             st.success(f"✅ 完成 {wf_results['n_windows']} 個區段的驗證")
 
-            st.subheader("📈 綜合 OOS 表現")
+            st.subheader("綜合 OOS 表現")
             oos = wf_results["combined_oos_metrics"]
             is_pair_wf = wf_results.get("is_pair", False)
 
@@ -2083,7 +2083,7 @@ with main_tab3:
                 with col_oof5:
                     st.metric("最大單筆虧損", f"{oos.get('oos_max_single_loss_pct', 0):.2f}%")
 
-            st.subheader("🎯 過擬合風險評估")
+            st.subheader("過擬合風險評估")
             col_od1, col_od2, col_od3 = st.columns(3)
             with col_od1:
                 st.metric("平均訓練指標", f"{wf_results['avg_train_metric']:.2f}")
@@ -2100,7 +2100,7 @@ with main_tab3:
             else:
                 st.error("🔴 過擬合風險高：策略可能在真實市場失效")
 
-            st.subheader("🔬 參數穩定度分析")
+            st.subheader("參數穩定度分析")
             stability = wf_results["parameter_stability"]
             col_st1, col_st2 = st.columns([1, 2])
             with col_st1:
@@ -2121,7 +2121,7 @@ with main_tab3:
                     })
                 st.dataframe(pd.DataFrame(stab_rows), use_container_width=True, hide_index=True)
 
-            st.subheader("📋 各區段詳細結果")
+            st.subheader("各區段詳細結果")
             wf_rows = []
             for w in wf_results["windows"]:
                 row = {

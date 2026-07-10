@@ -1441,7 +1441,7 @@ def render_list_of_trades(trades: List[Dict]) -> None:
     font-size: 12px;
     text-align: center;
 ">
-    👆 點擊上表任一列，下方會顯示該交易詳情與圖表高亮
+     點擊上表任一列，下方會顯示該交易詳情與圖表高亮
 </div>
 """, unsafe_allow_html=True)
 
