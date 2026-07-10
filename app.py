@@ -47,7 +47,7 @@ from utils.impeccable import (
     section_header, step_indicator, status_pill, empty_state,
     metric_row, info_card,
 )
-from utils.theme import THEMES, get_theme, get_current_theme, list_themes, theme_css
+from utils.theme import get_theme, theme_css
 
 
 # === 頁面設定 ===
@@ -61,18 +61,11 @@ st.set_page_config(
 )
 
 
-# === v4 改進：記住用戶主題偏好 ===
-# 用戶檢核 v4 要求「深色模式為預設」，但尊重用戶先前在 session 內的選擇
-# 完整跨 session 持久化用 localStorage（透過 JS 注入）
-# 注意：streamlit 每次 rerun 都會重新執行這段，所以 theme 仍由 session_state 主導
-# v5 改為：預設 light（淺色）— 因為「淺色 = 太陽」符合預期，深色用戶會主動切換
-if "theme" not in st.session_state:
-    # v7 改進：server side 預設值設為 None，後面 JS 會依 prefers-color-scheme 自動設值
-    # 用戶首次打開網頁時，JS 偵測系統深色偏好 → 設為 dark/light
-    # 用戶手動切換後存到 localStorage → 永久記住
-    st.session_state["theme"] = "light"
-
-current_theme = get_theme(st.session_state["theme"])
+# === 自動偵測並套用主題 ===
+# v8 改進：完全交由 Streamlit 原生主題機制處理
+# 不再自製 FAB / radio 切換；<html data-theme> 由 JS 自動跟隨
+# Streamlit 的 .stApp theme 屬性（colorScheme: "light" | "dark"）
+current_theme = get_theme("light")  # CSS 變數用 light 作為預設渲染（兩組都會輸出，CSS 自動切換）
 
 # Google Fonts（不內嵌 @import，避免干擾系統 emoji 字體）
 st.markdown(
@@ -82,41 +75,56 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# v7 改進：把當前 theme id 寫到 <html data-theme="..."> 屬性
-# CSS variables 會根據這個屬性自動切換顏色（不用重新生成 CSS）
-# 同時也保留隱藏 div data-cblab-theme 供 JS 讀取（向後相容）
+# 自動偵測 Streamlit 當前主題 + 系統偏好 → 套用到 <html data-theme>
+# 這樣 CSS variables 會自動切換，無需用戶手動操作
 st.markdown(
-    f'<script>document.documentElement.setAttribute("data-theme", "{st.session_state["theme"]}");</script>'
-    f'<div id="cblab-theme-state" data-cblab-theme="{st.session_state["theme"]}" '
-    f'style="display:none;position:absolute;width:0;height:0;overflow:hidden;" '
-    f'aria-hidden="true"></div>',
+    """
+<script>
+(function() {
+    function applyThemeFromStreamlit() {
+        try {
+            // 讀取 Streamlit 套用於 <body> 的 data-theme 屬性
+            // Streamlit 1.30+ 在 .stApp 容器上設置 colorScheme 樣式
+            var app = document.querySelector('.stApp');
+            var computedDark = false;
+            if (app) {
+                var cs = window.getComputedStyle(app);
+                var bg = cs.getPropertyValue('background-color') || '';
+                // Streamlit dark theme 的背景色偏深（< 60 亮度）
+                if (bg) {
+                    var m = bg.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+                    if (m) {
+                        var brightness = (parseInt(m[1]) + parseInt(m[2]) + parseInt(m[3])) / 3;
+                        if (brightness < 60) computedDark = true;
+                    }
+                }
+            }
+            var theme = computedDark ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+            // 兜底：跟隨系統
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        }
+    }
+    applyThemeFromStreamlit();
+    // 監聽 Streamlit 主題變化（用戶用右上角 menu 切換時觸發）
+    setTimeout(applyThemeFromStreamlit, 200);
+    setTimeout(applyThemeFromStreamlit, 600);
+    // 監聽系統主題變化
+    try {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        if (mq && mq.addEventListener) {
+            mq.addEventListener('change', applyThemeFromStreamlit);
+        }
+    } catch (e) {}
+})();
+</script>
+""",
     unsafe_allow_html=True,
 )
 
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
-
-
-# === v4 改進：Top Bar 主題切換按鈕（右上角浮動 FAB） ===
-# 功能：
-# 1. 浮動按鈕在右上角（避開 sidebar 和 main 內容）
-# 2. 點擊切換 Light/Dark
-# 3. 旋轉動畫（切換時）
-# 4. localStorage 記住用戶偏好
-# 5. 自動跟隨系統 prefers-color-scheme
-# 用 st.markdown 注入 button 到 streamlit 主頁（不是 iframe）
-# 重要：用 addEventListener 綁定 click（不要用 onclick HTML 屬性，會觸發 React error #231）
-#
-# Streamlit 1.59 radio 用 index (0, 1, 2) 當 value，不是 id。
-# 我們的 theme_options 是 dict 排序，index 0=light, 1=dark
-# 所以點 dark → 找 input[value="1"]
-st.markdown("""
-<button id="theme-toggle-fab" type="button" aria-label="切換主題" data-cblab-theme-toggle>
-    <svg id="theme-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;fill:currentColor;">
-        <path id="icon-sun" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"/>
-        <path id="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" style="display:none;"/>
-    </svg>
-</button>
-""", unsafe_allow_html=True)
 
 
 # === 注入 CSS：防止平板鍵盤在 selectbox 點擊時彈出 ===
@@ -524,266 +532,6 @@ components.html(
     setupMainClickHandler();
     setupKeyboardSuppressor();
 
-    // === v4 改進：FAB 主題切換（在 parent document 找 FAB 元素並綁定） ===
-    function setupThemeToggle() {
-        if (window._themeToggleInstalled) return;
-        window._themeToggleInstalled = true;
-        var pdoc = window.parent.document;
-        var pwin = window.parent;
-        var STORAGE_KEY = 'cblab_theme';
-        var THEME_INDEX = { light: '0', dark: '1' };
-
-        // === v7 改進：CSS variables + 即時切換 ===
-        // 不再依賴 streamlit rerun 來更新顏色
-        // 直接改 <html data-theme="..."> 屬性，CSS variables 自動切換
-        function applyTheme(theme) {
-            // 1) 設定 <html data-theme> 屬性
-            pdoc.documentElement.setAttribute('data-theme', theme);
-            // 2) 同步隱藏 div（向後相容 + 給其他 JS 讀）
-            var stateEl = pdoc.getElementById('cblab-theme-state');
-            if (stateEl) stateEl.setAttribute('data-cblab-theme', theme);
-            // 3) 更新 icon
-            updateIcon(theme);
-            // 4) 觸發 Plotly 圖表重繪（同步圖表顏色）
-            redrawPlotlyCharts(theme);
-        }
-
-        function getCurrentTheme() {
-            try {
-                // 1) 優先讀 localStorage（用戶之前手動切過）
-                var saved = pwin.localStorage.getItem(STORAGE_KEY);
-                if (saved === 'light' || saved === 'dark') return saved;
-            } catch (e) {}
-            // 2) 讀 <html data-theme> 屬性（CSS 切換的權威來源）
-            var attr = pdoc.documentElement.getAttribute('data-theme');
-            if (attr === 'light' || attr === 'dark') return attr;
-            // 3) 讀 streamlit 注入的隱藏 div
-            try {
-                var el = pdoc.getElementById('cblab-theme-state');
-                if (el) {
-                    var dval = el.getAttribute('data-cblab-theme');
-                    if (dval === 'light' || dval === 'dark') return dval;
-                }
-            } catch (e) {}
-            // 4) 兜底：跟隨系統偏好
-            if (pwin.matchMedia && pwin.matchMedia('(prefers-color-scheme: dark)').matches) {
-                return 'dark';
-            }
-            return 'light';
-        }
-
-        function updateIcon(theme) {
-            var sun = pdoc.getElementById('icon-sun');
-            var moon = pdoc.getElementById('icon-moon');
-            if (!sun || !moon) return;
-            // 淺色 = 太陽（白天天亮了）
-            // 深色 = 月亮（夜晚）
-            if (theme === 'light') {
-                sun.style.display = 'block';
-                moon.style.display = 'none';
-            } else {
-                sun.style.display = 'none';
-                moon.style.display = 'block';
-            }
-        }
-
-        // === v7 改進：Plotly 圖表同步重繪 ===
-        // 重要：Plotly 內部 SVG path 的 stroke/fill 屬性不受 CSS 影響
-        // 必須用 JS 直接修改 SVG 屬性（讀取 CSS variables 計算新顏色）
-        function redrawPlotlyCharts(theme) {
-            // 取得 CSS variables 計算後的顏色值
-            var root = pdoc.documentElement;
-            var cs = pdoc.defaultView.getComputedStyle(root);
-
-            // Plotly 顏色規則：line 跟著 template.line.color
-            // 我們簡化：line 跟 text-secondary（柔和可見），axis 跟 text-muted
-            var lineColor = cs.getPropertyValue('--text-primary').trim() || '#D1D4DC';
-            var axisColor = cs.getPropertyValue('--text-muted').trim() || '#5D606B';
-            var gridColor = cs.getPropertyValue('--border').trim() || '#2A2E39';
-            var paperBg = cs.getPropertyValue('--plotly-paper').trim() || '#131722';
-            var plotBg = cs.getPropertyValue('--plotly-plot').trim() || '#131722';
-
-            var plotDivs = pdoc.querySelectorAll('.plotly');
-            for (var i = 0; i < plotDivs.length; i++) {
-                try {
-                    var plotDiv = plotDivs[i];
-                    var svg = plotDiv.querySelector('svg');
-                    if (!svg) continue;
-
-                    // 1) 設定 SVG paper background
-                    svg.style.background = paperBg;
-
-                    // 2) 設定 plot area background（找 .bglayer .bg 或 .plot-area）
-                    var bgLayer = svg.querySelector('.bglayer .bg, .plot .bglayer rect');
-                    if (bgLayer) bgLayer.setAttribute('fill', plotBg);
-
-                    // 3) 修改所有 js-line 的 stroke 為主色
-                    var lines = svg.querySelectorAll('path.js-line, .scatterlayer path.shape');
-                    for (var j = 0; j < lines.length; j++) {
-                        lines[j].setAttribute('stroke', lineColor);
-                    }
-
-                    // 4) 軸線和刻度顏色
-                    var axes = svg.querySelectorAll('g.xaxis, g.yaxis, g.xaxislayer-above, g.yaxislayer-above');
-                    for (var k = 0; k < axes.length; k++) {
-                        var texts = axes[k].querySelectorAll('text, .tick text');
-                        for (var t = 0; t < texts.length; t++) {
-                            texts[t].setAttribute('fill', axisColor);
-                            texts[t].style.fill = axisColor;
-                        }
-                        var paths = axes[k].querySelectorAll('path, line');
-                        for (var pp = 0; pp < paths.length; pp++) {
-                            paths[pp].setAttribute('stroke', axisColor);
-                        }
-                    }
-
-                    // 5) 網格線
-                    var gridlines = svg.querySelectorAll('.gridlayer path');
-                    for (var g = 0; g < gridlines.length; g++) {
-                        gridlines[g].setAttribute('stroke', gridColor);
-                    }
-
-                    // 6) 圖例文字
-                    var legendTexts = svg.querySelectorAll('.legend text, .legend .text');
-                    for (var lt = 0; lt < legendTexts.length; lt++) {
-                        legendTexts[lt].setAttribute('fill', lineColor);
-                        legendTexts[lt].style.fill = lineColor;
-                    }
-                } catch (e) {}
-            }
-        }
-
-        function clickStreamlitRadioByLabel(textMatch) {
-            var labels = pdoc.querySelectorAll('label');
-            for (var i = 0; i < labels.length; i++) {
-                if (labels[i].textContent.indexOf(textMatch) >= 0) {
-                    var input = labels[i].querySelector('input[type="radio"]');
-                    if (input) { input.click(); return true; }
-                }
-            }
-            return false;
-        }
-
-        function clickStreamlitRadioByIndex(themeId) {
-            var idx = THEME_INDEX[themeId];
-            var sidebarRadios = pdoc.querySelectorAll('[data-testid="stSidebar"] input[type="radio"][value="' + idx + '"]');
-            var target = sidebarRadios[0];
-            if (target) { target.click(); return true; }
-            return false;
-        }
-
-        function switchTheme(theme) {
-            // 1) CSS variables 即時切換（不用等 streamlit rerun）
-            applyTheme(theme);
-            // 2) 持久化
-            try {
-                pwin.localStorage.setItem(STORAGE_KEY, theme);
-                pwin.localStorage.setItem(STORAGE_KEY + '_user_set', '1');
-            } catch (e) {}
-            // 3) 同步 streamlit session_state（透過點擊 radio）
-            //    這會觸發 streamlit rerun，但 CSS 已經切換了，使用者看到的是即時切換
-            var targetText = theme === 'dark' ? 'Dark Trading' : 'Light Pro';
-            var ok = clickStreamlitRadioByLabel(targetText);
-            if (!ok) ok = clickStreamlitRadioByIndex(theme);
-            // 4) 即使 radio 點擊失敗，CSS 已經切換，使用者仍能正常瀏覽
-        }
-
-        function bindFab() {
-            var fab = pdoc.getElementById('theme-toggle-fab');
-            if (!fab) return false;
-            // 避免重複綁定
-            if (fab._cblabBound) return true;
-            fab._cblabBound = true;
-            fab.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var cur = getCurrentTheme();
-                var next = cur === 'dark' ? 'light' : 'dark';
-                fab.classList.add('switching');
-                switchTheme(next);
-                setTimeout(function() { fab.classList.remove('switching'); }, 800);
-            });
-            // SVG 不吃 click
-            var iconSvg = pdoc.getElementById('theme-icon');
-            if (iconSvg) iconSvg.style.pointerEvents = 'none';
-            // 初始化 icon
-            updateIcon(getCurrentTheme());
-            return true;
-        }
-
-        // === 首次載入：偵測 prefers-color-scheme 並套用 ===
-        // 設計：v7 CSS variables 系統
-        // 1. JS 切換 <html data-theme> → CSS variables 自動變（impeccable.py 也用 var() 跟著變）
-        // 2. 觸發 streamlit radio → rerun → Plotly 重新渲染（用新 template 顏色）
-        // 不會有循環：rerun 後 radio state 已是目標值，再 click 同一個不會 rerun
-        function initSystemTheme() {
-            try {
-                var saved = pwin.localStorage.getItem(STORAGE_KEY);
-                var userSet = pwin.localStorage.getItem(STORAGE_KEY + '_user_set') === '1';
-                if (saved && userSet) {
-                    // 用戶已設定 → 直接套用
-                    applyTheme(saved);
-                } else {
-                    // 用戶沒設定過 → 跟隨系統偏好
-                    var prefersDark = pwin.matchMedia &&
-                        pwin.matchMedia('(prefers-color-scheme: dark)').matches;
-                    var sysTheme = prefersDark ? 'dark' : 'light';
-                    applyTheme(sysTheme);
-                    try { pwin.localStorage.setItem(STORAGE_KEY, sysTheme); } catch (e) {}
-                    // 觸發 streamlit rerun 重新生成 Plotly 圖表
-                    var targetText = sysTheme === 'dark' ? 'Dark Trading' : 'Light Pro';
-                    setTimeout(function() {
-                        var ok = clickStreamlitRadioByLabel(targetText);
-                        if (!ok) clickStreamlitRadioByIndex(sysTheme);
-                    }, 500);
-                }
-            } catch (e) {}
-        }
-
-        // 監聽系統主題變化（用戶沒手動設定時自動跟隨）
-        try {
-            var mq = pwin.matchMedia('(prefers-color-scheme: dark)');
-            if (mq && mq.addEventListener) {
-                mq.addEventListener('change', function(e) {
-                    try {
-                        var userSet = pwin.localStorage.getItem(STORAGE_KEY + '_user_set') === '1';
-                        if (!userSet) {
-                            applyTheme(e.matches ? 'dark' : 'light');
-                            try { pwin.localStorage.setItem(STORAGE_KEY, e.matches ? 'dark' : 'light'); } catch (err) {}
-                        }
-                    } catch (err) {}
-                });
-            }
-        } catch (e) {}
-
-        // 立即試一次 + 多次 retry（FAB 是 st.markdown 注入，streamlit rerun 後可能重建）
-        if (!bindFab()) {
-            var tries = [100, 300, 600, 1000, 2000, 4000];
-            for (var i = 0; i < tries.length; i++) {
-                setTimeout(bindFab, tries[i]);
-            }
-            // 監聽 streamlit rerun
-            try {
-                new pdoc.defaultView.MutationObserver(function(muts) {
-                    for (var j = 0; j < muts.length; j++) {
-                        var added = muts[j].addedNodes;
-                        for (var k = 0; k < added.length; k++) {
-                            var n = added[k];
-                            if (n && n.id === 'theme-toggle-fab') {
-                                bindFab();
-                                return;
-                            }
-                        }
-                    }
-                }).observe(pdoc.body, { childList: true, subtree: true });
-            } catch (e) {}
-        }
-
-        // 執行首次系統主題偵測
-        initSystemTheme();
-    }
-    setupThemeToggle();
-
     // 多重 retry 確保一定注入
     if (!tryInject()) {
         setTimeout(tryInject, 200);
@@ -806,29 +554,6 @@ components.html(
 
 # === 側邊欄：資料來源 ===
 with st.sidebar:
-    st.markdown(section_header("主題", "", current_theme, size="md"), unsafe_allow_html=True)
-
-    theme_options = list_themes()
-    current_idx = list(theme_options.keys()).index(st.session_state["theme"]) \
-        if st.session_state["theme"] in theme_options else 0
-
-    def _on_theme_change():
-        # 從 widget 取新值
-        st.session_state["theme"] = st.session_state["_theme_selector"]
-
-    selected_theme_name = st.radio(
-        "主題切換",
-        options=list(theme_options.keys()),
-        index=current_idx,
-        key="_theme_selector",
-        on_change=_on_theme_change,
-        label_visibility="collapsed",
-        help="切換配色主題（影響整個 app + plotly 圖表）",
-        format_func=lambda tid: theme_options[tid],
-    )
-
-    st.divider()
-
     st.markdown(section_header("資料來源", "", current_theme, size="md"), unsafe_allow_html=True)
 
     data_source = st.radio(
