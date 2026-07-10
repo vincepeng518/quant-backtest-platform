@@ -76,6 +76,13 @@ def render_param_editor(
     if storage_key not in st.session_state:
         st.session_state[storage_key] = current_params.copy()
 
+    # 安全讀取：若 key 不存在或值非 dict，則初始化
+    raw = st.session_state.get(storage_key)
+    if not isinstance(raw, dict):
+        st.session_state[storage_key] = current_params.copy()
+        raw = st.session_state[storage_key]
+    params = dict(raw)
+
     # 處理「新增」
     if st.session_state.pop(f"{key_prefix}_add_clicked", False):
         new_name = "param_1"
@@ -85,9 +92,6 @@ def render_param_editor(
             new_name = f"param_{counter}"
         st.session_state[storage_key][new_name] = 0
         st.rerun()
-
-    # 渲染每一列（無刪除按鈕）
-    params = dict(st.session_state[storage_key])
     keys_to_remove = []
 
     for i, key in enumerate(list(params.keys())):
