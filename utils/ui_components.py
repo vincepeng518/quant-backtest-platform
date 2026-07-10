@@ -686,7 +686,7 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
 
 
 def render_list_of_trades(trades: List[Dict]) -> None:
-    """List of Trades 頁：交易明細表。"""
+    """List of Trades 頁：交易明細表（v2: streamlit-aggrid + 點擊高亮圖表）。"""
     p = _palette()
 
     if not trades:
@@ -738,31 +738,222 @@ def render_list_of_trades(trades: List[Dict]) -> None:
 ">交易明細 ({len(trades_df_display)} 筆)</div>
 """, unsafe_allow_html=True)
 
-    st.dataframe(
+    # v2: 用 streamlit-aggrid 支援 row click → 圖表高亮
+    st.caption("💡 點擊任一交易，圖表會自動顯示該交易的進出場位置與損益")
+
+    from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
+    import streamlit as st_lib  # 用別名避免 shadowing
+
+    # 給每個 trade 唯一 ID（用 index）
+    trades_df_display = trades_df_display.copy()
+    trades_df_display.insert(0, "#", trades_df_display.index)
+
+    # 顏色 cell renderer：盈虧綠紅
+    pnl_color_js = JsCode(f"""
+    function(params) {{
+        if (params.value == null) return params.value;
+        if (typeof params.value === 'string' && params.value.includes('-')) {{
+            return {{ 'color': '{p["red_text"]}', 'fontWeight': '600' }};
+        }}
+        if (typeof params.value === 'string' && params.value.includes('+')) {{
+            return {{ 'color': '{p["green_text"]}', 'fontWeight': '600' }};
+        }}
+        return null;
+    }}
+    """)
+
+    direction_color_js = JsCode(f"""
+    function(params) {{
+        if (params.value === 'long') {{
+            return {{ 'color': '{p["green_text"]}', 'fontWeight': '600' }};
+        }} else if (params.value === 'short') {{
+            return {{ 'color': '{p["red_text"]}', 'fontWeight': '600' }};
+        }}
+        return null;
+    }}
+    """)
+
+    gb = GridOptionsBuilder.from_dataframe(trades_df_display)
+    # v32.2+ 用 object-style rowSelection
+    pre_sel_idx = st_lib.session_state.get("selected_trade_row")
+    pre_selected = [str(pre_sel_idx)] if pre_sel_idx is not None else []
+    gb.configure_selection(
+        selection_mode="single",
+        use_checkbox=False,
+        pre_selected_rows=pre_selected,
+    )
+    gb.configure_grid_options(domLayout="normal")
+    gb.configure_column("報酬 %", cellStyle=pnl_color_js)
+    gb.configure_column("損益 (USDT)", cellStyle=pnl_color_js)
+    gb.configure_column("累計 PnL", cellStyle=pnl_color_js)
+    gb.configure_column("方向", cellStyle=direction_color_js)
+    # 不要顯示「#」欄（純內部 ID）
+    gb.configure_column("#", hide=True)
+    grid_options = gb.build()
+
+    # 主題：依當前主題
+    aggrid_theme = "alpine" if p["bg"] == p.get("bg") and p.get("text_primary") == "#0F172A" else "alpine-dark"
+    # 簡化判斷：淺色用 alpine，深色用 alpine-dark
+    is_dark = p.get("text_primary", "").startswith("#F") or p.get("text_primary", "").startswith("#f")
+    aggrid_theme = "alpine-dark" if is_dark else "alpine"
+
+    # 計算高度：每列 28px，header 32px，最少 300px
+    grid_height = min(500, max(300, 32 + 28 * len(trades_df_display)))
+
+    grid_response = AgGrid(
         trades_df_display,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "進場時間": st.column_config.DatetimeColumn("進場時間", format="YYYY-MM-DD HH:mm"),
-            "出場時間": st.column_config.DatetimeColumn("出場時間", format="YYYY-MM-DD HH:mm"),
-            "進場價": st.column_config.NumberColumn("進場價", format="$%.2f"),
-            "出場價": st.column_config.NumberColumn("出場價", format="$%.2f"),
-            "報酬 %": st.column_config.NumberColumn("報酬 %", format="%+.2f%%"),
-            "損益 (USDT)": st.column_config.NumberColumn("損益 (USDT)", format="$%+.2f"),
-            "累計 PnL": st.column_config.NumberColumn("累計 PnL", format="$%+.2f"),
-            "持倉 (h)": st.column_config.NumberColumn("持倉 (h)", format="%.1f"),
-        },
-        height=500,
+        grid_options,
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        fit_columns_on_grid_load=True,
+        theme=aggrid_theme,
+        height=grid_height,
+        key="trades_aggrid",
+        allow_unsafe_jscode=True,
     )
 
+    # 處理選擇：將選中的 row 存到 session_state
+    selected_rows = grid_response.get("selected_rows", [])
+    if selected_rows is None:
+        selected_rows = []
+    # 兼容 DataFrame 與 list
+    if hasattr(selected_rows, "to_dict"):
+        selected_rows = selected_rows.to_dict("records")
+
+    new_selected = None
+    if len(selected_rows) > 0:
+        row = selected_rows[0] if isinstance(selected_rows, list) else selected_rows.iloc[0]
+        if isinstance(row, dict):
+            new_selected = int(row.get("#", -1))
+        else:
+            new_selected = int(row["#"])
+
+    if new_selected is not None and 0 <= new_selected < len(trades):
+        prev = st_lib.session_state.get("selected_trade_row")
+        if prev != new_selected:
+            st_lib.session_state["selected_trade_row"] = new_selected
+            # 不 rerun — 避免切到其他 tab 時回到 Overview
+    else:
+        # 清空選擇
+        if st_lib.session_state.get("selected_trade_row") is not None:
+            st_lib.session_state["selected_trade_row"] = None
+
+    # 顯示選中交易的高亮資訊卡
+    sel_idx = st_lib.session_state.get("selected_trade_row")
+    if sel_idx is not None and 0 <= sel_idx < len(trades):
+        trade = trades[sel_idx]
+        render_trade_highlight_card(trade, p)
+    else:
+        st.markdown(f"""
+<div style="
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: {p['bg_subtle']};
+    border: 1px dashed {p['border']};
+    border-radius: 6px;
+    color: {p['text_muted']};
+    font-size: 12px;
+    text-align: center;
+">
+    👆 點擊上表任一列，下方會顯示該交易詳情與圖表高亮
+</div>
+""", unsafe_allow_html=True)
+
+    # 下載按鈕
     from datetime import datetime
-    csv = trades_df_display.to_csv(index=False).encode("utf-8")
+    csv = trades_df_display.drop(columns=["#"]).to_csv(index=False).encode("utf-8")
     st.download_button(
         "📥 下載交易明細 CSV",
         data=csv,
         file_name=f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv",
     )
+
+
+def render_trade_highlight_card(trade: Dict, p: dict) -> None:
+    """v2: 顯示選中交易的詳細資訊卡。"""
+    entry = trade.get("entry_time", "")
+    exit_ = trade.get("exit_time", "")
+    direction = trade.get("direction", "?")
+    pnl = trade.get("pnl", 0)
+    pnl_pct = trade.get("pnl_pct", 0) * 100
+    entry_price = trade.get("entry_price", 0)
+    exit_price = trade.get("exit_price", 0)
+    duration_h = trade.get("duration_hours", 0)
+    exit_reason = trade.get("exit_reason", "?")
+
+    is_profit = pnl >= 0
+    accent = p["green_text"] if is_profit else p["red_text"]
+    dir_color = p["green_text"] if direction == "long" else p["red_text"]
+    dir_label = "做多" if direction == "long" else "做空"
+
+    # 計算持倉天數
+    if duration_h >= 24:
+        dur_str = f"{duration_h / 24:.1f} 天"
+    else:
+        dur_str = f"{duration_h:.1f} 小時"
+
+    st.markdown(f"""
+<div style="
+    margin-top: 12px;
+    padding: 14px 18px;
+    background: {p['bg_subtle']};
+    border: 1px solid {p['border']};
+    border-left: 3px solid {accent};
+    border-radius: 6px;
+">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="font-size: 13px; font-weight: 600; color: {p['text_primary']};">
+            交易詳情
+        </div>
+        <div style="
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: {p['bg_card']};
+            color: {dir_color};
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        ">{dir_label}</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">進場時間</div>
+            <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{entry}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場時間</div>
+            <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{exit_}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">持倉時間</div>
+            <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{dur_str}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場原因</div>
+            <div style="color: {p['text_primary']}; font-size: 12px;">{exit_reason}</div>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid {p['border']};">
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">進場價</div>
+            <div style="color: {p['text_primary']}; font-size: 14px; font-family: {p['font_mono']};">${entry_price:,.2f}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場價</div>
+            <div style="color: {p['text_primary']}; font-size: 14px; font-family: {p['font_mono']};">${exit_price:,.2f}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">損益</div>
+            <div style="color: {accent}; font-size: 14px; font-weight: 600; font-family: {p['font_mono']};">${pnl:+,.2f}</div>
+        </div>
+        <div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">報酬率</div>
+            <div style="color: {accent}; font-size: 14px; font-weight: 600; font-family: {p['font_mono']};">{pnl_pct:+.2f}%</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
@@ -798,8 +989,12 @@ def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
 
 
 def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
-    """價格走勢圖（TradingView 風格 K 線 + Volume）。"""
+    """價格走勢圖（TradingView 風格 K 線 + Volume + v2 高亮選中交易）。"""
+    import streamlit as st_lib
     p = _palette()
+
+    # 讀取選中交易索引
+    selected_idx = st_lib.session_state.get("selected_trade_row")
 
     st.markdown(f"""
 <div style="
@@ -811,6 +1006,49 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     margin-bottom: 8px;
     margin-top: 4px;
 ">價格走勢 + 進出場標記</div>
+""", unsafe_allow_html=True)
+
+    # v2: 顯示選中交易的高亮提示
+    if selected_idx is not None and 0 <= selected_idx < len(trades):
+        sel_trade = trades[selected_idx]
+        dir_label = "做多" if sel_trade.get("direction") == "long" else "做空"
+        pnl = sel_trade.get("pnl", 0)
+        pnl_pct = sel_trade.get("pnl_pct", 0) * 100
+        accent = p["green_text"] if pnl >= 0 else p["red_text"]
+        st.markdown(f"""
+<div style="
+    margin-bottom: 8px;
+    padding: 8px 14px;
+    background: {p['bg_subtle']};
+    border: 1px solid {p['border']};
+    border-left: 3px solid {accent};
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+">
+    <span style="color: {p['text_secondary']};">高亮交易</span>
+    <span style="color: {p['text_primary']}; font-weight: 600;">#{selected_idx + 1}</span>
+    <span style="color: {p['text_secondary']};">·</span>
+    <span style="color: {p['text_primary']};">{dir_label}</span>
+    <span style="color: {p['text_secondary']};">·</span>
+    <span style="color: {accent}; font-weight: 600; font-family: {p['font_mono']};">{pnl_pct:+.2f}% (${pnl:+,.2f})</span>
+    <span style="color: {p['text_secondary']};">·</span>
+    <span style="color: {p['text_muted']}; font-family: {p['font_mono']};">{sel_trade.get('entry_time', '')}</span>
+    <span style="margin-left: auto;">
+        <button onclick="window.parent.document.querySelector('div[role=&quot;tab&quot;]:has-text(\"List of Trades\")').click()"
+            style="
+                background: transparent;
+                border: 1px solid {p['border_strong']};
+                color: {p['text_secondary']};
+                font-size: 11px;
+                padding: 2px 10px;
+                border-radius: 4px;
+                cursor: pointer;
+            ">清除選擇</button>
+    </span>
+</div>
 """, unsafe_allow_html=True)
 
     col_map = _resolve_chart_columns(result_df)
@@ -930,6 +1168,100 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
             x=0.5, y=0.15,
             showarrow=False,
             font=dict(color=p["text_muted"], size=12),
+        )
+
+    # === v2: 高亮選中交易（垂直虛線 + 標註框）===
+    if selected_idx is not None and 0 <= selected_idx < len(trades):
+        sel_trade = trades[selected_idx]
+        entry_time = sel_trade.get("entry_time")
+        exit_time = sel_trade.get("exit_time")
+        pnl = sel_trade.get("pnl", 0)
+        pnl_pct = sel_trade.get("pnl_pct", 0) * 100
+        entry_price = sel_trade.get("entry_price", 0)
+        exit_price = sel_trade.get("exit_price", 0)
+        is_profit = pnl >= 0
+        vline_color = p["green"] if is_profit else p["red"]
+
+        # 進場垂直虛線
+        if entry_time is not None and pd.notna(entry_time):
+            entry_ts = pd.Timestamp(entry_time)
+            if entry_ts in display_df.index or entry_ts in result_df.index:
+                fig.add_vline(
+                    x=entry_ts,
+                    line=dict(color=vline_color, width=2.5, dash="dot"),
+                    opacity=0.85,
+                    row=1, col=1,
+                )
+                # 標註框（進場）
+                fig.add_annotation(
+                    x=entry_ts,
+                    y=1.04,
+                    yref="paper",
+                    text=f"<b>L</b><br>${entry_price:,.2f}",
+                    showarrow=False,
+                    font=dict(color=vline_color, size=10, family=p["font_mono"]),
+                    bgcolor=p["bg_card"],
+                    bordercolor=vline_color,
+                    borderwidth=1,
+                    borderpad=3,
+                    xanchor="left",
+                    yanchor="bottom",
+                )
+
+        # 出場垂直虛線
+        if exit_time is not None and pd.notna(exit_time):
+            exit_ts = pd.Timestamp(exit_time)
+            if exit_ts in display_df.index or exit_ts in result_df.index:
+                fig.add_vline(
+                    x=exit_ts,
+                    line=dict(color=p["orange"], width=2.5, dash="dot"),
+                    opacity=0.85,
+                    row=1, col=1,
+                )
+                # 標註框（出場）
+                fig.add_annotation(
+                    x=exit_ts,
+                    y=1.04,
+                    yref="paper",
+                    text=f"<b>X</b><br>${exit_price:,.2f}",
+                    showarrow=False,
+                    font=dict(color=p["orange"], size=10, family=p["font_mono"]),
+                    bgcolor=p["bg_card"],
+                    bordercolor=p["orange"],
+                    borderwidth=1,
+                    borderpad=3,
+                    xanchor="right",
+                    yanchor="bottom",
+                )
+
+        # 進場-出場間填色（半透明）
+        if entry_time is not None and exit_time is not None:
+            try:
+                entry_ts = pd.Timestamp(entry_time)
+                exit_ts = pd.Timestamp(exit_time)
+                # 找出區間內所有 K 線
+                in_range = display_df[(display_df.index >= entry_ts) & (display_df.index <= exit_ts)]
+                if not in_range.empty:
+                    fill_color = f"rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
+                    fig.add_vrect(
+                        x0=entry_ts, x1=exit_ts,
+                        fillcolor=fill_color,
+                        opacity=0.5,
+                        layer="below",
+                        line_width=0,
+                        row=1, col=1,
+                    )
+            except Exception:
+                pass
+
+        # 底部狀態列（PnL 摘要）
+        fig.add_annotation(
+            x=0.5, y=-0.18,
+            xref="paper", yref="paper",
+            text=f"<b>#{selected_idx + 1}</b> · {pnl_pct:+.2f}% · ${pnl:+,.2f}",
+            showarrow=False,
+            font=dict(color=vline_color, size=13, family=p["font_mono"]),
+            xanchor="center",
         )
 
     fig.update_layout(
