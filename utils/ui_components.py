@@ -394,7 +394,7 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
     except Exception:
         pass
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
 
 def _tv_kpi_card_html(
@@ -1008,7 +1008,7 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
     except Exception:
         pass
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
 
 def _render_trade_stats_grid(
@@ -1323,7 +1323,7 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
             showgrid=False,
         ),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
     # 熱圖下方：年度總報酬摘要
     # v8 改進：完整防呆 — year 欄位不存在、pnl 為空、return_pct 缺失都安全處理
@@ -1908,7 +1908,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     except Exception:
         pass
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
 
 def _max_consecutive(series: pd.Series) -> int:
@@ -2114,7 +2114,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             xaxis=dict(gridcolor=p["border"], zeroline=False),
             yaxis=dict(gridcolor=p["border"], zeroline=False),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
         # === 雙直方圖：報酬率 & 回撤分布 ===
         st.markdown(f"""
@@ -2166,7 +2166,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
                 xaxis=dict(gridcolor=p["border"], zeroline=False),
                 yaxis=dict(gridcolor=p["border"], zeroline=False),
             )
-            st.plotly_chart(fig_ret, use_container_width=True)
+            st.plotly_chart(fig_ret, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
         with col2:
             fig_dd = go.Figure()
@@ -2206,7 +2206,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
                 xaxis=dict(gridcolor=p["border"], zeroline=False),
                 yaxis=dict(gridcolor=p["border"], zeroline=False),
             )
-            st.plotly_chart(fig_dd, use_container_width=True)
+            st.plotly_chart(fig_dd, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
         # === 風險評估總結 ===
         st.markdown(f"""

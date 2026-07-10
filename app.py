@@ -1724,7 +1724,7 @@ with main_tab2:
                         template="plotly_white",
                         yaxis=dict(autorange="reversed"),
                     )
-                    st.plotly_chart(fig_imp, use_container_width=True)
+                    st.plotly_chart(fig_imp, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
             # === 複製按鈕 ===
             if st.button("複製到單次回測", key="copy_to_single"):
@@ -1792,7 +1792,7 @@ with main_tab2:
                     xaxis_title=pname1, yaxis_title=pname2,
                     template="plotly_white", height=500,
                 )
-                st.plotly_chart(fig_heat, use_container_width=True)
+                st.plotly_chart(fig_heat, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
             # === 最佳化歷史圖（Bayesian 模式）===
             if mode_code == "bayesian" and "all_trials" in result and not result["all_trials"].empty:
@@ -1817,7 +1817,7 @@ with main_tab2:
                         yaxis_title=opt_objective,
                         template="plotly_white", height=400,
                     )
-                    st.plotly_chart(fig_hist, use_container_width=True)
+                    st.plotly_chart(fig_hist, use_container_width=True, config={"staticPlot": True, "displayModeBar": False})
 
 
 # ===========================
