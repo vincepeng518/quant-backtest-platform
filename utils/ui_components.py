@@ -478,6 +478,7 @@ def render_tv_overview(
     metrics: Dict,
     result_df: pd.DataFrame,
     initial_capital: float,
+    trades: Optional[List[Dict]] = None,
 ) -> None:
     """TradingView Strategy Tester 風格的 Overview 頁面。
 
@@ -487,6 +488,11 @@ def render_tv_overview(
     ├─ 6 個次要 KPI 卡片列（Buy & Hold / Sharpe / Calmar / CAGR / Sortino / Recovery）┤
     ├─ 主圖：權益曲線 + Buy & Hold + Drawdown 子圖┤
     ├─ 交易統計 4×3 網格 KPI┤
+
+    參數：
+        trades: 交易明細 list[dict]，用於統一計算 n_wins / win_rate
+                （確保「獲利筆數 / 總筆數 = 勝率」永遠一致）
+                若未提供則 fallback 到 metrics（向後相容）
     """
     p = _palette()
 
@@ -497,14 +503,22 @@ def render_tv_overview(
     net_profit = final_equity - initial_capital
     max_dd = metrics.get("max_drawdown_pct", 0)
     max_dd_amount = initial_capital * abs(max_dd) / 100 if max_dd else 0
-    win_rate = metrics.get("win_rate", 0)
-    n_trades = metrics.get("n_trades", 0)
+
+    # 統一來源：n_wins / win_rate / n_trades 一律用 trades 實際計算
+    # 確保「獲利交易筆數 / 總交易筆數 = 勝率」永遠一致
+    # 之前用 metrics.win_rate × n_trades 反推 n_wins 會在 win_rate 計算錯誤時
+    # 導致「顯示 1/6 但勝率 33.33%」這種不一致問題
+    from utils.trade_stats import compute_trade_stats
+    _stats = compute_trade_stats(result_df=result_df, trades=trades, metrics=metrics)
+    n_trades = int(_stats.get("n_trades", 0))
+    n_wins = int(_stats.get("n_wins", 0))
+    win_rate = float(_stats.get("win_rate", 0.0))  # 已經是 0-100 的百分比
+
     sharpe = metrics.get("sharpe_ratio", 0)
     profit_factor = metrics.get("profit_factor", 0)
     buy_hold = metrics.get("buy_hold_return_pct", 0)
     avg_win = metrics.get("avg_win_pct", 0)
     avg_loss = metrics.get("avg_loss_pct", 0)
-    n_wins = int(n_trades * win_rate / 100) if n_trades > 0 else 0
 
     returns = (
         result_df["strategy_returns"].dropna()
@@ -1065,10 +1079,19 @@ def _render_trade_stats_grid(
 
 
 # === Overview 頁：KPI 卡片 + 主圖 + 交易統計 ===
-def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: float) -> None:
-    """TradingView Strategy Tester 風格 Overview。"""
+def render_overview(
+    metrics: Dict,
+    result_df: pd.DataFrame,
+    initial_capital: float,
+    trades: Optional[List[Dict]] = None,
+) -> None:
+    """TradingView Strategy Tester 風格 Overview。
+
+    trades 為可選參數：傳入時可確保 n_wins / win_rate 計算一致
+    （不會再有「1/6 但 33.33%」這種顯示矛盾）。
+    """
     # v4+ 改為 TradingView 風格（重設計）
-    render_tv_overview(metrics, result_df, initial_capital)
+    render_tv_overview(metrics, result_df, initial_capital, trades=trades)
 
 
 def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:

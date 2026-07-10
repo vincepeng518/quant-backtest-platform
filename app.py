@@ -1364,7 +1364,7 @@ with main_tab1:
                 ])
 
                 with result_tab1:
-                    render_overview(metrics, result_df, initial_capital)
+                    render_overview(metrics, result_df, initial_capital, trades=trades)
 
                 with result_tab2:
                     render_performance_summary(trades, metrics)
@@ -1395,7 +1395,7 @@ with main_tab1:
         ])
 
         with result_tab1:
-            render_overview(metrics, result_df, initial_capital)
+            render_overview(metrics, result_df, initial_capital, trades=trades)
 
         with result_tab2:
             render_performance_summary(trades, metrics)
