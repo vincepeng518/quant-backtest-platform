@@ -1721,12 +1721,19 @@ def _resolve_chart_columns(result_df: pd.DataFrame) -> dict:
 
 
 def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
-    """價格走勢圖（TradingView 風格 K 線 + Volume + v2 高亮選中交易）。"""
-    import streamlit as st_lib
-    p = _palette()
+    """回測 Overview 圖表（TradingView Strategy Tester 風格）。
 
-    # 讀取選中交易索引
-    selected_idx = st_lib.session_state.get("selected_trade_row")
+    v3 重構：完全對齊 TradingView 策略測試器 Overview 視窗
+    - 單一繪圖視窗，無子圖結構
+    - 兩條核心曲線：策略淨值（主線）+ Buy & Hold 基準（虛線）
+    - 策略淨值下方有淡色填滿（TradingView 漸層效果）
+    - 線條顏色根據最終盈虧自動切換（綠 = 獲利、紅 = 虧損）
+    - Y 軸只有資產淨值（USDT），絕對乾淨
+    - 移除所有 K 線、成交量、進出場標記、價格座標軸
+
+    此函式只繪製資產走勢，不再負責交易高亮。
+    """
+    p = _palette()
 
     st.markdown(f"""
 <div style="
@@ -1737,329 +1744,138 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     font-weight: 600;
     margin-bottom: 8px;
     margin-top: 4px;
-">價格走勢 + 進出場標記</div>
+">資產淨值走勢</div>
 """, unsafe_allow_html=True)
 
-    # v2: 顯示選中交易的高亮提示
-    if selected_idx is not None and 0 <= selected_idx < len(trades):
-        sel_trade = trades[selected_idx]
-        dir_label = "做多" if sel_trade.get("direction") == "long" else "做空"
-        pnl = sel_trade.get("pnl", 0)
-        pnl_pct = sel_trade.get("pnl_pct", 0) * 100
-        accent = p["green_text"] if pnl >= 0 else p["red_text"]
-        st.markdown(f"""
-<div style="
-    margin-bottom: 8px;
-    padding: 8px 14px;
-    background: {p['bg_subtle']};
-    border: 1px solid {p['border']};
-    border-left: 3px solid {accent};
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 12px;
-    flex-wrap: wrap;
-">
-    <span style="color: {p['text_secondary']};">高亮交易</span>
-    <span style="color: {p['text_primary']}; font-weight: 600;">#{selected_idx + 1}</span>
-    <span style="color: {p['text_secondary']};">·</span>
-    <span style="color: {p['text_primary']};">{dir_label}</span>
-    <span style="color: {p['text_secondary']};">·</span>
-    <span style="color: {accent}; font-weight: 600; font-family: {p['font_mono']};">{pnl_pct:+.2f}% (${pnl:+,.2f})</span>
-    <span style="color: {p['text_secondary']};">·</span>
-    <span style="color: {p['text_muted']}; font-family: {p['font_mono']};">{sel_trade.get('entry_time', '')}</span>
-    <span style="margin-left: auto; display: flex; gap: 6px;">
-        <span style="color: {p['text_muted']}; font-size: 10px; padding: 2px 6px;
-                     background: {p['bg']}; border-radius: 3px;">
-            提示：點 vline 跳回明細
-        </span>
-        <button onclick="window.parent.st_lib = window.parent.st_lib || {{}};
-                window.parent.st_lib.clear_sel = function() {{
-                    // 透過 streamlit 自訂事件通知
-                    var evt = new CustomEvent('clear-trade-selection', {{ bubbles: true }});
-                    window.parent.document.body.dispatchEvent(evt);
-                }};
-                window.parent.document.body.dispatchEvent(new CustomEvent('clear-trade-selection', {{ bubbles: true }}));
-                // 重新刷新頁面（清空 session_state）
-                window.parent.location.reload();
-            "
-            style="
-                background: transparent;
-                border: 1px solid {p['border_strong']};
-                color: {p['text_secondary']};
-                font-size: 11px;
-                padding: 2px 10px;
-                border-radius: 4px;
-                cursor: pointer;
-            ">清除選擇</button>
-    </span>
-</div>
-""", unsafe_allow_html=True)
-
-    col_map = _resolve_chart_columns(result_df)
-    if not col_map:
-        st.error("❌ 找不到價格欄位（open/high/low/close）")
-        st.info("請確認您的回測資料有正確的 OHLC 欄位")
+    # 守衛：result_df 必須有 equity 欄位
+    if result_df is None or not isinstance(result_df, pd.DataFrame) or result_df.empty:
+        st.caption("無回測結果資料可顯示")
+        return
+    if "equity" not in result_df.columns:
+        st.caption("缺少 equity 欄位，無法繪製資產走勢")
         return
 
-    display_n = st.slider("顯示最近 N 根 K 線", min_value=50, max_value=min(1000, len(result_df)),
-                            value=min(200, len(result_df)), step=50)
-    # v3: 如果選了交易，確保進出場時間在顯示範圍內
-    display_df = result_df.tail(display_n).copy()  # 預設
-    if selected_idx is not None and 0 <= selected_idx < len(trades):
-        sel = trades[selected_idx]
-        for t_key in ("entry_time", "exit_time"):
-            t = sel.get(t_key)
-            if t is None or pd.isna(t):
-                continue
-            t_ts = pd.Timestamp(t)
-            if t_ts not in result_df.index:
-                continue
-            # 找到 t_ts 在 result_df 中的位置
-            try:
-                pos = result_df.index.get_loc(t_ts)
-            except Exception:
-                continue
-            # 確保 t_ts 在 display_df 範圍：以 t_ts 為中心
-            start = max(0, pos - display_n // 2)
-            end = min(len(result_df), start + display_n)
-            start = max(0, end - display_n)
-            display_df = result_df.iloc[start:end].copy()
-            break
+    # 取淨值序列（直接使用全部資料，不再做 K 線範圍裁切）
+    equity = result_df["equity"].dropna()
+    if equity.empty:
+        st.caption("無有效淨值資料")
+        return
 
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.05,
-        row_heights=[0.75, 0.25],
-        subplot_titles=("", "成交量"),
+    # 初始資金：從第一筆或 metrics 推算（fallback 用首筆當基準）
+    initial_capital = float(equity.iloc[0]) if len(equity) > 0 else 10000.0
+
+    # 最終盈虧 → 決定顏色
+    final_equity = float(equity.iloc[-1])
+    net_profit = final_equity - initial_capital
+    is_profit = net_profit >= 0
+
+    # TradingView 配色（與 render_tv_equity_chart 一致）
+    tv_green = "#26A69A"
+    tv_red = "#EF5350"
+    tv_orange = "#FF9800"
+
+    equity_color = tv_green if is_profit else tv_red
+    fill_rgba = "rgba(38, 166, 154, 0.12)" if is_profit else "rgba(239, 83, 80, 0.12)"
+
+    # Buy & Hold 基準線（若資料內含 buy_hold 欄位）
+    has_buy_hold = "buy_hold" in result_df.columns
+    buy_hold_series = result_df["buy_hold"].dropna() if has_buy_hold else None
+
+    # === 單一繪圖視窗（無子圖）===
+    fig = go.Figure()
+
+    # 1) 策略淨值下方淡色填滿
+    fig.add_trace(go.Scatter(
+        x=equity.index,
+        y=equity.values,
+        mode="lines",
+        name="策略淨值",
+        line=dict(color=equity_color, width=2.4, shape="spline", smoothing=0.6),
+        fill="tozeroy",
+        fillcolor=fill_rgba,
+        hovertemplate=(
+            "<b>%{x|%Y-%m-%d %H:%M}</b><br>"
+            "淨值：$%{y:,.2f}<extra></extra>"
+        ),
+    ))
+
+    # 2) Buy & Hold 基準線（虛線）
+    if has_buy_hold and buy_hold_series is not None and not buy_hold_series.empty:
+        fig.add_trace(go.Scatter(
+            x=buy_hold_series.index,
+            y=buy_hold_series.values,
+            mode="lines",
+            name="Buy & Hold",
+            line=dict(color=tv_orange, width=1.4, dash="dash", shape="spline", smoothing=0.6),
+            opacity=0.85,
+            hovertemplate=(
+                "<b>%{x|%Y-%m-%d %H:%M}</b><br>"
+                "Buy & Hold：$%{y:,.2f}<extra></extra>"
+            ),
+        ))
+
+    # 3) 初始資金水平參考線
+    fig.add_hline(
+        y=initial_capital,
+        line=dict(color=p["text_muted"], width=1, dash="dot"),
+        opacity=0.5,
+        annotation_text=f"初始資金 ${initial_capital:,.0f}",
+        annotation_position="right",
+        annotation_font=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
     )
 
-    candlestick_kwargs = {
-        "x": display_df.index,
-        "open": display_df[col_map["open"]],
-        "high": display_df[col_map["high"]],
-        "low": display_df[col_map["low"]],
-        "close": display_df[col_map["close"]],
-        "increasing_line_color": p["green"],
-        "decreasing_line_color": p["red"],
-        "increasing_fillcolor": p["green"],
-        "decreasing_fillcolor": p["red"],
-        "name": col_map.get("symbol", "K 線"),
-    }
-    fig.add_trace(go.Candlestick(**candlestick_kwargs), row=1, col=1)
-
-    if col_map.get("mode") == "pair" and "close2" in col_map:
-        fig.add_trace(
-            go.Scatter(
-                x=display_df.index, y=display_df[col_map["close2"]],
-                name=f"{col_map['symbol2']} 價格",
-                line=dict(color=p["orange"], width=1.5, dash="dot"),
-                opacity=0.6,
-            ),
-            row=1, col=1,
-        )
-
-    entries_in_view = display_df[display_df["entry"]] if "entry" in display_df.columns else pd.DataFrame()
-    if not entries_in_view.empty:
-        if "position" in display_df.columns:
-            long_entries = entries_in_view[display_df.loc[entries_in_view.index, "position"] == 1]
-            short_entries = entries_in_view[display_df.loc[entries_in_view.index, "position"] == -1]
-        else:
-            long_entries = entries_in_view
-            short_entries = pd.DataFrame()
-
-        close_col = col_map["close"]
-
-        if not long_entries.empty:
-            fig.add_trace(
-                go.Scatter(
-                    x=long_entries.index, y=long_entries[close_col],
-                    mode="markers+text", name="做多進場",
-                    marker=dict(symbol="triangle-up", size=11, color=p["green"],
-                                line=dict(color="white", width=1.5)),
-                    text="L", textposition="top center",
-                    textfont=dict(color="white", size=9),
-                ),
-                row=1, col=1,
-            )
-
-        if not short_entries.empty:
-            fig.add_trace(
-                go.Scatter(
-                    x=short_entries.index, y=short_entries[close_col],
-                    mode="markers+text", name="做空進場",
-                    marker=dict(symbol="triangle-down", size=11, color=p["red"],
-                                line=dict(color="white", width=1.5)),
-                    text="S", textposition="bottom center",
-                    textfont=dict(color="white", size=9),
-                ),
-                row=1, col=1,
-            )
-
-    exits_in_view = display_df[display_df["exit"]] if "exit" in display_df.columns else pd.DataFrame()
-    if not exits_in_view.empty:
-        close_col = col_map["close"]
-        fig.add_trace(
-            go.Scatter(
-                x=exits_in_view.index, y=exits_in_view[close_col],
-                mode="markers+text", name="出場",
-                marker=dict(symbol="x", size=9, color=p["orange"],
-                            line=dict(color="white", width=1)),
-                text="X", textposition="top center",
-                textfont=dict(color=p["orange"], size=9),
-            ),
-            row=1, col=1,
-        )
-
-    if col_map.get("volume"):
-        open_col = col_map["open"]
-        close_col = col_map["close"]
-        vol_col = col_map["volume"]
-        colors = [p["red"] if display_df[close_col].iloc[i] < display_df[open_col].iloc[i]
-                  else p["green_light"] for i in range(len(display_df))]
-        fig.add_trace(
-            go.Bar(
-                x=display_df.index, y=display_df[vol_col],
-                name="成交量",
-                marker_color=colors,
-                opacity=0.6,
-            ),
-            row=2, col=1,
-        )
-    else:
-        fig.add_annotation(
-            text="（配對交易：無成交量資料）",
-            xref="paper", yref="paper",
-            x=0.5, y=0.15,
-            showarrow=False,
-            font=dict(color=p["text_muted"], size=12),
-        )
-
-    # === v2: 高亮選中交易（垂直虛線 + 標註框）===
-    if selected_idx is not None and 0 <= selected_idx < len(trades):
-        sel_trade = trades[selected_idx]
-        entry_time = sel_trade.get("entry_time")
-        exit_time = sel_trade.get("exit_time")
-        pnl = sel_trade.get("pnl", 0)
-        pnl_pct = sel_trade.get("pnl_pct", 0) * 100
-        entry_price = sel_trade.get("entry_price", 0)
-        exit_price = sel_trade.get("exit_price", 0)
-        is_profit = pnl >= 0
-        vline_color = p["green"] if is_profit else p["red"]
-
-        # 進場-出場間填色（v3：layer="below" 讓 hover 穿透）
-        if entry_time is not None and exit_time is not None:
-            try:
-                entry_ts = pd.Timestamp(entry_time)
-                exit_ts = pd.Timestamp(exit_time)
-                # 找出區間內所有 K 線
-                in_range = display_df[(display_df.index >= entry_ts) & (display_df.index <= exit_ts)]
-                if not in_range.empty:
-                    fill_color = f"rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
-                    fig.add_vrect(
-                        x0=entry_ts, x1=exit_ts,
-                        fillcolor=fill_color,
-                        opacity=0.6,
-                        layer="below",  # v3: 在資料下方，hover 穿透
-                        line_width=0,
-                        row=1, col=1,
-                    )
-            except Exception:
-                pass
-
-        # 進場垂直虛線（v3：layer="below"）
-        if entry_time is not None and pd.notna(entry_time):
-            entry_ts = pd.Timestamp(entry_time)
-            if entry_ts in display_df.index or entry_ts in result_df.index:
-                fig.add_vline(
-                    x=entry_ts,
-                    line=dict(color=vline_color, width=2.5, dash="dot"),
-                    opacity=0.85,
-                    layer="below",  # v3: 讓 hover 穿透
-                    row=1, col=1,
-                )
-                # 標註框（進場）
-                fig.add_annotation(
-                    x=entry_ts,
-                    y=1.04,
-                    yref="paper",
-                    text=f"<b>L</b><br>${entry_price:,.2f}",
-                    showarrow=False,
-                    font=dict(color=vline_color, size=10, family=p["font_mono"]),
-                    bgcolor=p["bg_card"],
-                    bordercolor=vline_color,
-                    borderwidth=1,
-                    borderpad=3,
-                    xanchor="left",
-                    yanchor="bottom",
-                )
-
-        # 出場垂直虛線（v3：layer="below"）
-        if exit_time is not None and pd.notna(exit_time):
-            exit_ts = pd.Timestamp(exit_time)
-            if exit_ts in display_df.index or exit_ts in result_df.index:
-                fig.add_vline(
-                    x=exit_ts,
-                    line=dict(color=p["orange"], width=2.5, dash="dot"),
-                    opacity=0.85,
-                    layer="below",  # v3: 讓 hover 穿透
-                    row=1, col=1,
-                )
-                # 標註框（出場）
-                fig.add_annotation(
-                    x=exit_ts,
-                    y=1.04,
-                    yref="paper",
-                    text=f"<b>X</b><br>${exit_price:,.2f}",
-                    showarrow=False,
-                    font=dict(color=p["orange"], size=10, family=p["font_mono"]),
-                    bgcolor=p["bg_card"],
-                    bordercolor=p["orange"],
-                    borderwidth=1,
-                    borderpad=3,
-                    xanchor="right",
-                    yanchor="bottom",
-                )
-
-        # 底部狀態列（PnL 摘要）
-        fig.add_annotation(
-            x=0.5, y=-0.18,
-            xref="paper", yref="paper",
-            text=f"<b>#{selected_idx + 1}</b> · {pnl_pct:+.2f}% · ${pnl:+,.2f}",
-            showarrow=False,
-            font=dict(color=vline_color, size=13, family=p["font_mono"]),
-            xanchor="center",
-        )
-
+    # === Layout（單一視窗、乾淨的 Y 軸）===
     fig.update_layout(
-        height=620,
+        height=440,
+        hovermode="x unified",
         template=get_current_theme()["plotly_template"],
         paper_bgcolor=p["bg"],
         plot_bgcolor=p["bg"],
         font=dict(color=p["text_primary"], family="system-ui", size=12),
-        xaxis_rangeslider_visible=False,
         showlegend=True,
         legend=dict(
             orientation="h",
             yanchor="bottom", y=1.02,
             xanchor="right", x=1,
             bgcolor="rgba(0,0,0,0)",
-            font=dict(size=12),
+            font=dict(size=11, color=p["text_secondary"]),
         ),
-        margin=dict(l=60, r=24, t=24, b=40),
-        xaxis=dict(gridcolor=p["border"], showgrid=True, zeroline=False),
-        xaxis2=dict(gridcolor=p["border"], showgrid=False, zeroline=False),
+        margin=dict(l=72, r=24, t=12, b=44),
+        # 單一 X 軸（無 rangeslider、乾淨）
+        xaxis=dict(
+            gridcolor=p["border"],
+            showgrid=True,
+            zeroline=False,
+            showline=False,
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
+        ),
+        # 單一 Y 軸：僅資產淨值
         yaxis=dict(
-            gridcolor=p["border"], showgrid=True, zeroline=False,
+            gridcolor=p["border"],
+            showgrid=True,
+            zeroline=False,
             side="left",
-        ),
-        yaxis2=dict(
-            gridcolor=p["border"], showgrid=True, zeroline=False,
-            side="left",
+            title=dict(text="淨值 (USDT)", font=dict(size=11, color=p["text_secondary"])),
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
+            ticks="outside",
+            ticklen=4,
+            tickcolor=p["border"],
+            nticks=6,
+            tickformat=",.0s",
+            rangemode="normal",
         ),
     )
+
+    # X 軸時間格式（自動）
+    try:
+        if isinstance(equity.index, pd.DatetimeIndex):
+            median_diff = equity.index.to_series().diff().median().total_seconds()
+            if median_diff <= 86400 * 3:
+                fig.update_xaxes(tickformat="%Y-%m-%d")
+            else:
+                fig.update_xaxes(tickformat="%Y-%m")
+    except Exception:
+        pass
 
     st.plotly_chart(fig, use_container_width=True)
 
