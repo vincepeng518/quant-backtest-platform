@@ -399,45 +399,58 @@ def _tv_kpi_card_html(
     icon_svg: str = "",
     tooltip: str = "",
 ) -> str:
-    """TradingView 風格單個 KPI 卡（極簡，無 sentiment 顏色編碼）。
+    """TradingView 風格單個 KPI 卡（v6：更緊湊、SVG ⓘ icon）。
 
     設計參考 TradingView Strategy Tester：
-    - 標題小寫灰字
-    - 數值大，monospace
+    - 標題小寫灰字（10px，更小更克制）
+    - 數值大，monospace（18px，比原本 22px 小更貼 TV 緊湊感）
     - 副標題小字（百分比變化紅綠）
-    - 右上角 ? tooltip icon（optional）
+    - 右上角 SVG 圓圈問號 tooltip icon
+    - 整體 padding 縮小（從 14px 18px → 10px 12px）
     """
     p = _palette()
     if sub_color is None:
         sub_color = p["text_muted"]
+
+    # SVG ⓘ icon：圓圈 + 問號（14×14 圓形，比 unicode 字元更精緻）
     info_icon = ""
     if tooltip:
+        # tooltip text 跳脫引號
+        tooltip_escaped = tooltip.replace('"', '&quot;').replace("'", "&#39;")
         info_icon = (
-            '<span style="color: ' + p["text_muted"] + '; margin-left: 4px; font-size: 12px; cursor: help;" '
-            'title="' + tooltip + '">ⓘ</span>'
+            '<span style="display: inline-flex; align-items: center; justify-content: center; '
+            'width: 13px; height: 13px; border-radius: 50%; border: 1px solid ' + p["text_muted"] + '; '
+            'color: ' + p["text_muted"] + '; margin-left: 6px; cursor: help; font-size: 9px; '
+            'font-weight: 700; line-height: 1; vertical-align: middle;" '
+            'title="' + tooltip_escaped + '">i</span>'
         )
     sub_block = ""
     if sub:
         sub_block = (
-            '<div style="color: ' + sub_color + '; font-size: 11px; margin-top: 2px; font-weight: 500;">'
+            '<div style="color: ' + sub_color + '; font-size: 10.5px; margin-top: 1px; font-weight: 500; '
+            'font-family: ' + p["font_mono"] + ';">'
             + sub + '</div>'
         )
-    # 主卡片結構
+    # 主卡片結構（更緊湊）
     return (
         '<div style="'
         'background: ' + p["bg_card"] + '; '
         'border: 1px solid ' + p["border"] + '; '
-        'border-radius: 6px; '
-        'padding: 14px 18px; '
-        'min-height: 72px;'
+        'border-radius: 5px; '
+        'padding: 8px 12px; '
+        'min-height: 58px; '
+        'display: flex; '
+        'flex-direction: column; '
+        'justify-content: center;'
         '">'
         '<div style="'
         'color: ' + p["text_secondary"] + '; '
-        'font-size: 11px; '
+        'font-size: 10px; '
         'font-weight: 500; '
+        'text-transform: uppercase; '
+        'letter-spacing: 0.04em; '
         'display: flex; '
         'align-items: center; '
-        'justify-content: space-between;'
         '">'
         '<span>' + label + '</span>'
         + info_icon +
@@ -445,10 +458,10 @@ def _tv_kpi_card_html(
         '<div style="'
         'color: ' + p["text_primary"] + '; '
         'font-family: ' + p["font_mono"] + '; '
-        'font-size: 22px; '
+        'font-size: 18px; '
         'font-weight: 600; '
-        'line-height: 1.2; '
-        'margin-top: 6px;'
+        'line-height: 1.15; '
+        'margin-top: 4px;'
         '">' + value + '</div>'
         + sub_block +
         '</div>'
@@ -567,26 +580,11 @@ def render_tv_overview(
 """, unsafe_allow_html=True)
 
     with toggle_col:
-        # Buy & Hold toggle（checkbox）— 在 chart 渲染前設定，這樣下面 _render_tv_equity_chart 才讀得到
-        st.markdown(f"""
-<div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 16px;">
-    <label style="display: flex; align-items: center; gap: 6px; color: {p['orange']};
-                  font-size: 12px; font-weight: 500; cursor: pointer;
-                  padding: 4px 10px; border: 1px solid {p['border']}; border-radius: 4px;
-                  background: {p['bg_card']};">
-        <input type="checkbox" id="bh-toggle-tv" {'checked' if st.session_state['show_buy_hold'] else ''}
-               style="accent-color: {p['orange']}; cursor: pointer;"/>
-        Buy &amp; hold
-    </label>
-</div>
-""", unsafe_allow_html=True)
-
-        # 用 st.checkbox 觸發 session_state 更新
+        # Buy & Hold toggle：用 st.toggle (segmented control 風格) — 替代原本的 HTML checkbox + streamlit checkbox 雙重顯示
         st.session_state["show_buy_hold"] = st.checkbox(
-            "Buy & hold 線",
+            "Buy & hold",
             value=st.session_state["show_buy_hold"],
             key="tv_show_buy_hold",
-            label_visibility="collapsed",
         )
 
         # 絕對/百分比 toggle
@@ -627,29 +625,29 @@ def render_tv_overview(
             "Total P&amp;L",
             f"<span style='color: {pnl_color};'>{pnl_sign}${abs(net_profit):,.0f}</span>",
             sub=f"<span style='color: {pnl_color};'>{total_return:+.2f}%</span>",
-            tooltip="總損益金額與百分比",
+            tooltip="策略的總損益（金額與百分比）。正值代表整體獲利，負值代表虧損",
         ), unsafe_allow_html=True)
     with k2:
         st.markdown(_tv_kpi_card_html(
             "Max equity drawdown",
             f"<span style='color: {p['red_text']};'>${max_dd_amount:,.2f}</span>",
             sub=f"<span style='color: {p['red_text']};'>{max_dd:.2f}%</span>",
-            tooltip="歷史最大資金回撤",
+            tooltip="歷史最大資金回撤：從最高點跌到最低點的最大跌幅。越小代表資金曲線越穩定",
         ), unsafe_allow_html=True)
     with k3:
         st.markdown(_tv_kpi_card_html(
             "Total trades",
             f"{n_trades:,}",
             sub="<span style='color: " + p["text_muted"] + ";'>全部交易</span>",
-            tooltip="策略執行的總交易次數",
+            tooltip="策略執行的總交易次數（包含做多與做空進出場）",
         ), unsafe_allow_html=True)
     with k4:
         win_color = p["green_text"] if win_rate >= 50 else p["red_text"]
         st.markdown(_tv_kpi_card_html(
             "Profitable trades",
-            f"{n_wins:,}<span style='color: {p['text_muted']}; font-size: 16px;'>/{n_trades:,}</span>",
+            f"{n_wins:,}<span style='color: {p['text_muted']}; font-size: 14px;'>/{n_trades:,}</span>",
             sub=f"<span style='color: {win_color};'>{win_rate:.2f}%</span>",
-            tooltip="獲利交易數 / 總交易數 / 勝率",
+            tooltip="獲利交易數 / 總交易數（次數）與勝率。勝率需搭配風報比一起看才有參考價值",
         ), unsafe_allow_html=True)
     with k5:
         pf_str = f"{profit_factor:.3f}" if np.isfinite(profit_factor) else "∞"
@@ -658,11 +656,11 @@ def render_tv_overview(
             "Profit factor",
             f"<span style='color: {pf_color};'>{pf_str}</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>毛利 / 毛損</span>",
-            tooltip="總獲利 / 總虧損（>1 為獲利策略）",
+            tooltip="總獲利金額 / 總虧損金額。>1 代表獲利，>1.5 為良好，>2 為優秀",
         ), unsafe_allow_html=True)
 
     # === 3. 次要 6 指標列 ===
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
     k1, k2, k3, k4, k5, k6 = st.columns(6)
     with k1:
         bh_color = p["green_text"] if buy_hold >= 0 else p["red_text"]
@@ -670,6 +668,7 @@ def render_tv_overview(
             "Buy &amp; Hold",
             f"<span style='color: {bh_color};'>{buy_hold:+.2f}%</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>基準報酬</span>",
+            tooltip="單純持有標的（不交易）的報酬率，用來比較策略的相對表現",
         ), unsafe_allow_html=True)
     with k2:
         alpha = total_return - buy_hold
@@ -678,6 +677,7 @@ def render_tv_overview(
             "α 超額報酬",
             f"<span style='color: {a_color};'>{alpha:+.2f}%</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>策略 - B&H</span>",
+            tooltip="策略報酬減去 Buy &amp; Hold 報酬，正數代表策略跑贏持有",
         ), unsafe_allow_html=True)
     with k3:
         sh_color = p["green_text"] if sharpe > 1 else (p["text_primary"] if sharpe > 0 else p["red_text"])
@@ -685,6 +685,7 @@ def render_tv_overview(
             "Sharpe",
             f"<span style='color: {sh_color};'>{sharpe:.2f}</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>風險調整報酬</span>",
+            tooltip="（平均報酬 - 無風險利率）/ 報酬標準差。>1 為良好，>2 為優秀",
         ), unsafe_allow_html=True)
     with k4:
         so_color = p["green_text"] if sortino > 1 else (p["text_primary"] if sortino > 0 else p["red_text"])
@@ -692,6 +693,7 @@ def render_tv_overview(
             "Sortino",
             f"<span style='color: {so_color};'>{sortino:.2f}</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>下行風險調整</span>",
+            tooltip="類似 Sharpe 但只考慮下行波動，更貼近投資人對虧損的厭惡",
         ), unsafe_allow_html=True)
     with k5:
         ca_color = p["green_text"] if cagr >= 0 else p["red_text"]
@@ -699,6 +701,7 @@ def render_tv_overview(
             "CAGR",
             f"<span style='color: {ca_color};'>{cagr:+.2f}%</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>年化報酬</span>",
+            tooltip="年複合成長率：把回測期間的總報酬換算為年化報酬",
         ), unsafe_allow_html=True)
     with k6:
         cm_color = p["green_text"] if calmar > 1 else (p["text_primary"] if calmar > 0 else p["red_text"])
@@ -706,6 +709,7 @@ def render_tv_overview(
             "Calmar",
             f"<span style='color: {cm_color};'>{calmar:.2f}</span>",
             sub="<span style='color: " + p["text_muted"] + ";'>CAGR / MaxDD</span>",
+            tooltip="CAGR 除以最大回撤的絕對值，衡量每承擔一單位回撤能獲得多少年化報酬",
         ), unsafe_allow_html=True)
 
     # === 4. 主圖：權益曲線 + Buy & Hold + Drawdown（TradingView 風格）===
@@ -742,120 +746,165 @@ def render_tv_overview(
 
 
 def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hold: bool = True) -> None:
-    """TradingView 風格主圖（權益 + Drawdown）— 比 render_equity_chart 更 TV 化。"""
+    """TradingView 風格主圖（權益 + Drawdown）— v6 改進：
+
+    - 漸層陰影取代整片死板填色
+    - 買賣點 y 對齊 equity 曲線（不是 close 價）— 精準貼在線上
+    - TradingView 配色：綠 #26A69A、紅 #EF5350
+    - 主圖 + Drawdown 共用 X 軸（hover 統一）
+    - 線條抗鋸齒（spline 平滑）
+    """
     p = _palette()
     initial_capital = metrics.get("initial_capital", 10000)
     net_profit = metrics.get("final_equity", initial_capital) - initial_capital
     is_profit = net_profit >= 0
 
-    equity_color = p["green"] if is_profit else p["red"]
-    fill_rgba = "rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
+    # === TradingView 配色（吸取自 TV 介面）===
+    # TV 上漲綠：#26A69A（青綠），TV 下跌紅：#EF5350
+    tv_green = "#26A69A"
+    tv_red = "#EF5350"
+    tv_orange = "#FF9800"  # TV 橘
+
+    equity_color = tv_green if is_profit else tv_red
+
+    # 漸層：頂部最濃 → 底部透明
+    # Plotly 不直接支援垂直 fillgradient，用多層 Scatter 堆疊模擬
+    if is_profit:
+        # 4 層漸層（從淺到深）
+        gradient_layers = [
+            ("rgba(38, 166, 154, 0.04)", 0.25),
+            ("rgba(38, 166, 154, 0.10)", 0.50),
+            ("rgba(38, 166, 154, 0.18)", 0.75),
+            ("rgba(38, 166, 154, 0.28)", 1.00),
+        ]
+    else:
+        gradient_layers = [
+            ("rgba(239, 83, 80, 0.04)", 0.25),
+            ("rgba(239, 83, 80, 0.10)", 0.50),
+            ("rgba(239, 83, 80, 0.18)", 0.75),
+            ("rgba(239, 83, 80, 0.28)", 1.00),
+        ]
 
     equity = result_df["equity"]
     cummax = equity.cummax()
     drawdown_pct = (equity - cummax) / cummax * 100
 
-    # === 主圖 + Drawdown 子圖（70% / 30%）===
+    # === 主圖 + Drawdown 子圖（72% / 28%，X 軸共享）===
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.05,
+        vertical_spacing=0.04,
         row_heights=[0.72, 0.28],
     )
 
-    # 1. 策略權益曲線（粗線 + 填充）
+    # === 1. 漸層陰影（4 層堆疊，模擬 TV 的細緻漸層）===
+    # 從最小 alpha 開始疊（最後加的最深）
+    for fill_rgba, scale in gradient_layers:
+        # 計算 y 值：equity * scale（從底部向上）
+        # 這會產生從 0 到 equity 的漸層效果
+        y_grad = equity * scale
+        fig.add_trace(go.Scatter(
+            x=result_df.index,
+            y=y_grad,
+            mode="lines",
+            line=dict(width=0, color="rgba(0,0,0,0)"),  # 隱形線
+            fill="tozeroy",
+            fillcolor=fill_rgba,
+            showlegend=False,
+            hoverinfo="skip",
+        ), row=1, col=1)
+
+    # === 2. 主策略權益曲線（粗線 + spline 抗鋸齒）===
     fig.add_trace(go.Scatter(
         x=result_df.index,
         y=equity,
-        name="策略",
+        name="策略權益",
         mode="lines",
-        line=dict(color=equity_color, width=2.2),
-        fill="tozeroy",
-        fillcolor=fill_rgba,
+        line=dict(color=equity_color, width=2.4, shape="spline", smoothing=0.6),
         hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>策略權益：$%{y:,.2f}<extra></extra>",
     ), row=1, col=1)
 
-    # 2. Buy & Hold 基準線（虛線）
+    # === 3. Buy & Hold 基準線（虛線，TV 風格）===
     if show_buy_hold and "buy_hold" in result_df.columns:
         fig.add_trace(go.Scatter(
             x=result_df.index,
             y=result_df["buy_hold"],
             name="Buy &amp; Hold",
             mode="lines",
-            line=dict(color=p["orange"], width=1.3, dash="dash"),
+            line=dict(color=tv_orange, width=1.3, dash="dash", shape="spline", smoothing=0.6),
             opacity=0.85,
             hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy &amp; Hold：$%{y:,.2f}<extra></extra>",
         ), row=1, col=1)
 
-    # 3. 進場做多 marker（綠色向上三角）
+    # === 4. 進場做多 marker（綠色向上三角，y 對齊 equity）===
     if "entry" in result_df.columns and "position" in result_df.columns:
         long_mask = result_df["entry"] & (result_df["position"] == 1)
         long_entries = result_df[long_mask]
         if not long_entries.empty:
-            close_col = "close" if "close" in result_df.columns else "equity"
+            # y 用 equity（不是 close 價）— 確保 marker 精準貼在 equity 線上
             fig.add_trace(go.Scatter(
                 x=long_entries.index,
-                y=long_entries[close_col] if close_col in long_entries.columns else long_entries["equity"],
+                y=long_entries["equity"],  # ← 關鍵修正：用 equity 對齊曲線
                 mode="markers",
                 name="做多進場",
                 marker=dict(
                     symbol="triangle-up",
-                    size=8,
-                    color=p["green"],
-                    line=dict(color="white", width=1),
+                    size=10,
+                    color=tv_green,
+                    line=dict(color="white", width=1.2),
                 ),
-                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做多進場<br>價：$%{y:,.2f}<extra></extra>",
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做多進場<br>權益：$%{y:,.2f}<extra></extra>",
             ), row=1, col=1)
 
-        # 4. 進場做空 marker（紅色向下三角）
+        # 5. 進場做空 marker（紅色向下三角）
         short_mask = result_df["entry"] & (result_df["position"] == -1)
         short_entries = result_df[short_mask]
         if not short_entries.empty:
             fig.add_trace(go.Scatter(
                 x=short_entries.index,
-                y=short_entries[close_col] if close_col in short_entries.columns else short_entries["equity"],
+                y=short_entries["equity"],  # ← 對齊 equity
                 mode="markers",
                 name="做空進場",
                 marker=dict(
                     symbol="triangle-down",
-                    size=8,
-                    color=p["red"],
-                    line=dict(color="white", width=1),
+                    size=10,
+                    color=tv_red,
+                    line=dict(color="white", width=1.2),
                 ),
-                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做空進場<br>價：$%{y:,.2f}<extra></extra>",
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>做空進場<br>權益：$%{y:,.2f}<extra></extra>",
             ), row=1, col=1)
 
-    # 5. 出場 marker（橙色叉）
+    # === 6. 出場 marker（橘色叉，y 對齊 equity）===
     if "exit" in result_df.columns:
         exits = result_df[result_df["exit"]]
         if not exits.empty:
             fig.add_trace(go.Scatter(
                 x=exits.index,
-                y=exits[close_col] if close_col in exits.columns else exits["equity"],
+                y=exits["equity"],  # ← 對齊 equity
                 mode="markers",
                 name="出場",
                 marker=dict(
                     symbol="x-thin",
-                    size=8,
-                    color=p["orange"],
-                    line=dict(color=p["orange"], width=2),
+                    size=9,
+                    color=tv_orange,
+                    line=dict(color=tv_orange, width=2.2),
                 ),
-                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>出場<br>價：$%{y:,.2f}<extra></extra>",
+                hovertemplate="<b>%{x|%Y-%m-%d}</b><br>出場<br>權益：$%{y:,.2f}<extra></extra>",
             ), row=1, col=1)
 
-    # 6. Drawdown 子圖（紅色面積）
+    # === 7. Drawdown 子圖（TV 風格：紅色面積 + 線）===
     fig.add_trace(go.Scatter(
         x=result_df.index,
         y=drawdown_pct,
         name="回撤",
         mode="lines",
-        line=dict(color=p["red"], width=1, shape="linear"),
+        line=dict(color=tv_red, width=1.1, shape="spline", smoothing=0.4),
         fill="tozeroy",
-        fillcolor="rgba(239, 68, 68, 0.15)",
+        fillcolor="rgba(239, 83, 80, 0.18)",  # TV 紅色 18% alpha
         hovertemplate="<b>%{x|%Y-%m-%d}</b><br>回撤：%{y:.2f}%<extra></extra>",
     ), row=2, col=1)
 
-    # === Layout（TradingView 風格）===
+    # === Layout（TV 風格）===
     fig.update_layout(
         height=540,
         hovermode="x unified",
@@ -871,18 +920,22 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             bgcolor="rgba(0,0,0,0)",
             font=dict(size=11, color=p["text_secondary"]),
         ),
-        margin=dict(l=70, r=24, t=8, b=40),
+        # 增大左 margin 避免 Y 軸標籤與邊框重疊
+        margin=dict(l=80, r=24, t=8, b=40),
         xaxis=dict(
             gridcolor=p["border"],
             showgrid=True,
             zeroline=False,
             rangeslider=dict(visible=False),
             showline=False,
+            # 固定網格線間距，避免與 Y 軸標籤不對齊
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
         ),
         xaxis2=dict(
             gridcolor=p["border"],
             showgrid=False,
             zeroline=False,
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
         ),
         yaxis=dict(
             gridcolor=p["border"],
@@ -890,7 +943,14 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             zeroline=False,
             side="left",
             title=None,
-            tickfont=dict(size=11, color=p["text_secondary"], family=p["font_mono"]),
+            tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
+            # 留 padding 避免 label 重疊
+            ticks="outside",
+            ticklen=4,
+            tickcolor=p["border"],
+            nticks=6,  # 固定 6 個 tick 讓網格線均勻
+            tickformat=",.0s",  # 簡寫：20k, 30k 等
+            rangemode="normal",  # 自動範圍（不要從 0 開始，否則 equity 線擠在頂部）
         ),
         yaxis2=dict(
             gridcolor=p["border"],
@@ -899,6 +959,13 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             side="left",
             title=None,
             tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
+            ticks="outside",
+            ticklen=4,
+            tickcolor=p["border"],
+            nticks=4,
+            tickformat=".0f",  # Drawdown 顯示整數 %
+            # Drawdown Y 軸永遠從 0 開始到最大回撤（不顯示正數）
+            rangemode="tozero",
         ),
     )
 
