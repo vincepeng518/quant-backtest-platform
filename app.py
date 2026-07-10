@@ -154,7 +154,42 @@ if "_has_rendered_overview_this_run" in st.session_state:
 #   3) input 設 inputmode=none + readonly + autocomplete=off
 st.markdown("""
 <style>
-/* 平板/手機：只隱藏游標（不要改 font-size 或 color，避免 input 失去點擊區） */
+/* === 緊湊排版：縮小元件垂直間距 === */
+[data-testid="stVerticalBlock"] > div {
+    gap: 0.4rem !important;
+}
+.stMetric {
+    padding: 4px 8px !important;
+    margin-bottom: 0.2rem !important;
+}
+[data-testid="stMetricContainer"] {
+    padding: 6px 10px !important;
+}
+.stColumns {
+    gap: 0.3rem !important;
+}
+[data-testid="stHorizontalBlock"] {
+    gap: 0.3rem !important;
+}
+/* KPI 卡片更緊湊 */
+[data-testid="stMetricValue"] {
+    font-size: 1rem !important;
+}
+/* 頁面主容器縮小 padding */
+.main .block-container {
+    padding-top: 0.3rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+/* 分頁更緊湊 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0 !important;
+}
+.stTabs [data-baseweb="tab"] {
+    padding: 8px 14px !important;
+}
+
+/* === 平板/手機：隱藏游標 === */
 @media (hover: none) and (pointer: coarse) {
     [data-testid="stSelectbox"] input,
     [data-testid="stSelectboxVirtual"] input,

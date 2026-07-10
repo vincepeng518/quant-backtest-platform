@@ -294,12 +294,12 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
     cummax = equity.cummax()
     drawdown_pct = (equity - cummax) / cummax * 100
 
-    # 雙子圖（主圖 70% + Drawdown 30%）
+    # 雙子圖（主圖 65% + Drawdown 35%）
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.06,
-        row_heights=[0.70, 0.30],
+        vertical_spacing=0.03,
+        row_heights=[0.65, 0.35],
         subplot_titles=("", "回撤"),
     )
 
@@ -313,7 +313,7 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
             line=dict(color=equity_color, width=2),
             fill="tozeroy",
             fillcolor=fill_rgba,
-            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>權益：$%{y:,.2f}<extra></extra>",
+            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>策略權益: $%{y:,.2f}<extra></extra>",
         ),
         row=1, col=1,
     )
@@ -324,11 +324,11 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
             go.Scatter(
                 x=result_df.index,
                 y=result_df["buy_hold"],
-                name="Buy &amp; Hold",
+                name="Buy & Hold",
                 mode="lines",
                 line=dict(color=p["orange"], width=1.5, dash="dash"),
                 opacity=0.8,
-                hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy &amp; Hold：$%{y:,.2f}<extra></extra>",
+                hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy & Hold: $%{y:,.2f}<extra></extra>",
             ),
             row=1, col=1,
         )
@@ -338,19 +338,19 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
         go.Scatter(
             x=result_df.index,
             y=drawdown_pct,
-            name="回撤 %",
+            name="回撤",
             mode="lines",
             line=dict(color=p["red"], width=1),
             fill="tozeroy",
             fillcolor="rgba(239, 68, 68, 0.15)",
-            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>回撤：%{y:.2f}%<extra></extra>",
+            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>回撤: %{y:.2f}%<extra></extra>",
         ),
         row=2, col=1,
     )
 
     # Layout
     fig.update_layout(
-        height=520,
+        height=560,
         hovermode="x unified",
         template=get_current_theme()["plotly_template"],
         paper_bgcolor=p["bg"],
@@ -362,17 +362,28 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
             yanchor="bottom", y=1.02,
             xanchor="right", x=1,
             bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(0,0,0,0)",
+            borderwidth=0,
             font=dict(size=12),
         ),
-        margin=dict(l=60, r=24, t=24, b=40),
-        xaxis=dict(gridcolor=p["border"], showgrid=True, zeroline=False, rangeslider=dict(visible=False)),
-        xaxis2=dict(gridcolor=p["border"], showgrid=False, zeroline=False),
+        hoverlabel=dict(
+            bgcolor="rgba(28, 31, 42, 0.9)",
+            bordercolor="rgba(80, 85, 100, 0.3)",
+            font=dict(color="#FFFFFF", size=12),
+            align="left",
+            namelength=-1,
+        ),
+        margin=dict(l=60, r=16, t=24, b=36),
+        xaxis=dict(gridcolor=p["border"], showgrid=True, zeroline=False, rangeslider=dict(visible=False), gridwidth=1, griddash="dot"),
+        xaxis2=dict(gridcolor=p["border"], showgrid=False, zeroline=False, griddash="dot"),
         yaxis=dict(
             gridcolor=p["border"],
             showgrid=True,
             zeroline=False,
             title=dict(text="權益 (USDT)", font=dict(size=11, color=p["text_secondary"])),
             side="left",
+            gridwidth=1,
+            griddash="dot",
         ),
         yaxis2=dict(
             gridcolor=p["border"],
@@ -380,6 +391,8 @@ def render_equity_chart(result_df: pd.DataFrame, metrics: Dict) -> None:
             zeroline=False,
             title=dict(text="回撤 (%)", font=dict(size=11, color=p["text_secondary"])),
             side="left",
+            gridwidth=1,
+            griddash="dot",
         ),
     )
 
@@ -787,23 +800,20 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
     net_profit = metrics.get("final_equity", initial_capital) - initial_capital
     is_profit = net_profit >= 0
 
-    # === TradingView 配色（吸取自 TV 介面）===
-    # TV 上漲綠：#26A69A（青綠），TV 下跌紅：#EF5350
-    tv_green = "#26A69A"
+    # === TradingView 配色 ===
+    tv_green = "#0D9488"   # Tiffany 綠
     tv_red = "#EF5350"
-    tv_orange = "#FF9800"  # TV 橘
+    tv_orange = "#FF9800"  # 亮橘
 
     equity_color = tv_green if is_profit else tv_red
 
     # 漸層：頂部最濃 → 底部透明
-    # Plotly 不直接支援垂直 fillgradient，用多層 Scatter 堆疊模擬
     if is_profit:
-        # 4 層漸層（從淺到深）
         gradient_layers = [
-            ("rgba(38, 166, 154, 0.04)", 0.25),
-            ("rgba(38, 166, 154, 0.10)", 0.50),
-            ("rgba(38, 166, 154, 0.18)", 0.75),
-            ("rgba(38, 166, 154, 0.28)", 1.00),
+            ("rgba(13, 148, 136, 0.04)", 0.25),
+            ("rgba(13, 148, 136, 0.10)", 0.50),
+            ("rgba(13, 148, 136, 0.18)", 0.75),
+            ("rgba(13, 148, 136, 0.28)", 1.00),
         ]
     else:
         gradient_layers = [
@@ -817,12 +827,12 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
     cummax = equity.cummax()
     drawdown_pct = (equity - cummax) / cummax * 100
 
-    # === 主圖 + Drawdown 子圖（72% / 28%，X 軸共享）===
+    # === 主圖 + Drawdown 子圖（65% / 35%，X 軸共享）===
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.04,
-        row_heights=[0.72, 0.28],
+        vertical_spacing=0.03,
+        row_heights=[0.65, 0.35],
     )
 
     # === 1. 漸層陰影（4 層堆疊，模擬 TV 的細緻漸層）===
@@ -849,7 +859,7 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
         name="策略權益",
         mode="lines",
         line=dict(color=equity_color, width=2.4, shape="spline", smoothing=0.6),
-        hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>策略權益：$%{y:,.2f}<extra></extra>",
+        hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>策略權益: $%{y:,.2f}<extra></extra>",
     ), row=1, col=1)
 
     # === 3. Buy & Hold 基準線（虛線，TV 風格）===
@@ -861,7 +871,7 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             mode="lines",
             line=dict(color=tv_orange, width=1.3, dash="dash", shape="spline", smoothing=0.6),
             opacity=0.85,
-            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy &amp; Hold：$%{y:,.2f}<extra></extra>",
+            hovertemplate="<b>%{x|%Y-%m-%d %H:%M}</b><br>Buy & Hold: $%{y:,.2f}<extra></extra>",
         ), row=1, col=1)
 
     # === 4. 進場做多 marker（綠色向上三角，y 對齊 equity）===
@@ -933,8 +943,10 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
     ), row=2, col=1)
 
     # === Layout（TV 風格）===
+    hover_bg = "rgba(28, 31, 42, 0.9)"
+    hover_border = "rgba(80, 85, 100, 0.3)"
     fig.update_layout(
-        height=540,
+        height=560,
         hovermode="x unified",
         template=get_current_theme()["plotly_template"],
         paper_bgcolor=p["bg"],
@@ -946,23 +958,33 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             yanchor="bottom", y=1.0,
             xanchor="left", x=0,
             bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(0,0,0,0)",
+            borderwidth=0,
             font=dict(size=11, color=p["text_secondary"]),
         ),
-        # 增大左 margin 避免 Y 軸標籤與邊框重疊
-        margin=dict(l=80, r=24, t=8, b=40),
+        hoverlabel=dict(
+            bgcolor=hover_bg,
+            bordercolor=hover_border,
+            font=dict(color="#FFFFFF", size=12),
+            align="left",
+            namelength=-1,
+        ),
+        margin=dict(l=70, r=16, t=8, b=36),
         xaxis=dict(
             gridcolor=p["border"],
             showgrid=True,
             zeroline=False,
             rangeslider=dict(visible=False),
             showline=False,
-            # 固定網格線間距，避免與 Y 軸標籤不對齊
+            gridwidth=1,
+            griddash="dot",
             tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
         ),
         xaxis2=dict(
             gridcolor=p["border"],
             showgrid=False,
             zeroline=False,
+            griddash="dot",
             tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
         ),
         yaxis=dict(
@@ -971,14 +993,15 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             zeroline=False,
             side="left",
             title=None,
+            gridwidth=1,
+            griddash="dot",
             tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
-            # 留 padding 避免 label 重疊
             ticks="outside",
             ticklen=4,
             tickcolor=p["border"],
-            nticks=6,  # 固定 6 個 tick 讓網格線均勻
-            tickformat=",.0s",  # 簡寫：20k, 30k 等
-            rangemode="normal",  # 自動範圍（不要從 0 開始，否則 equity 線擠在頂部）
+            nticks=6,
+            tickformat=",.0s",
+            rangemode="normal",
         ),
         yaxis2=dict(
             gridcolor=p["border"],
@@ -986,13 +1009,14 @@ def _render_tv_equity_chart(result_df: pd.DataFrame, metrics: Dict, show_buy_hol
             zeroline=False,
             side="left",
             title=None,
+            gridwidth=1,
+            griddash="dot",
             tickfont=dict(size=10, color=p["text_muted"], family=p["font_mono"]),
             ticks="outside",
             ticklen=4,
             tickcolor=p["border"],
             nticks=4,
-            tickformat=".0f",  # Drawdown 顯示整數 %
-            # Drawdown Y 軸永遠從 0 開始到最大回撤（不顯示正數）
+            tickformat=".0f",
             rangemode="tozero",
         ),
     )
