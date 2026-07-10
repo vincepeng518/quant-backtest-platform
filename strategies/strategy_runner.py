@@ -122,6 +122,20 @@ def execute_user_strategy(
             f"❌ 語法錯誤: {e}",
             empty, empty, empty, empty
         )
+    except RecursionError as e:
+        empty = pd.Series(False, index=df.index)
+        return (
+            empty, empty,
+            f"❌ 遞迴錯誤: 策略可能有無限遞迴 ({e})",
+            empty, empty, empty, empty
+        )
+    except MemoryError as e:
+        empty = pd.Series(False, index=df.index)
+        return (
+            empty, empty,
+            f"❌ 記憶體錯誤: 資料量可能過大 ({e})",
+            empty, empty, empty, empty
+        )
     except Exception as e:
         empty = pd.Series(False, index=df.index)
         return (

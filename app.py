@@ -1010,17 +1010,24 @@ with main_tab2:
         status_text.text(f"⏳ 開始{'網格' if method_code == 'grid' else '隨機'}搜尋...")
 
         start_time = time.time()
-        if method_code == "grid":
-            opt_results = optimizer.grid_search(
-                df, opt_code, param_space, fixed_params,
-                initial_capital, commission_pct, slippage_pct, direction_code,
-            )
-        else:
-            opt_results = optimizer.random_search(
-                df, opt_code, param_space, fixed_params,
-                initial_capital, commission_pct, slippage_pct, direction_code,
-                n_iter=n_iter,
-            )
+        try:
+            if method_code == "grid":
+                opt_results = optimizer.grid_search(
+                    df, opt_code, param_space, fixed_params,
+                    initial_capital, commission_pct, slippage_pct, direction_code,
+                )
+            else:
+                opt_results = optimizer.random_search(
+                    df, opt_code, param_space, fixed_params,
+                    initial_capital, commission_pct, slippage_pct, direction_code,
+                    n_iter=n_iter,
+                )
+        except Exception as e:
+            progress_bar.progress(100)
+            status_text.text(f"❌ 優化失敗")
+            st.error(f"❌ 參數優化錯誤: {type(e).__name__}: {e}")
+            st.exception(e)
+            st.stop()
         progress_bar.progress(100)
         elapsed = time.time() - start_time
         status_text.text(f"✅ 完成！耗時 {elapsed:.1f} 秒，測試 {opt_results['valid_combinations']} 個有效組合")
