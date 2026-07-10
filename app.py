@@ -85,7 +85,7 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 #   3) input 設 inputmode=none + readonly + autocomplete=off
 st.markdown("""
 <style>
-/* 平板/手機：隱藏游標（不要擋 pointer events，會阻擋 dropdown） */
+/* 平板/手機：只隱藏游標（不要改 font-size 或 color，避免 input 失去點擊區） */
 @media (hover: none) and (pointer: coarse) {
     [data-testid="stSelectbox"] input,
     [data-testid="stSelectboxVirtual"] input,
@@ -101,11 +101,6 @@ st.markdown("""
 [data-testid="stMultiSelect"] input {
     caret-color: transparent !important;
 }
-
-/* 自製 dropdown 樣式 */
-#mobile-custom-dropdown {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,10 +115,22 @@ components.html(
 <script>
 (function() {
     // === 鍵盤抑制器（防止 selectbox 在平板上彈出虛擬鍵盤）===
-    // 策略：focus 後 50ms blur，鍵盤 50ms 後消失
-    //       但用戶體驗到「閃一下」dropdown
-    //       至少不會「跳到下一個選項」（之前的主要問題）
-    //       因為我們不攔截 mousedown/click，只在 focus 階段 blur
+    // 完整解法：自製 dropdown 完全接管 React Aria 的 listbox
+    //
+    // 流程：
+    //   1) 用戶點 selectbox 容器 → React Aria render listbox
+    //   2) MutationObserver 偵測 listbox 進入 DOM
+    //   3) 立即「搬移」options 到自製浮動 div
+    //   4) 用 CSS 把 React Aria 的 listbox 隱藏到 (-9999, -9999)
+    //   5) 用戶點自製 dropdown 的 option → 程式 click 對應 React Aria option → React Aria 處理選中
+    //   6) 自製 dropdown 點外面 → close
+    //
+    // === 鍵盤抑制器（防止 selectbox 在平板上彈出虛擬鍵盤）===
+    // 簡化策略：
+    //   1) input 收到 focus 後 0ms blur → 防止 iPad 彈虛擬鍵盤（保留 React Aria focus event）
+    //   2) 自製 dropdown 蓋在 RAC listbox 上，點自製選項 → 程式 click RAC option → RAC onChange 觸發
+    //   3) 自製 dropdown 顯示時，攔截 document mousedown → RAC 不會 close
+    //   4) RAC listbox 真正 close（用戶按 ESC 等）時 → 同步移除自製 dropdown
     function setupKeyboardSuppressor() {
         if (window._kbdSuppressInstalled) {
             return;
@@ -131,22 +138,208 @@ components.html(
         window._kbdSuppressInstalled = true;
         var doc = window.parent.document;
 
-        // 攔截 focus：50ms blur
-        doc.addEventListener('focus', function(e) {
-            var t = e.target;
-            if (!t) return;
-            if (t.tagName === 'INPUT' && (
-                t.getAttribute('role') === 'combobox' ||
-                t.getAttribute('aria-autocomplete') === 'list' ||
-                t.getAttribute('aria-haspopup') === 'listbox'
-            )) {
-                setTimeout(function() {
-                    try { t.blur(); } catch (err) {}
-                }, 50);
+        // 1) 不 blur input（避免 RAC 來不及開 dropdown）
+        //    改用 CSS 隱藏游標 + 設 inputmode=none
+        //    iPad 在 inputmode=none + readonly 時不會彈虛擬鍵盤
+
+        // 2) 自製 dropdown：接收 user click → 程式 click RAC option
+        function buildCustomDropdown(listbox) {
+            if (doc.getElementById('mobile-custom-dropdown')) return;
+            var options = [];
+            listbox.querySelectorAll('[role="option"]').forEach(function(o) {
+                options.push({text: o.textContent.trim()});
+            });
+            if (options.length === 0) return;
+            // 關鍵：把 RAC listbox + 所有 descendant 設 pointer-events: none
+            // 這樣 self dropdown 才能完全接管點擊
+            // 但要保留 RAC listbox 自身仍可被 React 更新（不要 unrender）
+            // 用 visibility: hidden + pointer-events: none 比較安全
+            function setPE(el, val) {
+                if (el && el.style) el.style.pointerEvents = val;
+                if (el && el.children) {
+                    for (var i = 0; i < el.children.length; i++) {
+                        setPE(el.children[i], val);
+                    }
+                }
+            }
+            // 從 listbox 開始，所有 descendant 設 pointer-events: none
+            setPE(listbox, 'none');
+            // RAC listbox 透過 portal 渲染，closest 找不到 selectbox
+            // 用 aria-controls 反查 combobox，再找 selectbox
+            var comboboxId = listbox.getAttribute('aria-labelledby') || '';
+            // 直接找 aria-expanded=true 的 input
+            var inputs = doc.querySelectorAll('input[aria-expanded="true"]');
+            var sb = null;
+            if (inputs.length > 0) {
+                sb = inputs[0].closest('[data-testid="stSelectbox"], [data-testid="stSelectboxVirtual"], [data-testid="stMultiSelect"]');
+            }
+            if (!sb) {
+                // fallback：找最後 focus 的 selectbox
+                sb = doc.activeElement && doc.activeElement.closest &&
+                    doc.activeElement.closest('[data-testid="stSelectbox"], [data-testid="stSelectboxVirtual"], [data-testid="stMultiSelect"]');
+            }
+            if (!sb) {
+                // 最後：找第一個 selectbox
+                sb = doc.querySelector('[data-testid="stSelectbox"], [data-testid="stSelectboxVirtual"], [data-testid="stMultiSelect"]');
+            }
+            if (!sb) return;
+            var rect = sb.getBoundingClientRect();
+            var dd = doc.createElement('div');
+            dd.id = 'mobile-custom-dropdown';
+            dd.style.cssText = [
+                'position: fixed',
+                'top: ' + (rect.bottom + 4) + 'px',
+                'left: ' + rect.left + 'px',
+                'min-width: ' + Math.max(rect.width, 200) + 'px',
+                'max-width: 90vw',
+                'max-height: 60vh',
+                'overflow-y: auto',
+                'background: white',
+                'border: 1px solid #d0d0d0',
+                'border-radius: 10px',
+                'box-shadow: 0 8px 24px rgba(0,0,0,0.18)',
+                'z-index: 999999',
+                'padding: 6px 0',
+                '-webkit-overflow-scrolling: touch',
+                'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            ].join(';');
+            options.forEach(function(opt) {
+                var li = doc.createElement('div');
+                li.textContent = opt.text;
+                li.style.cssText = [
+                    'padding: 12px 16px',
+                    'cursor: pointer',
+                    'font-size: 15px',
+                    'line-height: 1.4',
+                    'color: #1a1a1a',
+                    'background: white',
+                    'border-bottom: 1px solid #f0f0f0',
+                    'user-select: none',
+                    '-webkit-tap-highlight-color: rgba(0,0,0,0.05)',
+                ].join(';');
+                function pickOption(e) {
+                    console.log('[sel] pickOption called for', opt.text, 'event type:', e && e.type);
+                    if (e) { e.preventDefault(); e.stopPropagation(); }
+                    // 找到當前 DOM 對應的 RAC option
+                    var racOpts = doc.querySelectorAll('[role="listbox"] [role="option"]');
+                    var target = null;
+                    for (var i = 0; i < racOpts.length; i++) {
+                        if (racOpts[i].textContent.trim() === opt.text) {
+                            target = racOpts[i];
+                            break;
+                        }
+                    }
+                    console.log('[sel] target:', target ? target.textContent.trim() : 'null', 'data-key:', target && target.getAttribute('data-key'));
+                    if (target) {
+                        try {
+                            var origPE = target.style.pointerEvents;
+                            target.style.pointerEvents = 'auto';
+                            var opts = { bubbles: true, cancelable: true, composed: true, view: window, button: 0 };
+                            console.log('[sel] dispatching events');
+                            target.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, opts, { pointerType: 'mouse', isPrimary: true, pointerId: 1, buttons: 1 })));
+                            target.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, opts, { pointerType: 'mouse', isPrimary: true, pointerId: 1, buttons: 0 })));
+                            target.dispatchEvent(new MouseEvent('click', Object.assign({}, opts, { detail: 1 })));
+                            console.log('[sel] dispatched all events');
+                            setTimeout(function() {
+                                target.style.pointerEvents = origPE;
+                            }, 200);
+                        } catch (err) {
+                            console.error('[sel] err:', err);
+                        }
+                    } else {
+                        // RAC options 已被重新 render → 用 text 找新 element
+                        console.warn('[sel] retry: looking for new RAC option');
+                        setTimeout(function() {
+                            var racOpts2 = doc.querySelectorAll('[role="listbox"] [role="option"]');
+                            var target2 = null;
+                            for (var j = 0; j < racOpts2.length; j++) {
+                                if (racOpts2[j].textContent.trim() === opt.text) {
+                                    target2 = racOpts2[j];
+                                    break;
+                                }
+                            }
+                            if (target2) {
+                                console.log('[sel] retry found');
+                                target2.style.pointerEvents = 'auto';
+                                var opts2 = { bubbles: true, cancelable: true, composed: true, view: window, button: 0 };
+                                target2.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, opts2, { pointerType: 'mouse', isPrimary: true, pointerId: 1, buttons: 1 })));
+                                target2.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, opts2, { pointerType: 'mouse', isPrimary: true, pointerId: 1, buttons: 0 })));
+                                target2.dispatchEvent(new MouseEvent('click', Object.assign({}, opts2, { detail: 1 })));
+                            }
+                        }, 50);
+                    }
+                    setTimeout(function() {
+                        var d = doc.getElementById('mobile-custom-dropdown');
+                        if (d) d.remove();
+                    }, 500);
+                }
+                li.addEventListener('click', function(e) { console.log('[sel] li click'); pickOption(e); });
+                li.addEventListener('touchend', function(e) {
+                    if (e) e.preventDefault();
+                    console.log('[sel] li touchend');
+                    pickOption(e);
+                });
+                dd.appendChild(li);
+            });
+            doc.body.appendChild(dd);
+        }
+
+        // 3) 攔截 document mousedown/touchstart 在自製 dropdown 內 → RAC 視為「點選項而非外點擊」
+        doc.addEventListener('mousedown', function(e) {
+            if (e.target.closest && e.target.closest('#mobile-custom-dropdown')) {
+                e.stopPropagation();
+            }
+        }, true);
+        doc.addEventListener('touchstart', function(e) {
+            if (e.target.closest && e.target.closest('#mobile-custom-dropdown')) {
+                e.stopPropagation();
             }
         }, true);
 
-        // MutationObserver：所有新 selectbox input 自動設 inputmode=none + autocomplete=off
+        // 4) 偵測 RAC listbox 出現 → 建立自製 dropdown
+        var openObs = new MutationObserver(function(mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var added = mutations[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {
+                    var n = added[j];
+                    if (n.nodeType !== 1) continue;
+                    var lb = null;
+                    if (n.getAttribute && n.getAttribute('role') === 'listbox') {
+                        lb = n;
+                    } else if (n.querySelectorAll) {
+                        var found = n.querySelector('[role="listbox"]');
+                        if (found && found.querySelectorAll('[role="option"]').length > 0) {
+                            lb = found;
+                        }
+                    }
+                    if (lb) {
+                        console.log('[sel] listbox detected');
+                        setTimeout(function() { buildCustomDropdown(lb); }, 50);
+                        return;
+                    }
+                }
+            }
+        });
+        openObs.observe(doc.body, { childList: true, subtree: true });
+
+        // 5) 偵測 RAC listbox 消失 → 移除自製 dropdown
+        var closeObs = new MutationObserver(function(mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var removed = mutations[i].removedNodes;
+                for (var j = 0; j < removed.length; j++) {
+                    var n = removed[j];
+                    if (n.nodeType !== 1) continue;
+                    if (n.getAttribute && n.getAttribute('role') === 'listbox') {
+                        var d = doc.getElementById('mobile-custom-dropdown');
+                        if (d) d.remove();
+                    }
+                }
+            }
+        });
+        closeObs.observe(doc.body, { childList: true, subtree: true });
+
+        // 2) 設 input 屬性：inputmode=none + autocomplete=off + readonly
+        //    延遲到 100ms 後，避免干擾 React Aria 初始化
         function patchInputs() {
             var sel = doc.querySelectorAll(
                 '[data-testid="stSelectbox"] input, ' +
@@ -157,15 +350,12 @@ components.html(
                 var el = sel[i];
                 if (!el.hasAttribute('inputmode')) el.setAttribute('inputmode', 'none');
                 if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
+                if (!el.hasAttribute('readonly')) el.setAttribute('readonly', '');
             }
         }
-        patchInputs();
-        setInterval(patchInputs, 1000);
-
-        var obs = new MutationObserver(patchInputs);
-        obs.observe(doc.body, { childList: true, subtree: true });
+        setTimeout(patchInputs, 200);
+        setTimeout(patchInputs, 1000);
     }
-
     var ICON_MENU = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
     var ICON_CLOSE = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="white"/></svg>';
 
@@ -298,8 +488,8 @@ components.html(
         setTimeout(tryInject, 4000);
     }
     // 等 sidebar 出來後啟動 observer
-    setTimeout(setupBodyObserver, 1000);
-    setTimeout(setupBodyObserver, 3000);
+
+
 })();
 </script>
 """,
