@@ -1280,9 +1280,20 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
     # 熱圖下方：年度總報酬摘要
-    yearly_summary = trades_df.groupby("year")["pnl"].sum().reset_index()
-    yearly_summary["return_pct"] = (yearly_summary["pnl"] / initial_capital) * 100
-    yearly_summary.columns = ["年度", "總損益 (USDT)", "年度報酬 %"]
+    # v8 改進：完整防呆 — year 欄位不存在、pnl 為空、return_pct 缺失都安全處理
+    yearly_summary = pd.DataFrame(columns=["年度", "總損益 (USDT)", "年度報酬 %"])
+    try:
+        if "year" in trades_df.columns and "pnl" in trades_df.columns and not trades_df.empty:
+            _ys = trades_df.groupby("year")["pnl"].sum().reset_index()
+            if not _ys.empty and len(_ys) > 0:
+                # 確保 initial_capital 不是 0（避免除以 0）
+                _cap = initial_capital if initial_capital else 1
+                _ys["return_pct"] = (_ys["pnl"] / _cap) * 100
+                _ys.columns = ["年度", "總損益 (USDT)", "年度報酬 %"]
+                yearly_summary = _ys
+    except Exception as e:
+        # 任何計算錯誤 → 保持空 DataFrame
+        yearly_summary = pd.DataFrame(columns=["年度", "總損益 (USDT)", "年度報酬 %"])
 
     st.markdown(f"""
 <div style="
@@ -1296,32 +1307,61 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
 """, unsafe_allow_html=True)
 
     # 3 欄：今年度、上年度、平均
-    if len(yearly_summary) > 0:
+    # v8 防呆：yearly_summary 空 / 欄位缺失 → 全部用 0 預設值
+    if len(yearly_summary) > 0 and "年度報酬 %" in yearly_summary.columns:
         c1, c2, c3 = st.columns(3)
         with c1:
-            latest = yearly_summary.iloc[-1]
+            # 防呆：取得「今年度」用 .iloc[-1]，若無資料則用 0
+            try:
+                latest = yearly_summary.iloc[-1]
+                latest_year = int(latest.get("年度", 0)) if "年度" in yearly_summary.columns else 0
+                latest_pnl = float(latest.get("總損益 (USDT)", 0)) if "總損益 (USDT)" in yearly_summary.columns else 0
+                latest_pct = float(latest.get("年度報酬 %", 0)) if "年度報酬 %" in yearly_summary.columns else 0
+            except (IndexError, KeyError, ValueError):
+                latest_year, latest_pnl, latest_pct = 0, 0, 0
             st.markdown(_kpi_card_html(
-                f"{int(latest['年度'])} 年度",
-                f"${latest['總損益 (USDT)']:+,.0f}",
-                "positive" if latest['總損益 (USDT)'] > 0 else "negative",
-                sub=f"{latest['年度報酬 %']:+.2f}%",
+                f"{latest_year} 年度" if latest_year else "今年度",
+                f"${latest_pnl:+,.0f}" if latest_pnl else "$0",
+                "positive" if latest_pnl > 0 else ("negative" if latest_pnl < 0 else "neutral"),
+                sub=f"{latest_pct:+.2f}%" if latest_pct else "—",
             ), unsafe_allow_html=True)
         with c2:
-            avg = yearly_summary["年度報酬 %"].mean()
+            # 防呆：計算平均值，若欄位缺失或全空 → 0
+            try:
+                if "年度報酬 %" in yearly_summary.columns and not yearly_summary["年度報酬 %"].isna().all():
+                    avg = float(yearly_summary["年度報酬 %"].mean())
+                else:
+                    avg = 0
+                n_years = int(len(yearly_summary))
+            except (KeyError, ValueError, TypeError):
+                avg, n_years = 0, 0
             st.markdown(_kpi_card_html(
                 "歷年平均",
                 f"{avg:+.2f}%",
-                "positive" if avg > 0 else "negative",
-                sub=f"{len(yearly_summary)} 年",
+                "positive" if avg > 0 else ("negative" if avg < 0 else "neutral"),
+                sub=f"{n_years} 年" if n_years else "—",
             ), unsafe_allow_html=True)
         with c3:
-            best = yearly_summary.loc[yearly_summary["年度報酬 %"].idxmax()]
+            # 防呆：取得「最佳年度」用 idxmax，若全空或缺失 → 0
+            try:
+                if "年度報酬 %" in yearly_summary.columns and not yearly_summary["年度報酬 %"].isna().all():
+                    best = yearly_summary.loc[yearly_summary["年度報酬 %"].idxmax()]
+                    best_year = int(best.get("年度", 0))
+                    best_pnl = float(best.get("總損益 (USDT)", 0))
+                    best_pct = float(best.get("年度報酬 %", 0))
+                else:
+                    best_year, best_pnl, best_pct = 0, 0, 0
+            except (KeyError, ValueError, TypeError):
+                best_year, best_pnl, best_pct = 0, 0, 0
             st.markdown(_kpi_card_html(
-                f"最佳年度 ({int(best['年度'])})",
-                f"${best['總損益 (USDT)']:+,.0f}",
-                "positive",
-                sub=f"{best['年度報酬 %']:+.2f}%",
+                f"最佳年度 ({best_year})" if best_year else "最佳年度",
+                f"${best_pnl:+,.0f}" if best_pnl else "$0",
+                "positive" if best_pnl > 0 else "neutral",
+                sub=f"{best_pct:+.2f}%" if best_pct else "—",
             ), unsafe_allow_html=True)
+    else:
+        # 邊界：yearly_summary 完全沒資料 → 顯示提示
+        st.caption("無足夠資料計算年度總覽（缺少年份或 PnL 資訊）")
 
 
 def render_list_of_trades(trades: List[Dict]) -> None:
