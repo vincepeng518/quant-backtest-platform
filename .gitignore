@@ -50,3 +50,9 @@ htmlcov/
 
 # OS
 Thumbs.db
+
+# Optuna / Study data (large binary files)
+data/optuna_studies.db
+data/study_metadata.db
+data/trials/*.parquet
+

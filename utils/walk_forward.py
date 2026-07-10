@@ -9,12 +9,25 @@ Walk-Forward 驗證模組
 支援兩種模式：
 - 單標的：使用 BacktestEngine
 - 配對交易：使用 PairBacktestEngine（傳入 pair_kwargs）
-"""
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Any, Tuple
+支援 3 種內部優化器：
+- grid: 網格搜尋（向後相容）
+- random: 隨機搜尋
+- optuna: Optuna Bayesian Optimization（推薦）
+- timeseries: 純 TimeSeriesSplit 交叉驗證（無 walk-forward）
+
+"""
+from __future__ import annotations
+
+import time
+import logging
+from typing import Dict, List, Any, Tuple, Optional, Callable
 from itertools import product
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import TimeSeriesSplit
+
+logger = logging.getLogger(__name__)
 
 
 class WalkForwardValidator:
@@ -30,11 +43,15 @@ class WalkForwardValidator:
 
     def __init__(
         self,
-        strategy_runner,
-        backtest_engine_class,
+        strategy_runner: Callable,
+        backtest_engine_class: type,
         n_splits: int = 5,
         train_ratio: float = 0.7,
         anchored: bool = False,
+        inner_optimizer: str = "grid",  # "grid" / "random" / "optuna"
+        inner_n_trials: int = 30,
+        inner_objective: str = "sharpe_ratio",
+        inner_seed: int = 42,
     ):
         """
         strategy_runner: 策略執行函數 execute_user_strategy
@@ -42,37 +59,55 @@ class WalkForwardValidator:
         n_splits: 切分數量
         train_ratio: 每個 window 中訓練集佔比 (0.7 = 70% 訓練, 30% 測試)
         anchored: True=擴展窗口（從頭開始），False=滾動窗口
+        inner_optimizer: 內部優化器（grid/random/optuna）
+        inner_n_trials: 內部 trial 數（optuna/random 用）
+        inner_objective: 目標函數
+        inner_seed: 隨機種子
         """
         self.strategy_runner = strategy_runner
         self.backtest_engine_class = backtest_engine_class
         self.n_splits = n_splits
         self.train_ratio = train_ratio
         self.anchored = anchored
+        self.inner_optimizer = inner_optimizer
+        self.inner_n_trials = inner_n_trials
+        self.inner_objective = inner_objective
+        self.inner_seed = inner_seed
 
     def run(
         self,
         df: pd.DataFrame,
         strategy_code: str,
-        param_space: Dict[str, List],
-        base_params: Dict[str, Any] = None,
-        optimize_metric: str = "sharpe_ratio",
-        initial_capital: float = 10000,
+        param_space: Optional[Dict[str, List]] = None,
+        param_specs: Optional[List[Dict[str, Any]]] = None,
+        base_params: Optional[Dict[str, Any]] = None,
+        fixed_params: Optional[Dict[str, Any]] = None,
+        optimize_metric: Optional[str] = None,
+        initial_capital: float = 10000.0,
         commission: float = 0.001,
         slippage: float = 0.0005,
         direction: str = "long",
         is_pair: bool = False,
-        pair_kwargs: Dict[str, Any] = None,
-    ) -> Dict:
+        pair_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         執行 walk-forward 驗證
 
-        is_pair: 是否為配對交易模式
-        pair_kwargs: 配對引擎需要的額外參數（如 symbol1, symbol2）
+        Args:
+            param_space: 網格搜尋用的 param_space（向後相容）
+            param_specs: Optuna 用的 param_specs
+            base_params: 固定參數
+            fixed_params: 別名（向後相容）
+            optimize_metric: 目標函數（grid/random 用）
         """
         if base_params is None:
             base_params = {}
+        if fixed_params is not None:
+            base_params = {**base_params, **fixed_params}
         if pair_kwargs is None:
             pair_kwargs = {}
+        if optimize_metric is None:
+            optimize_metric = self.inner_objective
 
         n = len(df)
         # 計算每個 window 的大小
@@ -117,12 +152,21 @@ class WalkForwardValidator:
             train_df = df.iloc[win["train_start"]:win["train_end"]].copy()
             test_df = df.iloc[win["test_start"]:win["test_end"]].copy()
 
-            # 在訓練集上做網格搜尋
-            best_params, train_metric = self._grid_search(
-                train_df, strategy_code, param_space, base_params,
-                optimize_metric, initial_capital, commission, slippage,
-                direction, is_pair, pair_kwargs,
-            )
+            # 在訓練集上做內部優化
+            if self.inner_optimizer == "optuna" and param_specs:
+                best_params, train_metric = self._optuna_search(
+                    train_df, strategy_code, param_specs, base_params,
+                    optimize_metric, initial_capital, commission, slippage,
+                    direction, is_pair, pair_kwargs,
+                )
+            else:
+                # 用 grid/random（向後相容）
+                best_params, train_metric = self._grid_search(
+                    train_df, strategy_code,
+                    param_space or _specs_to_grid_space(param_specs or []),
+                    base_params, optimize_metric, initial_capital, commission,
+                    slippage, direction, is_pair, pair_kwargs,
+                )
 
             # 用最佳參數在測試集上跑
             full_params = {**base_params, **best_params}
@@ -178,11 +222,12 @@ class WalkForwardValidator:
                 **win,
                 "best_params": best_params,
                 "train_metric": train_metric,
-                "test_metric": test_metrics["sharpe_ratio"] if "sharpe_ratio" in test_metrics else None,
+                "test_metric": test_metrics.get(optimize_metric, None) if "error" not in test_metrics else None,
                 "test_return": test_metrics.get("total_return_pct", 0),
                 "test_drawdown": test_metrics.get("max_drawdown_pct", 0),
                 "test_n_trades": test_metrics.get("n_trades", 0),
                 "test_win_rate": test_metrics.get("win_rate", 0),
+                "test_sharpe": test_metrics.get("sharpe_ratio", 0),
             })
 
         # 計算綜合 OOS 指標
@@ -210,7 +255,47 @@ class WalkForwardValidator:
             "degradation_pct": degradation,
             "parameter_stability": self._calc_param_stability(all_results),
             "is_pair": is_pair,
+            "inner_optimizer": self.inner_optimizer,
         }
+
+    def _optuna_search(
+        self, df, strategy_code, param_specs, base_params, metric,
+        capital, commission, slippage, direction, is_pair, pair_kwargs,
+    ) -> Tuple[Dict, float]:
+        """用 Optuna 在訓練集上找最佳參數"""
+        from .optuna_optimizer import OptunaOptimizer
+
+        opt = OptunaOptimizer(
+            strategy_runner=self.strategy_runner,
+            backtest_engine_class=self.backtest_engine_class,
+            objective_name=metric,
+            sampler="tpe",
+            pruner="none",  # WF 內部用 nop pruner（不剪枝）
+            seed=self.inner_seed,
+            min_trades=2,  # WF 內部降低 min_trades（資料較少）
+        )
+
+        try:
+            result = opt.run(
+                df=df,
+                strategy_code=strategy_code,
+                param_specs=param_specs,
+                base_params=base_params,
+                initial_capital=capital,
+                commission=commission,
+                slippage=slippage,
+                direction=direction,
+                n_trials=self.inner_n_trials,
+                study_name=f"wf_inner_{int(time.time()*1000)}",
+                persist=False,
+            )
+        except Exception as e:
+            logger.warning(f"WF inner optuna failed: {e}")
+            return {}, 0.0
+
+        best_params = result.get("best_params") or {}
+        best_value = result.get("best_value", 0) or 0
+        return best_params, float(best_value)
 
     def _grid_search(
         self, df, strategy_code, param_space, base_params, metric,
@@ -343,7 +428,7 @@ class WalkForwardValidator:
 
         for pname in param_names:
             values = [w["best_params"][pname] for w in valid]
-            if all(isinstance(v, (int, float)) for v in values):
+            if all(isinstance(v, (int, float, np.integer, np.floating)) for v in values):
                 mean = np.mean(values)
                 std = np.std(values)
                 cv = (std / abs(mean)) if mean != 0 else 0
@@ -374,3 +459,187 @@ class WalkForwardValidator:
             return "🟠 不穩定：參數在不同區段差異大，可能有過擬合"
         else:
             return "🔴 極不穩定：強烈建議重新設計策略或縮小參數空間"
+
+
+# === TimeSeriesSplit 交叉驗證 ===
+
+def timeseries_split_validate(
+    df: pd.DataFrame,
+    strategy_code: str,
+    param_specs: List[Dict[str, Any]],
+    strategy_runner: Callable,
+    backtest_engine_class: type,
+    n_splits: int = 5,
+    base_params: Optional[Dict[str, Any]] = None,
+    objective_name: str = "sharpe_ratio",
+    initial_capital: float = 10000.0,
+    commission: float = 0.001,
+    slippage: float = 0.0005,
+    direction: str = "long",
+    n_trials_per_fold: int = 30,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """
+    TimeSeriesSplit 交叉驗證（純 CV，無 walk-forward 結構）
+
+    流程：
+    1. 用 TimeSeriesSplit 把資料切成 K 個 fold（時序保持）
+    2. 每個 fold：前 (k-1) 做訓練，最後一個做測試
+    3. 在每個 fold 的訓練段用 Optuna 找最佳參數
+    4. 在測試段驗證
+    5. 聚合所有 fold 的測試結果
+
+    Returns:
+        dict with:
+            - fold_results: 每個 fold 的結果
+            - mean_test_metric, std_test_metric
+            - mean_params: 跨 fold 參數平均
+    """
+    if base_params is None:
+        base_params = {}
+
+    tss = TimeSeriesSplit(n_splits=n_splits)
+    fold_results = []
+    all_test_params = []
+    test_values = []
+
+    for fold_id, (train_idx, test_idx) in enumerate(tss.split(df)):
+        train_df = df.iloc[train_idx].copy()
+        test_df = df.iloc[test_idx].copy()
+
+        # 訓練：Optuna 找最佳
+        from .optuna_optimizer import OptunaOptimizer
+
+        opt = OptunaOptimizer(
+            strategy_runner=strategy_runner,
+            backtest_engine_class=backtest_engine_class,
+            objective_name=objective_name,
+            sampler="tpe",
+            pruner="median",
+            seed=seed + fold_id,
+        )
+        train_result = opt.run(
+            df=train_df,
+            strategy_code=strategy_code,
+            param_specs=param_specs,
+            base_params=base_params,
+            initial_capital=initial_capital,
+            commission=commission,
+            slippage=slippage,
+            direction=direction,
+            n_trials=n_trials_per_fold,
+            study_name=f"tscv_fold_{fold_id}_{int(time.time()*1000)}",
+            persist=False,
+        )
+
+        # 測試
+        best_params = train_result["best_params"]
+        full_params = {**base_params, **best_params}
+        _result = strategy_runner(strategy_code, test_df, full_params)
+        if not isinstance(_result, tuple) or len(_result) not in (3, 7):
+            fold_results.append({
+                "fold": fold_id + 1,
+                "best_params": best_params,
+                "train_value": train_result.get("best_value"),
+                "test_value": None,
+                "error": "策略回傳錯誤",
+            })
+            continue
+        if len(_result) == 7:
+            entries, exits, err, _le, _lx, _se, _sx = _result
+        else:
+            entries, exits, err = _result
+        if err or not entries.any():
+            fold_results.append({
+                "fold": fold_id + 1,
+                "best_params": best_params,
+                "train_value": train_result.get("best_value"),
+                "test_value": None,
+                "error": err or "無交易",
+            })
+            continue
+
+        try:
+            engine = backtest_engine_class(
+                test_df, initial_capital=initial_capital,
+                commission=commission, slippage=slippage,
+            )
+            bt = engine.run(entries, exits, direction=direction)
+            test_metrics = bt["metrics"]
+        except Exception as e:
+            fold_results.append({
+                "fold": fold_id + 1,
+                "best_params": best_params,
+                "train_value": train_result.get("best_value"),
+                "test_value": None,
+                "error": str(e),
+            })
+            continue
+
+        from .objective_builder import get_objective_fn
+        test_value = get_objective_fn(objective_name)(test_metrics)
+
+        fold_results.append({
+            "fold": fold_id + 1,
+            "best_params": best_params,
+            "train_value": train_result.get("best_value"),
+            "test_value": test_value,
+            "test_metrics": test_metrics,
+            "n_test_trades": test_metrics.get("n_trades", 0),
+        })
+        all_test_params.append(best_params)
+        test_values.append(test_value)
+
+    # 聚合
+    valid = [r for r in fold_results if r.get("test_value") is not None]
+    if valid:
+        mean_test = np.mean([r["test_value"] for r in valid])
+        std_test = np.std([r["test_value"] for r in valid])
+    else:
+        mean_test = std_test = 0
+
+    # 跨 fold 平均參數（僅對數值型）
+    mean_params = {}
+    if all_test_params:
+        keys = all_test_params[0].keys()
+        for k in keys:
+            vals = [p[k] for p in all_test_params if isinstance(p.get(k), (int, float))]
+            if vals:
+                mean_params[k] = float(np.mean(vals))
+
+    return {
+        "fold_results": fold_results,
+        "n_folds": n_splits,
+        "mean_test_value": mean_test,
+        "std_test_value": std_test,
+        "mean_params": mean_params,
+    }
+
+
+def _specs_to_grid_space(param_specs: List[Dict[str, Any]]) -> Dict[str, List]:
+    """把 param_specs 轉成 grid search 的 param_space（向後相容）"""
+    grid_space = {}
+    for spec in param_specs:
+        name = spec["name"]
+        ptype = spec.get("type", "int")
+        if ptype == "int":
+            low, high = int(spec["low"]), int(spec["high"])
+            step = int(spec.get("step", max(1, (high - low) // 10)))
+            grid_space[name] = list(range(low, high + 1, step))
+        elif ptype in ("float", "float_log", "loguniform"):
+            low, high = float(spec["low"]), float(spec["high"])
+            n = 10
+            if ptype in ("float_log", "loguniform"):
+                grid_space[name] = list(np.logspace(np.log10(low), np.log10(high), n))
+            else:
+                grid_space[name] = list(np.linspace(low, high, n))
+        elif ptype == "categorical":
+            grid_space[name] = list(spec["choices"])
+    return grid_space
+
+
+__all__ = [
+    "WalkForwardValidator",
+    "timeseries_split_validate",
+    "_specs_to_grid_space",
+]

@@ -22,8 +22,13 @@ from utils.data_fetcher import (
 from utils.backtester import BacktestEngine
 from utils.pair_backtester import PairBacktestEngine
 from utils.data_fetcher import fetch_pair_data, get_pair_templates
-from utils.walk_forward import WalkForwardValidator
+from utils.walk_forward import WalkForwardValidator, timeseries_split_validate
 from utils.optimizer import ParameterOptimizer, calculate_overfit_score
+from utils.optuna_optimizer import OptunaOptimizer
+from utils.objective_builder import list_objectives, get_objective_fn
+from utils.param_space_editor import render_param_space_editor, get_default_specs_for_strategy
+from utils.perturbation import PerturbationTester
+from utils.seed import set_global_seed
 from strategies.strategy_runner import (
     execute_user_strategy, get_template, list_templates,
     get_param_space, get_default_params
@@ -864,7 +869,7 @@ with main_tab1:
 # ===========================
 with main_tab2:
     st.header("🤖 自動參數優化")
-    st.caption("自動測試所有參數組合，找出最佳表現。")
+    st.caption("自動測試所有參數組合，找出最佳表現。支援 Grid Search 與 Bayesian Optimization。")
 
     col_o1, col_o2 = st.columns([3, 1])
     with col_o1:
@@ -889,22 +894,26 @@ with main_tab2:
                     new_code = get_template(opt_template)
                     new_space = get_param_space(opt_template)
                     new_default = get_default_params(opt_template)
+                    new_specs = get_default_specs_for_strategy(opt_template)
                 elif opt_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][opt_template]
                     new_space = {}
                     new_default = {}
+                    new_specs = []
                 else:
                     new_code = None
                 if new_code is not None:
                     st.session_state["opt_code"] = new_code
                     st.session_state["opt_param_space"] = new_space
                     st.session_state["opt_default_params"] = new_default
+                    st.session_state["opt_param_specs"] = new_specs
                     st.session_state["opt_current"] = opt_template
                     # 同步更新 widget state
                     st.session_state["opt_code_editor"] = new_code
                     # 同步更新 Row layout 編輯器（清掉舊 session）
                     st.session_state.pop("opt_fixed_params_params", None)
                     st.session_state.pop("opt_param_space_params", None)
+                    st.session_state.pop("opt_param_space_storage", None)
                     st.rerun()
 
     with col_o2:
@@ -919,21 +928,25 @@ with main_tab2:
                     new_code = get_template(opt_template)
                     new_space = get_param_space(opt_template)
                     new_default = get_default_params(opt_template)
+                    new_specs = get_default_specs_for_strategy(opt_template)
                 elif opt_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][opt_template]
                     new_space = {}
                     new_default = {}
+                    new_specs = []
                 else:
                     new_code = None
                 if new_code is not None:
                     st.session_state["opt_code"] = new_code
                     st.session_state["opt_param_space"] = new_space
                     st.session_state["opt_default_params"] = new_default
+                    st.session_state["opt_param_specs"] = new_specs
                     st.session_state["opt_current"] = opt_template
                     st.session_state["opt_code_editor"] = new_code
                     # 同步更新 Row layout 編輯器（清掉舊 session）
                     st.session_state.pop("opt_fixed_params_params", None)
                     st.session_state.pop("opt_param_space_params", None)
+                    st.session_state.pop("opt_param_space_storage", None)
                     st.rerun()
 
     if "opt_code" not in st.session_state:
@@ -941,43 +954,63 @@ with main_tab2:
         st.session_state["opt_current"] = list_templates()[0]
         st.session_state["opt_param_space"] = get_param_space(list_templates()[0])
         st.session_state["opt_default_params"] = get_default_params(list_templates()[0])
+        st.session_state["opt_param_specs"] = get_default_specs_for_strategy(list_templates()[0])
 
     opt_code = st.text_area("策略代碼（可編輯）", value=st.session_state["opt_code"],
-                              height=250, key="opt_code_editor")
+                              height=200, key="opt_code_editor")
 
     # === 可見性（放在外面，label + widget 並排格式）===
     st.markdown("**👁️ 可見性**")
+
     vis_left, vis_right = st.columns([1, 3])
     with vis_left:
-        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>搜尋方法</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>優化模式</div>", unsafe_allow_html=True)
     with vis_right:
-        search_method = st.radio(
-            "搜尋方法",
-            ["網格搜尋（完整）", "隨機搜尋（快速）"],
-            key="opt_search_method",
-            label_visibility="collapsed"
+        opt_mode = st.radio(
+            "優化模式",
+            ["🧠 Bayesian (Optuna)", "📊 Grid Search", "🎲 Random Search"],
+            key="opt_mode",
+            label_visibility="collapsed",
+            horizontal=True,
         )
-    method_code = "grid" if "網格" in search_method else "random"
+    mode_code = "bayesian" if "Bayesian" in opt_mode else ("grid" if "Grid" in opt_mode else "random")
 
     vis_left2, vis_right2 = st.columns([1, 3])
     with vis_left2:
         st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>優化目標</div>", unsafe_allow_html=True)
     with vis_right2:
-        opt_metric = st.selectbox(
+        opt_objective = st.selectbox(
             "優化目標",
-            ["sharpe_ratio", "total_return_pct", "calmar_ratio", "profit_factor", "win_rate"],
-            key="opt_metric",
-            label_visibility="collapsed"
+            list_objectives(),
+            index=list_objectives().index("sharpe_ratio"),
+            key="opt_objective",
+            label_visibility="collapsed",
+            help="目標函數（越高越好）",
         )
 
-    if method_code == "random":
+    # Bayesian 與 Random 需要 n_trials
+    if mode_code in ("bayesian", "random"):
         vis_left3, vis_right3 = st.columns([1, 3])
         with vis_left3:
             st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>迭代次數</div>", unsafe_allow_html=True)
         with vis_right3:
-            n_iter = st.number_input("迭代次數", min_value=10, max_value=2000, value=100,
-                                     key="opt_n_iter", label_visibility="collapsed")
-    # 組合總數會在 tabs 之後（param_space 已被讀取）動態計算並顯示
+            n_trials = st.number_input(
+                "迭代次數 (n_trials)",
+                min_value=5, max_value=2000, value=50,
+                key="opt_n_trials",
+                label_visibility="collapsed",
+                help="Bayesian 用 TPE 採樣；Random 用均勻採樣",
+            )
+        vis_left4, vis_right4 = st.columns([1, 3])
+        with vis_left4:
+            st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>隨機種子</div>", unsafe_allow_html=True)
+        with vis_right4:
+            opt_seed = st.number_input(
+                "隨機種子 (確保可重現)",
+                min_value=0, max_value=999999, value=42,
+                key="opt_seed",
+                label_visibility="collapsed",
+            )
 
     st.divider()
 
@@ -995,146 +1028,358 @@ with main_tab2:
         )
 
     with tab_mode:
-        st.caption("要優化的參數空間：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
-        from utils.param_editor import render_param_editor
-        param_space = render_param_editor(
-            label="參數空間",
-            current_params=st.session_state.get("opt_param_space", {}),
-            key_prefix="opt_param_space",
-            caption=None,
-        )
-
-    # 動態更新組合總數（在 tabs 之後，這樣 param_space 已被讀取）
-    if method_code != "random":
-        # 重新算 total_combos 顯示
-        if isinstance(param_space, dict) and param_space:
-            _total = 1
-            for v in param_space.values():
-                if isinstance(v, list):
-                    _total *= len(v)
-                else:
-                    _total *= 1  # 單值也算 1 個組合
-            st.metric("組合總數", f"{_total:,}")
+        if mode_code == "bayesian":
+            # Bayesian 模式：範圍型參數編輯器
+            st.caption("🧠 **Bayesian 模式**：每個參數 = 名稱 + 型態 + 範圍。支援 int / float / float_log / categorical")
+            param_specs = render_param_space_editor(
+                label="參數空間（範圍型）",
+                current_specs=st.session_state.get("opt_param_specs", []),
+                key_prefix="opt_param_space",
+                caption=None,
+            )
+            # 動態計算「總可能組合數」（用於估算）
+            if param_specs:
+                from math import prod
+                total_est = 1
+                for spec in param_specs:
+                    ptype = spec.get("type", "int")
+                    if ptype in ("int",):
+                        low, high = spec.get("low", 1), spec.get("high", 100)
+                        total_est *= max(1, (high - low) + 1)
+                    elif ptype in ("float", "float_log", "loguniform"):
+                        total_est *= 100  # 浮點當 100 級
+                    elif ptype == "categorical":
+                        total_est *= max(1, len(spec.get("choices", [])))
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    st.metric("搜尋空間（估）", f"~{total_est:,}")
+                with col_m2:
+                    st.metric("要測試", f"{n_trials}")
+                with col_m3:
+                    reduction = max(0, 100 - (n_trials / total_est * 100)) if total_est > 0 else 0
+                    st.metric("搜尋效率", f"{reduction:.0f}%")
+        else:
+            # Grid / Random 模式：候選值清單型
+            st.caption("📊 **Grid / Random 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+            from utils.param_editor import render_param_editor
+            param_space = render_param_editor(
+                label="參數空間",
+                current_params=st.session_state.get("opt_param_space", {}),
+                key_prefix="opt_param_space",
+                caption=None,
+            )
+            if mode_code == "grid" and isinstance(param_space, dict) and param_space:
+                _total = 1
+                for v in param_space.values():
+                    if isinstance(v, list):
+                        _total *= len(v)
+                    else:
+                        _total *= 1
+                st.metric("組合總數", f"{_total:,}")
 
     run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
 
     if not run_opt:
         st.info("👆 設定參數空間後點擊「🚀 開始優化」")
-    elif not param_space:
-        st.error("請設定至少一個要優化的參數")
     else:
-        optimizer = ParameterOptimizer(
-            strategy_runner=execute_user_strategy,
-            backtest_engine_class=BacktestEngine,
-            metric=opt_metric,
-        )
+        # === 統一檢查 ===
+        if mode_code == "bayesian":
+            if not param_specs:
+                st.error("請設定至少一個要優化的參數（範圍型）")
+                st.stop()
+        else:
+            if not param_space:
+                st.error("請設定至少一個要優化的參數")
+                st.stop()
 
+        # 初始化容器
         progress_bar = st.progress(0)
         status_text = st.empty()
-        status_text.text(f"⏳ 開始{'網格' if method_code == 'grid' else '隨機'}搜尋...")
+        best_metric_placeholder = st.empty()
+        best_value_so_far = -np.inf
+        result = None
 
-        start_time = time.time()
         try:
-            if method_code == "grid":
-                opt_results = optimizer.grid_search(
+            if mode_code == "bayesian":
+                status_text.text(f"⏳ 開始 Bayesian Optimization（{n_trials} trials）...")
+                set_global_seed(int(opt_seed))
+                opt_engine = OptunaOptimizer(
+                    strategy_runner=execute_user_strategy,
+                    backtest_engine_class=BacktestEngine,
+                    objective_name=opt_objective,
+                    sampler="tpe",
+                    pruner="median",
+                    seed=int(opt_seed),
+                )
+                start_time = time.time()
+                # 進度回呼：即時更新最佳值
+                def _on_progress(trial_num, total, current, best, params):
+                    progress_bar.progress(min(trial_num / total, 1.0))
+                    best_metric_placeholder.metric("目前最佳", f"{best:.4f}", delta=f"trial {trial_num}/{total}")
+                result = opt_engine.run(
+                    df=df,
+                    strategy_code=opt_code,
+                    param_specs=param_specs,
+                    base_params=fixed_params,
+                    initial_capital=initial_capital,
+                    commission=commission_pct,
+                    slippage=slippage_pct,
+                    direction=direction_code,
+                    n_trials=int(n_trials),
+                    study_name=f"opt_{int(time.time())}",
+                    persist=True,
+                    progress_callback=_on_progress,
+                )
+            elif mode_code == "grid":
+                status_text.text(f"⏳ 開始 Grid Search...")
+                set_global_seed(42)
+                opt_engine = ParameterOptimizer(
+                    strategy_runner=execute_user_strategy,
+                    backtest_engine_class=BacktestEngine,
+                    metric=opt_objective,
+                )
+                start_time = time.time()
+                grid_result = opt_engine.grid_search(
                     df, opt_code, param_space, fixed_params,
                     initial_capital, commission_pct, slippage_pct, direction_code,
                 )
-            else:
-                opt_results = optimizer.random_search(
+                result = {
+                    "best_params": grid_result["best_params"],
+                    "best_value": grid_result["best_metrics"].get(opt_objective, 0) if grid_result["best_metrics"] else None,
+                    "best_metrics": grid_result["best_metrics"],
+                    "valid_results": grid_result["valid_results"],
+                    "all_results": grid_result["all_results"],
+                    "total_combinations": grid_result["total_combinations"],
+                    "valid_combinations": grid_result["valid_combinations"],
+                    "elapsed_seconds": time.time() - start_time,
+                    "n_trials_completed": grid_result["valid_combinations"],
+                    "n_trials_total": grid_result["total_combinations"],
+                }
+                progress_bar.progress(100)
+            else:  # random
+                status_text.text(f"⏳ 開始 Random Search（{n_trials} iterations）...")
+                set_global_seed(42)
+                opt_engine = ParameterOptimizer(
+                    strategy_runner=execute_user_strategy,
+                    backtest_engine_class=BacktestEngine,
+                    metric=opt_objective,
+                )
+                start_time = time.time()
+                rand_result = opt_engine.random_search(
                     df, opt_code, param_space, fixed_params,
                     initial_capital, commission_pct, slippage_pct, direction_code,
-                    n_iter=n_iter,
+                    n_iter=int(n_trials),
                 )
+                result = {
+                    "best_params": rand_result["best_params"],
+                    "best_value": rand_result["best_metrics"].get(opt_objective, 0) if rand_result["best_metrics"] else None,
+                    "best_metrics": rand_result["best_metrics"],
+                    "valid_results": rand_result["valid_results"],
+                    "all_results": rand_result["all_results"],
+                    "total_combinations": rand_result["total_combinations"],
+                    "valid_combinations": rand_result["valid_combinations"],
+                    "elapsed_seconds": time.time() - start_time,
+                    "n_trials_completed": rand_result["valid_combinations"],
+                    "n_trials_total": rand_result["total_combinations"],
+                }
+                progress_bar.progress(100)
         except Exception as e:
             progress_bar.progress(100)
             status_text.text(f"❌ 優化失敗")
             st.error(f"❌ 參數優化錯誤: {type(e).__name__}: {e}")
             st.exception(e)
             st.stop()
-        progress_bar.progress(100)
-        elapsed = time.time() - start_time
-        status_text.text(f"✅ 完成！耗時 {elapsed:.1f} 秒，測試 {opt_results['valid_combinations']} 個有效組合")
 
-        if not opt_results["best_params"]:
+        progress_bar.progress(100)
+        elapsed = result.get("elapsed_seconds", time.time() - start_time)
+        n_complete = result.get("n_trials_completed", 0)
+        n_total = result.get("n_trials_total", 0)
+        status_text.text(f"✅ 完成！耗時 {elapsed:.1f} 秒，有效 {n_complete}/{n_total}")
+
+        if not result.get("best_params"):
             st.error("❌ 沒有找到任何有效組合，請放寬參數空間或檢查策略代碼")
         else:
-            best = opt_results["best_metrics"]
+            best = result["best_metrics"]
             st.success(f"🎉 找到最佳參數！")
 
             col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns(5)
             with col_r1:
-                st.metric("最佳 Sharpe", f"{best.get('sharpe_ratio', 0):.2f}")
+                st.metric("目標值", f"{result.get('best_value', 0):.4f}")
             with col_r2:
-                st.metric("最佳報酬率", f"{best.get('total_return_pct', 0):+.2f}%")
+                st.metric("最佳 Sharpe", f"{best.get('sharpe_ratio', 0):.2f}")
             with col_r3:
-                st.metric("最大回撤", f"{best.get('max_drawdown_pct', 0):.2f}%")
+                st.metric("最佳報酬率", f"{best.get('total_return_pct', 0):+.2f}%")
             with col_r4:
-                st.metric("勝率", f"{best.get('win_rate', 0):.1f}%")
+                st.metric("最大回撤", f"{best.get('max_drawdown_pct', 0):.2f}%")
             with col_r5:
-                st.metric("交易數", f"{best.get('n_trades', 0)}")
-
-            st.subheader("🔍 過擬合風險評估")
-            overfit = calculate_overfit_score(opt_results["valid_results"], top_n=10)
-            col_of1, col_of2, col_of3 = st.columns([1, 1, 2])
-            with col_of1:
-                st.metric("過擬合評分", f"{overfit['score']:.0f}/100")
-            with col_of2:
-                st.metric("參數平原比", f"{overfit.get('avg_ratio', 0):.2f}")
-            with col_of3:
-                st.info(overfit["warning"])
+                st.metric("勝率", f"{best.get('win_rate', 0):.1f}%")
 
             st.subheader("🏆 最佳參數組合")
-            best_params_display = {k: v for k, v in opt_results["best_params"].items() if k in param_space}
-            st.json(best_params_display)
+            st.json(result["best_params"])
 
+            # === 過擬合評估（Grid/Random 模式）===
+            if mode_code in ("grid", "random") and result.get("valid_results"):
+                st.subheader("🔍 過擬合風險評估")
+                overfit = calculate_overfit_score(result["valid_results"], top_n=10)
+                col_of1, col_of2, col_of3 = st.columns([1, 1, 2])
+                with col_of1:
+                    st.metric("過擬合評分", f"{overfit['score']:.0f}/100")
+                with col_of2:
+                    st.metric("參數平原比", f"{overfit.get('avg_ratio', 0):.2f}")
+                with col_of3:
+                    st.info(overfit["warning"])
+
+            # === 擾動測試（Bayesian 模式）===
+            if mode_code == "bayesian" and result.get("best_params"):
+                st.subheader("🧪 參數穩定性測試（Perturbation Test）")
+                with st.spinner("擾動測試中..."):
+                    try:
+                        from utils.objective_builder import get_objective_fn
+                        tester = PerturbationTester(
+                            strategy_runner=execute_user_strategy,
+                            backtest_engine_class=BacktestEngine,
+                            objective_fn=get_objective_fn(opt_objective),
+                            objective_name=opt_objective,
+                        )
+                        perturb_result = tester.run(
+                            df=df,
+                            strategy_code=opt_code,
+                            best_params=result["best_params"],
+                            base_params=fixed_params,
+                            initial_capital=initial_capital,
+                            commission=commission_pct,
+                            slippage=slippage_pct,
+                        )
+                        col_p1, col_p2, col_p3 = st.columns(3)
+                        with col_p1:
+                            st.metric("穩定度評分", f"{perturb_result['stability_score']:.0f}/100")
+                        with col_p2:
+                            st.metric("基準目標值", f"{perturb_result['baseline_value']:.4f}")
+                        with col_p3:
+                            st.metric("擾動後 CV", f"{perturb_result['overall_cv']:.3f}")
+                        st.info(perturb_result["interpretation"])
+                        with st.expander("查看擾動詳細資料"):
+                            st.dataframe(perturb_result["per_param"], use_container_width=True, hide_index=True)
+                    except Exception as e:
+                        st.warning(f"擾動測試失敗: {e}")
+
+            # === 參數重要性（Bayesian 模式）===
+            if mode_code == "bayesian" and result.get("param_importances"):
+                st.subheader("📊 參數重要性分析（fANOVA）")
+                imp = result["param_importances"]
+                if imp:
+                    imp_df = pd.DataFrame([
+                        {"參數": k, "重要性": float(v)}
+                        for k, v in sorted(imp.items(), key=lambda x: -x[1])
+                    ])
+                    # 文字條形圖
+                    fig_imp = go.Figure(go.Bar(
+                        x=imp_df["重要性"],
+                        y=imp_df["參數"],
+                        orientation="h",
+                        marker=dict(color=imp_df["重要性"], colorscale="Viridis"),
+                    ))
+                    fig_imp.update_layout(
+                        xaxis_title="重要性",
+                        yaxis_title="參數",
+                        height=max(200, 50 * len(imp_df)),
+                        template="plotly_white",
+                        yaxis=dict(autorange="reversed"),
+                    )
+                    st.plotly_chart(fig_imp, use_container_width=True)
+
+            # === 複製按鈕 ===
             if st.button("📋 複製到單次回測", key="copy_to_single"):
                 st.session_state["strategy_code"] = opt_code
                 st.session_state["current_template"] = st.session_state.get("opt_current", "")
-                merged = {**fixed_params, **best_params_display}
+                merged = {**fixed_params, **result["best_params"]}
                 st.session_state["strategy_params_dict"] = merged
-                st.session_state.pop("strategy_params_params", None)  # 清掉舊 session
-                st.success("✅ 已複製到「單次回測」分頁，請切換查看")
+                st.session_state.pop("strategy_params_params", None)
+                st.success("✅ 已複製到「單回目測」分頁，請切換查看")
 
-            st.subheader(f"📊 Top {min(10, len(opt_results['valid_results']))} 結果")
+            # === Top 10 結果 ===
+            st.subheader(f"📊 Top 10 結果")
             top_display = []
-            for r in opt_results["valid_results"][:10]:
-                row = {**r["params"]}
-                row["Sharpe"] = r.get("sharpe_ratio", 0)
-                row["報酬率 %"] = r.get("total_return_pct", 0)
-                row["回撤 %"] = r.get("max_drawdown_pct", 0)
-                row["勝率 %"] = r.get("win_rate", 0)
-                row["交易數"] = r.get("n_trades", 0)
-                row["利潤因子"] = r.get("profit_factor", 0)
-                top_display.append(row)
-            top_df = pd.DataFrame(top_display)
-            st.dataframe(top_df, use_container_width=True, hide_index=True)
+            valid_list = result.get("valid_results", [])
+            if not valid_list and "all_trials" in result and not result["all_trials"].empty:
+                # 從 DataFrame 提取
+                trials_df = result["all_trials"]
+                param_cols = [c for c in trials_df.columns if c.startswith("param_")]
+                metric_cols = [c for c in trials_df.columns if c.startswith("metric_") or c == "n_trades" or c == "value"]
+                trials_sorted = trials_df.sort_values("value", ascending=False).head(10)
+                for _, row in trials_sorted.iterrows():
+                    item = {c.replace("param_", ""): row[c] for c in param_cols if pd.notna(row[c])}
+                    item["目標值"] = row.get("value")
+                    item["n_trades"] = row.get("n_trades")
+                    top_display.append(item)
+            else:
+                for r in valid_list[:10]:
+                    if isinstance(r, dict):
+                        row = {**r.get("params", {})}
+                        row["目標值"] = r.get(opt_objective) if opt_objective in r else r.get("value")
+                        row["Sharpe"] = r.get("sharpe_ratio", 0)
+                        row["報酬率 %"] = r.get("total_return_pct", 0)
+                        row["回撤 %"] = r.get("max_drawdown_pct", 0)
+                        row["勝率 %"] = r.get("win_rate", 0)
+                        row["交易數"] = r.get("n_trades", 0)
+                        top_display.append(row)
+            if top_display:
+                st.dataframe(pd.DataFrame(top_display), use_container_width=True, hide_index=True)
 
-            if len(param_space) == 2:
+            # === 熱力圖（Grid + 2 個參數）===
+            if mode_code == "grid" and isinstance(param_space, dict) and len(param_space) == 2 and valid_list:
                 st.subheader("🔥 參數熱力圖")
                 pname1, pname2 = list(param_space.keys())
-                pvals1 = param_space[pname1]
-                pvals2 = param_space[pname2]
+                pvals1 = param_space[pname1] if isinstance(param_space[pname1], list) else [param_space[pname1]]
+                pvals2 = param_space[pname2] if isinstance(param_space[pname2], list) else [param_space[pname2]]
 
                 heatmap_z = np.full((len(pvals2), len(pvals1)), np.nan)
-                for r in opt_results["valid_results"]:
-                    v1 = r["params"][pname1]
-                    v2 = r["params"][pname2]
+                for r in valid_list:
+                    if not isinstance(r, dict) or "params" not in r:
+                        continue
+                    v1 = r["params"].get(pname1)
+                    v2 = r["params"].get(pname2)
                     if v1 in pvals1 and v2 in pvals2:
                         i = pvals1.index(v1)
                         j = pvals2.index(v2)
-                        heatmap_z[j, i] = r.get(opt_metric, np.nan)
+                        val = r.get(opt_objective) or r.get(opt_objective.replace("_pct", "_pct"))
+                        heatmap_z[j, i] = val
 
                 fig_heat = go.Figure(data=go.Heatmap(
                     z=heatmap_z, x=[str(v) for v in pvals1], y=[str(v) for v in pvals2],
-                    colorscale="Viridis", text=np.round(heatmap_z, 2),
-                    texttemplate="%{text}", colorbar=dict(title=opt_metric),
+                    colorscale="Viridis",
+                    colorbar=dict(title=opt_objective),
                 ))
                 fig_heat.update_layout(
                     xaxis_title=pname1, yaxis_title=pname2,
-                    template="plotly_dark", height=500,
+                    template="plotly_white", height=500,
                 )
                 st.plotly_chart(fig_heat, use_container_width=True)
+
+            # === 最佳化歷史圖（Bayesian 模式）===
+            if mode_code == "bayesian" and "all_trials" in result and not result["all_trials"].empty:
+                trials_df = result["all_trials"]
+                trials_df = trials_df[trials_df["value"].notna()].sort_values("number")
+                if not trials_df.empty:
+                    st.subheader("📈 優化歷史")
+                    fig_hist = go.Figure()
+                    fig_hist.add_trace(go.Scatter(
+                        x=trials_df["number"], y=trials_df["value"],
+                        mode="markers", name="Trial 值",
+                        marker=dict(size=8, color="lightblue", line=dict(color="blue", width=1)),
+                    ))
+                    fig_hist.add_trace(go.Scatter(
+                        x=trials_df["number"],
+                        y=trials_df["value"].cummax(),
+                        mode="lines", name="最佳值（累積）",
+                        line=dict(color="red", width=2),
+                    ))
+                    fig_hist.update_layout(
+                        xaxis_title="Trial 編號",
+                        yaxis_title=opt_objective,
+                        template="plotly_white", height=400,
+                    )
+                    st.plotly_chart(fig_hist, use_container_width=True)
 
 
 # ===========================
@@ -1170,20 +1415,25 @@ with main_tab3:
                     new_code = get_template(wf_template)
                     new_space = get_param_space(wf_template)
                     new_default = get_default_params(wf_template)
+                    new_specs = get_default_specs_for_strategy(wf_template)
                 elif wf_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][wf_template]
                     new_space = {}
                     new_default = {}
+                    new_specs = []
                 else:
                     new_code = None
                 if new_code is not None:
                     st.session_state["wf_code"] = new_code
                     st.session_state["wf_param_space"] = new_space
+                    st.session_state["wf_default_params"] = new_default
+                    st.session_state["wf_param_specs"] = new_specs
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
                     # 同步更新 Row layout 編輯器（清掉舊 session）
                     st.session_state.pop("wf_fixed_params_params", None)
                     st.session_state.pop("wf_param_space_params", None)
+                    st.session_state.pop("wf_param_space_storage", None)
                     st.rerun()
 
     with col_w2:
@@ -1198,26 +1448,32 @@ with main_tab3:
                     new_code = get_template(wf_template)
                     new_space = get_param_space(wf_template)
                     new_default = get_default_params(wf_template)
+                    new_specs = get_default_specs_for_strategy(wf_template)
                 elif wf_template in st.session_state.get("user_strategies", {}):
                     new_code = st.session_state["user_strategies"][wf_template]
                     new_space = {}
                     new_default = {}
+                    new_specs = []
                 else:
                     new_code = None
                 if new_code is not None:
                     st.session_state["wf_code"] = new_code
                     st.session_state["wf_param_space"] = new_space
+                    st.session_state["wf_default_params"] = new_default
+                    st.session_state["wf_param_specs"] = new_specs
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
                     # 同步更新 Row layout 編輯器（清掉舊 session）
                     st.session_state.pop("wf_fixed_params_params", None)
                     st.session_state.pop("wf_param_space_params", None)
+                    st.session_state.pop("wf_param_space_storage", None)
                     st.rerun()
 
     if "wf_code" not in st.session_state:
         st.session_state["wf_code"] = get_template(list_templates()[0])
         st.session_state["wf_current"] = list_templates()[0]
         st.session_state["wf_param_space"] = get_param_space(list_templates()[0])
+        st.session_state["wf_param_specs"] = get_default_specs_for_strategy(list_templates()[0])
 
     wf_code = st.text_area("策略代碼", value=st.session_state["wf_code"], height=200, key="wf_code_editor")
 
@@ -1250,10 +1506,37 @@ with main_tab3:
     with vis_right4:
         wf_metric = st.selectbox(
             "優化目標",
-            ["sharpe_ratio", "total_return_pct", "calmar_ratio"],
+            list_objectives(),
+            index=list_objectives().index("sharpe_ratio"),
             key="wf_metric",
             label_visibility="collapsed"
         )
+
+    vis_left5, vis_right5 = st.columns([1, 3])
+    with vis_left5:
+        st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>內部優化器</div>", unsafe_allow_html=True)
+    with vis_right5:
+        wf_inner_opt = st.radio(
+            "內部優化器",
+            ["🧠 Optuna (Bayesian)", "📊 Grid Search"],
+            key="wf_inner_opt",
+            label_visibility="collapsed",
+            horizontal=True,
+        )
+    wf_inner_code = "optuna" if "Optuna" in wf_inner_opt else "grid"
+
+    if wf_inner_code == "optuna":
+        vis_left6, vis_right6 = st.columns([1, 3])
+        with vis_left6:
+            st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>每次 trials</div>", unsafe_allow_html=True)
+        with vis_right6:
+            wf_inner_trials = st.number_input(
+                "每次 fold 內部 trials",
+                min_value=5, max_value=200, value=20,
+                key="wf_inner_trials",
+                label_visibility="collapsed",
+                help="每個 WF fold 內部 Optuna 跑的試驗數",
+            )
 
     st.divider()
 
@@ -1263,7 +1546,9 @@ with main_tab3:
     with wf_tab_input:
         st.caption("固定參數。可新增/刪除列。")
         from utils.param_editor import render_param_editor
-        wf_default = get_default_params(st.session_state.get("wf_current", list_templates()[0]))
+        wf_default = st.session_state.get("wf_default_params") or get_default_params(
+            st.session_state.get("wf_current", list_templates()[0])
+        )
         wf_fixed = render_param_editor(
             label="固定參數",
             current_params=wf_default,
@@ -1272,14 +1557,25 @@ with main_tab3:
         )
 
     with wf_tab_mode:
-        st.caption("優化參數空間：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
-        from utils.param_editor import render_param_editor
-        wf_param_space = render_param_editor(
-            label="參數空間",
-            current_params=st.session_state.get("wf_param_space", {}),
-            key_prefix="wf_param_space",
-            caption=None,
-        )
+        if wf_inner_code == "optuna":
+            st.caption("🧠 **Optuna 模式**：每個參數 = 名稱 + 型態 + 範圍")
+            wf_param_specs = render_param_space_editor(
+                label="參數空間（範圍型）",
+                current_specs=st.session_state.get("wf_param_specs", get_default_specs_for_strategy(wf_template)),
+                key_prefix="wf_param_space",
+                caption=None,
+            )
+            wf_param_space = None
+        else:
+            st.caption("📊 **Grid 模式**：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+            from utils.param_editor import render_param_editor
+            wf_param_space = render_param_editor(
+                label="參數空間",
+                current_params=st.session_state.get("wf_param_space", {}),
+                key_prefix="wf_param_space",
+                caption=None,
+            )
+            wf_param_specs = None
 
     run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
 
@@ -1298,17 +1594,35 @@ with main_tab3:
             wf_engine = BacktestEngine
             wf_pair_kwargs = {}
 
+        # 根據內部優化器決定參數
+        if wf_inner_code == "optuna":
+            if not wf_param_specs:
+                st.error("請先設定至少一個要優化的參數（範圍型）")
+                st.stop()
+            inner_n_trials = int(wf_inner_trials) if 'wf_inner_trials' in dir() else 20
+        else:
+            if not wf_param_space:
+                st.error("請先設定至少一個要優化的參數")
+                st.stop()
+            inner_n_trials = 0  # grid 不需要
+
         validator = WalkForwardValidator(
             strategy_runner=execute_user_strategy,
             backtest_engine_class=wf_engine,
             n_splits=n_splits,
             train_ratio=train_ratio,
             anchored=anchored,
+            inner_optimizer=wf_inner_code,
+            inner_n_trials=inner_n_trials,
+            inner_objective=wf_metric,
         )
 
-        with st.spinner("⏳ Walk-Forward 驗證中（這可能需要幾分鐘）..."):
+        with st.spinner(f"⏳ Walk-Forward 驗證中（內部優化器: {wf_inner_opt}，可能需要幾分鐘）..."):
             wf_results = validator.run(
-                df, wf_code, wf_param_space, wf_fixed,
+                df, wf_code,
+                param_space=wf_param_space,
+                param_specs=wf_param_specs,
+                base_params=wf_fixed,
                 optimize_metric=wf_metric,
                 initial_capital=initial_capital,
                 commission=commission_pct,
