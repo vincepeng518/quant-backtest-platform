@@ -767,50 +767,8 @@ iframe[height="0"] {{
                 border-color 250ms ease, box-shadow 250ms ease !important;
 }}
 
-/* === 浮動主題切換按鈕 === */
-#theme-toggle-fab {{
-    position: fixed;
-    top: 12px; right: 12px;
-    z-index: 999998;
-    width: 44px; height: 44px;
-    min-width: 44px; min-height: 44px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    color: var(--text-primary);
-    border: 1.5px solid var(--border-strong);
-    box-shadow: var(--shadow-strong);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    padding: 0; margin: 0; font-size: 0; line-height: 1;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
-    outline: none !important;
-    -webkit-appearance: none !important; appearance: none !important;
-}}
-#theme-toggle-fab:hover {{
-    transform: scale(1.08);
-    border-color: var(--primary);
-    background: var(--primary);
-    color: white;
-}}
-#theme-toggle-fab:focus, #theme-toggle-fab:focus-visible, #theme-toggle-fab:focus-within {{
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-strong) !important;
-}}
-#theme-toggle-fab:active {{ transform: scale(0.95); }}
-#theme-toggle-fab svg {{
-    width: 22px; height: 22px; fill: currentColor; pointer-events: none;
-}}
 [data-testid="stHeader"] {{ z-index: 999997; }}
 
-/* FAB 旋轉動畫 */
-#theme-toggle-fab.switching svg {{
-    animation: rotateTheme 400ms cubic-bezier(0.4, 0, 0.2, 1);
-}}
-@keyframes rotateTheme {{
-    from {{ transform: rotate(0deg); }}
-    to {{ transform: rotate(360deg); }}
-}}
 </style>
 
 <script>
