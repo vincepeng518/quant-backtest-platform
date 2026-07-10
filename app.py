@@ -637,9 +637,10 @@ with main_tab1:
                 st.session_state["current_template"] = template_choice
                 # 同步更新 text_area 的 widget state，否則 key 已存在會忽略新 value
                 st.session_state["strategy_code_editor"] = new_code
-                # 同步更新策略參數（JSON 格式）
+                # 同步更新策略參數（Row layout 編輯器）
                 default_p = get_default_params(template_choice)
-                st.session_state["params_text"] = json.dumps(default_p, indent=2, ensure_ascii=False)
+                st.session_state["strategy_params_dict"] = default_p.copy()
+                st.session_state.pop("strategy_params_params", None)  # 清掉舊 session
                 st.rerun()
 
     with col_src2:
@@ -659,9 +660,10 @@ with main_tab1:
                     st.session_state["strategy_code"] = new_code
                     st.session_state["current_template"] = template_choice
                     st.session_state["strategy_code_editor"] = new_code
-                    # 同步更新策略參數（JSON 格式）
+                    # 同步更新策略參數（Row layout 編輯器）
                     default_p = get_default_params(template_choice)
-                    st.session_state["params_text"] = json.dumps(default_p, indent=2, ensure_ascii=False)
+                    st.session_state["strategy_params_dict"] = default_p.copy()
+                    st.session_state.pop("strategy_params_params", None)  # 清掉舊 session
                     st.rerun()
 
     if "strategy_code" not in st.session_state:
@@ -676,22 +678,28 @@ with main_tab1:
         help="定義函數：def generate_signals(df, params) -> (entries, exits)",
     )
 
-    with st.expander("🎛️ 策略參數（JSON 格式）", expanded=False):
+    with st.expander("🎛️ 策略參數", expanded=False):
         current_t = st.session_state.get("current_template", "")
         if current_t and current_t != "（自訂）":
             default_params = get_default_params(current_t)
         else:
             default_params = {"period": 20}
-        default_json = json.dumps(default_params, indent=2, ensure_ascii=False)
 
-        # 確保 params_text 與當前策略一致
-        # session_state["params_text"] 會在切換策略時被自動設定
-        params_text = st.text_area("參數", value=st.session_state.get("params_text", default_json), height=100, key="params_text")
-        try:
-            strategy_params = json.loads(params_text)
-        except json.JSONDecodeError as e:
-            st.error(f"❌ JSON 格式錯誤: {e}")
-            strategy_params = {}
+        # 確保 session_state["strategy_params_dict"] 與當前策略一致
+        # 切換策略時已自動設定
+        if "strategy_params_dict" not in st.session_state:
+            st.session_state["strategy_params_dict"] = default_params.copy()
+
+        # 用 Row layout 編輯器
+        from utils.param_editor import render_param_editor
+        strategy_params = render_param_editor(
+            label="策略參數",
+            current_params=st.session_state["strategy_params_dict"],
+            key_prefix="strategy_params",
+            caption="以 Row layout 編輯參數：左為名稱，右為值",
+        )
+        # 同步回 session_state
+        st.session_state["strategy_params_dict"] = strategy_params
 
     st.divider()
     col_btn1, col_btn2 = st.columns([1, 5])
@@ -892,10 +900,11 @@ with main_tab2:
                     st.session_state["opt_param_space"] = new_space
                     st.session_state["opt_default_params"] = new_default
                     st.session_state["opt_current"] = opt_template
-                    # 同步更新 widget state（text_area 已存在需直接設 session_state[key]）
+                    # 同步更新 widget state
                     st.session_state["opt_code_editor"] = new_code
-                    st.session_state["fixed_params"] = json.dumps(new_default, indent=2, ensure_ascii=False)
-                    st.session_state["param_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
+                    # 同步更新 Row layout 編輯器（清掉舊 session）
+                    st.session_state.pop("opt_fixed_params_params", None)
+                    st.session_state.pop("opt_param_space_params", None)
                     st.rerun()
 
     with col_o2:
@@ -922,9 +931,9 @@ with main_tab2:
                     st.session_state["opt_default_params"] = new_default
                     st.session_state["opt_current"] = opt_template
                     st.session_state["opt_code_editor"] = new_code
-                    # 同步更新 JSON widget state
-                    st.session_state["fixed_params"] = json.dumps(new_default, indent=2, ensure_ascii=False)
-                    st.session_state["param_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
+                    # 同步更新 Row layout 編輯器（清掉舊 session）
+                    st.session_state.pop("opt_fixed_params_params", None)
+                    st.session_state.pop("opt_param_space_params", None)
                     st.rerun()
 
     if "opt_code" not in st.session_state:
@@ -976,42 +985,24 @@ with main_tab2:
     tab_input, tab_mode = st.tabs(["🎛️ 輸入", "🔍 模式"])
 
     with tab_input:
-        st.caption("固定參數（所有測試都會使用）")
-        if "fixed_params" not in st.session_state:
-            st.session_state["fixed_params"] = json.dumps(
-                st.session_state.get("opt_default_params", {}), indent=2, ensure_ascii=False
-            )
-        fixed_params_text = st.text_area(
-            "固定參數（JSON）",
-            value=st.session_state["fixed_params"],
-            height=250,
-            key="fixed_params",
-            label_visibility="collapsed"
+        st.caption("固定參數（所有測試都會使用）。可新增/刪除列。")
+        from utils.param_editor import render_param_editor
+        fixed_params = render_param_editor(
+            label="固定參數",
+            current_params=st.session_state.get("opt_default_params", {}),
+            key_prefix="opt_fixed_params",
+            caption=None,
         )
-        try:
-            fixed_params = json.loads(fixed_params_text)
-        except json.JSONDecodeError as e:
-            st.error(f"❌ JSON 錯誤: {e}")
-            fixed_params = {}
 
     with tab_mode:
-        st.caption("要優化的參數空間（每個 key 是參數名，value 是候選值清單）")
-        if "param_space" not in st.session_state:
-            st.session_state["param_space"] = json.dumps(
-                st.session_state.get("opt_param_space", {}), indent=2, ensure_ascii=False
-            )
-        param_space_text = st.text_area(
-            "參數空間（JSON）",
-            value=st.session_state["param_space"],
-            height=350,
-            key="param_space",
-            label_visibility="collapsed"
+        st.caption("要優化的參數空間：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+        from utils.param_editor import render_param_editor
+        param_space = render_param_editor(
+            label="參數空間",
+            current_params=st.session_state.get("opt_param_space", {}),
+            key_prefix="opt_param_space",
+            caption=None,
         )
-        try:
-            param_space = json.loads(param_space_text)
-        except json.JSONDecodeError as e:
-            st.error(f"❌ JSON 錯誤: {e}")
-            param_space = {}
 
     # 動態更新組合總數（在 tabs 之後，這樣 param_space 已被讀取）
     if method_code != "random":
@@ -1021,6 +1012,8 @@ with main_tab2:
             for v in param_space.values():
                 if isinstance(v, list):
                     _total *= len(v)
+                else:
+                    _total *= 1  # 單值也算 1 個組合
             st.metric("組合總數", f"{_total:,}")
 
     run_opt = st.button("🚀 開始優化", type="primary", use_container_width=True)
@@ -1099,7 +1092,8 @@ with main_tab2:
                 st.session_state["strategy_code"] = opt_code
                 st.session_state["current_template"] = st.session_state.get("opt_current", "")
                 merged = {**fixed_params, **best_params_display}
-                st.session_state["params_text"] = json.dumps(merged, indent=2, ensure_ascii=False)
+                st.session_state["strategy_params_dict"] = merged
+                st.session_state.pop("strategy_params_params", None)  # 清掉舊 session
                 st.success("✅ 已複製到「單次回測」分頁，請切換查看")
 
             st.subheader(f"📊 Top {min(10, len(opt_results['valid_results']))} 結果")
@@ -1187,9 +1181,9 @@ with main_tab3:
                     st.session_state["wf_param_space"] = new_space
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
-                    # 同步更新 JSON widget state
-                    st.session_state["wf_fixed"] = json.dumps(new_default, indent=2, ensure_ascii=False)
-                    st.session_state["wf_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
+                    # 同步更新 Row layout 編輯器（清掉舊 session）
+                    st.session_state.pop("wf_fixed_params_params", None)
+                    st.session_state.pop("wf_param_space_params", None)
                     st.rerun()
 
     with col_w2:
@@ -1215,9 +1209,9 @@ with main_tab3:
                     st.session_state["wf_param_space"] = new_space
                     st.session_state["wf_current"] = wf_template
                     st.session_state["wf_code_editor"] = new_code
-                    # 同步更新 JSON widget state
-                    st.session_state["wf_fixed"] = json.dumps(new_default, indent=2, ensure_ascii=False)
-                    st.session_state["wf_space"] = json.dumps(new_space, indent=2, ensure_ascii=False)
+                    # 同步更新 Row layout 編輯器（清掉舊 session）
+                    st.session_state.pop("wf_fixed_params_params", None)
+                    st.session_state.pop("wf_param_space_params", None)
                     st.rerun()
 
     if "wf_code" not in st.session_state:
@@ -1267,40 +1261,25 @@ with main_tab3:
     wf_tab_input, wf_tab_mode = st.tabs(["🎛️ 輸入", "🔍 模式"])
 
     with wf_tab_input:
-        st.caption("固定參數")
-        if "wf_fixed" not in st.session_state:
-            st.session_state["wf_fixed"] = json.dumps(
-                get_default_params(st.session_state.get("wf_current", list_templates()[0])),
-                indent=2, ensure_ascii=False
-            )
-        wf_fixed_text = st.text_area(
-            "固定參數（JSON）",
-            value=st.session_state["wf_fixed"],
-            height=250, key="wf_fixed",
-            label_visibility="collapsed"
+        st.caption("固定參數。可新增/刪除列。")
+        from utils.param_editor import render_param_editor
+        wf_default = get_default_params(st.session_state.get("wf_current", list_templates()[0]))
+        wf_fixed = render_param_editor(
+            label="固定參數",
+            current_params=wf_default,
+            key_prefix="wf_fixed_params",
+            caption=None,
         )
-        try:
-            wf_fixed = json.loads(wf_fixed_text)
-        except json.JSONDecodeError:
-            wf_fixed = {}
 
     with wf_tab_mode:
-        st.caption("優化參數空間（每個 key 是參數名，value 是候選值清單）")
-        if "wf_space" not in st.session_state:
-            st.session_state["wf_space"] = json.dumps(
-                st.session_state.get("wf_param_space", {}),
-                indent=2, ensure_ascii=False
-            )
-        wf_space_text = st.text_area(
-            "參數空間（JSON）",
-            value=st.session_state["wf_space"],
-            height=350, key="wf_space",
-            label_visibility="collapsed"
+        st.caption("優化參數空間：每個 key 是參數名，value 是候選值清單（如 [10, 20, 30]）")
+        from utils.param_editor import render_param_editor
+        wf_param_space = render_param_editor(
+            label="參數空間",
+            current_params=st.session_state.get("wf_param_space", {}),
+            key_prefix="wf_param_space",
+            caption=None,
         )
-        try:
-            wf_param_space = json.loads(wf_space_text)
-        except json.JSONDecodeError:
-            wf_param_space = {}
 
     run_wf = st.button("🚀 執行 Walk-Forward 驗證", type="primary", use_container_width=True)
 
