@@ -1175,7 +1175,11 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
 ">月報酬熱圖</div>
 """, unsafe_allow_html=True)
 
-    render_monthly_heatmap(trades_df, p)
+    # 雙重保險：即使 monthly_heatmap 內部出錯也不會讓整頁崩潰
+    try:
+        render_monthly_heatmap(trades_df, p)
+    except Exception as _heatmap_err:
+        st.caption(f"月報酬熱圖暫時無法顯示（{type(_heatmap_err).__name__}）")
 
 
 def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
@@ -1185,8 +1189,15 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
     Y 軸：月（Jan-Dec）
     Cell：該月報酬 %（綠正 / 紅負）
     """
-    if trades_df.empty or "exit_time" not in trades_df.columns:
+    # 入口守衛：先確認 trades_df 有效，避免任何欄位缺失導致整頁崩潰
+    if trades_df is None or not isinstance(trades_df, pd.DataFrame) or trades_df.empty:
         st.caption("無交易記錄或缺少 exit_time 欄位")
+        return
+    if "exit_time" not in trades_df.columns:
+        st.caption("無交易記錄或缺少 exit_time 欄位")
+        return
+    if "pnl" not in trades_df.columns:
+        st.caption("無交易記錄或缺少 pnl 欄位")
         return
 
     # 確保 exit_time 是 datetime
@@ -1200,9 +1211,13 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
         return
 
     # 計算每月報酬
-    trades_df["year"] = trades_df["exit_time"].dt.year
-    trades_df["month"] = trades_df["exit_time"].dt.month
-    monthly_pnl = trades_df.groupby(["year", "month"])["pnl"].sum().reset_index()
+    try:
+        trades_df["year"] = trades_df["exit_time"].dt.year
+        trades_df["month"] = trades_df["exit_time"].dt.month
+        monthly_pnl = trades_df.groupby(["year", "month"])["pnl"].sum().reset_index()
+    except Exception as e:
+        st.caption(f"月報酬熱圖計算失敗：{type(e).__name__}")
+        return
 
     # 計算每月報酬率（用累積 PnL / 初始資金估算，簡化版）
     # 這裡用「相對於當時權益」做近似：當月 PnL / 初始資金 * 100
