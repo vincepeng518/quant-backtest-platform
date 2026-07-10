@@ -79,6 +79,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# v4 改進：把當前 theme id 寫到一個隱藏 div 的 data-cblab-theme attribute，
+# 讓 JS 可以讀到 streamlit 真正使用的主題（避免 prefers-color-scheme 與
+# session_state 預設值不一致導致 FAB 切換時看起來「沒反應」）。
+st.markdown(
+    f'<div id="cblab-theme-state" data-cblab-theme="{st.session_state["theme"]}" '
+    f'style="display:none;position:absolute;width:0;height:0;overflow:hidden;" '
+    f'aria-hidden="true"></div>',
+    unsafe_allow_html=True,
+)
+
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
@@ -520,9 +530,20 @@ components.html(
 
         function getCurrentTheme() {
             try {
+                // 1) 優先讀 localStorage（用戶之前手動切過）
                 var saved = pdoc.defaultView.localStorage.getItem(STORAGE_KEY);
                 if (saved === 'light' || saved === 'dark') return saved;
             } catch (e) {}
+            // 2) 讀 streamlit 注入的隱藏 div data attribute（與 session_state 一致）
+            //    避免 prefers-color-scheme 與 streamlit 預設值不一致
+            try {
+                var el = pdoc.getElementById('cblab-theme-state');
+                if (el) {
+                    var attr = el.getAttribute('data-cblab-theme');
+                    if (attr === 'light' || attr === 'dark') return attr;
+                }
+            } catch (e) {}
+            // 3) 兜底：跟隨系統偏好
             if (pdoc.defaultView.matchMedia && pdoc.defaultView.matchMedia('(prefers-color-scheme: dark)').matches) {
                 return 'dark';
             }
