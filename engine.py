@@ -160,9 +160,13 @@ class EventEngine:
                 pos = self.portfolio.get_position()
                 if pos != 0 and self.portfolio.entry_time is not None:
                     side = OrderSide.BUY if pos == 1 else OrderSide.SELL
-                    sl_price = self.portfolio.entry_price * (1 - self.stop_loss) if pos == 1 else self.portfolio.entry_price * (1 + self.stop_loss)
-                    tp_price = self.portfolio.entry_price * (1 + self.take_profit) if pos == 1 else self.portfolio.entry_price * (1 - self.take_profit)
-                    self.sltp.set_position(side, self.portfolio.entry_price, sl_price if self.stop_loss else None, tp_price if self.take_profit else None)
+                    if pos == 1:
+                        sl_price = self.portfolio.entry_price * (1 - (self.stop_loss or 0)) if self.stop_loss else None
+                        tp_price = self.portfolio.entry_price * (1 + (self.take_profit or 0)) if self.take_profit else None
+                    else:
+                        sl_price = self.portfolio.entry_price * (1 + (self.stop_loss or 0)) if self.stop_loss else None
+                        tp_price = self.portfolio.entry_price * (1 - (self.take_profit or 0)) if self.take_profit else None
+                    self.sltp.set_position(side, self.portfolio.entry_price, sl_price, tp_price)
                 else:
                     self.sltp.clear()
 

@@ -89,21 +89,17 @@ class EventDrivenBacktestEngine:
                 pos = engine.portfolio.get_position()
                 if pos != 0 and engine.portfolio.entry_time is not None:
                     side = OrderSide.BUY if pos == 1 else OrderSide.SELL
-                    sl_price = (
-                        engine.portfolio.entry_price * (1 - stop_loss)
-                        if pos == 1
-                        else engine.portfolio.entry_price * (1 + stop_loss)
-                    )
-                    tp_price = (
-                        engine.portfolio.entry_price * (1 + take_profit)
-                        if pos == 1
-                        else engine.portfolio.entry_price * (1 - take_profit)
-                    )
+                    if pos == 1:
+                        sl_price = engine.portfolio.entry_price * (1 - (stop_loss or 0)) if stop_loss else None
+                        tp_price = engine.portfolio.entry_price * (1 + (take_profit or 0)) if take_profit else None
+                    else:
+                        sl_price = engine.portfolio.entry_price * (1 + (stop_loss or 0)) if stop_loss else None
+                        tp_price = engine.portfolio.entry_price * (1 - (take_profit or 0)) if take_profit else None
                     engine.sltp.set_position(
                         side,
                         engine.portfolio.entry_price,
-                        sl_price if stop_loss else None,
-                        tp_price if take_profit else None,
+                        sl_price,
+                        tp_price,
                     )
                 else:
                     engine.sltp.clear()
