@@ -541,6 +541,302 @@ iframe[height="0"] {{
     position: absolute !important;
     visibility: hidden !important;
 }}
+
+/* === Impeccable 風格增強（第二階段） === */
+/* sidebar h1 移除 emoji，section 用 uppercase tracking */
+[data-testid="stSidebar"] h1 {{
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: {theme['text_secondary']} !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0 !important;
+    margin-bottom: 10px !important;
+    padding: 0 !important;
+}}
+
+/* sidebar radio button 緊湊 */
+[data-testid="stSidebar"] [data-testid="stRadio"] > div {{
+    gap: 4px !important;
+}}
+[data-testid="stSidebar"] [data-testid="stRadio"] label {{
+    padding: 4px 0 !important;
+    font-size: 0.8125rem !important;
+}}
+
+/* sidebar 內 stExpander 視覺化（Impeccable 風格） */
+[data-testid="stSidebar"] details,
+[data-testid="stSidebar"] [data-testid="stExpander"] {{
+    border: 1px solid {theme['border']} !important;
+    border-radius: 6px !important;
+    background: {theme['bg_card']} !important;
+    margin-bottom: 6px !important;
+}}
+
+/* sidebar 內 caption 統一 secondary 灰色 */
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
+    color: {theme['text_muted']} !important;
+    font-size: 0.75rem !important;
+}}
+
+/* sidebar 內 selectbox 簡化 */
+[data-testid="stSidebar"] [data-baseweb="select"] {{
+    font-size: 0.8125rem !important;
+}}
+
+/* sidebar 內 button 緊湊 */
+[data-testid="stSidebar"] .stButton button {{
+    min-height: 34px !important;
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.8125rem !important;
+}}
+
+/* sidebar 內 number input 緊湊 */
+[data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
+    font-size: 0.8125rem !important;
+    padding: 0.25rem 0.5rem !important;
+}}
+
+/* sidebar 內 checkbox 緊湊 */
+[data-testid="stSidebar"] [data-testid="stCheckbox"] {{
+    font-size: 0.8125rem !important;
+}}
+
+/* 主區 h1 統一 Impeccable 風格（不要 emoji 大標）*/
+.main h1 {{
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.25rem !important;
+}}
+
+/* 主區 h2 Impeccable 風格（uppercase tracking） */
+.main h2 {{
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: {theme['text_secondary']} !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    margin-top: 20px !important;
+    margin-bottom: 10px !important;
+}}
+
+/* 主區 h3 Impeccable 風格 */
+.main h3 {{
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    color: {theme['text_secondary']} !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    margin-top: 16px !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 主區 caption 統一 */
+.main [data-testid="stCaptionContainer"] {{
+    color: {theme['text_secondary']} !important;
+    font-size: 0.8125rem !important;
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+}}
+
+/* 主區空狀態信息條（取代 st.info 大塊藍） */
+.stAlert[data-baseweb="notification"] {{
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 0.8125rem !important;
+}}
+
+/* 主區 text_area 程式碼編輯器 Impeccable 風格 */
+[data-testid="stTextArea"] textarea {{
+    font-family: {theme['font_mono']} !important;
+    font-size: 12.5px !important;
+    line-height: 1.55 !important;
+    border-radius: 6px !important;
+    background: {theme['bg_card']} !important;
+    border: 1px solid {theme['border']} !important;
+    padding: 12px 14px !important;
+}}
+[data-testid="stTextArea"] textarea:focus {{
+    border-color: {theme['primary']} !important;
+    box-shadow: 0 0 0 3px {theme['primary']}20 !important;
+}}
+
+/* 主區 slider 緊湊 */
+.main [data-testid="stSlider"] {{
+    padding: 0 !important;
+}}
+
+/* 主區 data_editor 表格 Impeccable 風格 */
+.main [data-testid="stDataFrameResizable"] {{
+    border: 1px solid {theme['border']} !important;
+    border-radius: 6px !important;
+}}
+
+/* 主區 expander Impeccable 風格 */
+.main [data-testid="stExpander"] {{
+    border: 1px solid {theme['border']} !important;
+    border-radius: 6px !important;
+    background: {theme['bg_card']} !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 主區 progress bar Impeccable 風格 */
+.main [data-testid="stProgress"] > div > div {{
+    background: {theme['primary']} !important;
+}}
+
+/* 主區 spinner 改為更緊湊 */
+.main [data-testid="stSpinner"] > div {{
+    padding: 4px 0 !important;
+    font-size: 0.875rem !important;
+}}
+
+/* 主區 tabs 改善（active 顯示更明顯） */
+.main .stTabs [aria-selected="true"] {{
+    color: {theme['primary']} !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid {theme['primary']} !important;
+}}
+.main .stTabs [data-baseweb="tab"] {{
+    font-size: 0.875rem !important;
+}}
+
+/* 移除預設 .main-header 樣式衝突（Impeccable 風格） */
+.main-header {{
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 4px !important;
+}}
+.sub-header {{
+    font-size: 0.875rem !important;
+    color: {theme['text_secondary']} !important;
+    margin-bottom: 20px !important;
+}}
+
+/* Impeccable 副標籤（小 label 在 widget 上方） */
+.impeccable-field-label {{
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: {theme['text_secondary']} !important;
+    margin-bottom: 4px !important;
+    display: block;
+}}
+
+/* Impeccable 結果表格（替代 st.dataframe 對齊） */
+.impeccable-result-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    font-family: {theme['font_mono']};
+}}
+.impeccable-result-table th {{
+    text-align: left;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: {theme['text_secondary']};
+    padding: 8px 12px;
+    border-bottom: 1px solid {theme['border']};
+    font-weight: 600;
+}}
+.impeccable-result-table td {{
+    padding: 8px 12px;
+    border-bottom: 1px solid {theme['border']};
+    color: {theme['text_primary']};
+}}
+.impeccable-result-table tr:last-child td {{
+    border-bottom: none;
+}}
+
+/* Impeccable number-pill（KPI 結果用） */
+.impeccable-num-pill {{
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-family: {theme['font_mono']};
+    font-size: 0.75rem;
+    font-weight: 600;
+}}
+.impeccable-num-pill.success {{ background: {theme['green_light']}; color: {theme['green_text']}; }}
+.impeccable-num-pill.error {{ background: {theme['red_light']}; color: {theme['red_text']}; }}
+.impeccable-num-pill.neutral {{ background: {theme['bg_subtle']}; color: {theme['text_primary']}; }}
+
+/* === Streamlit selectbox 容器（深色模式重點修） === */
+/* 淺色模式：selectbox 容器白底深字 */
+/* 深色模式：selectbox 容器深底淺字（避免黑字在白底） */
+.stSelectbox [data-baseweb="select"] > div {{
+    background: {theme['bg_card']} !important;
+    color: {theme['text_primary']} !important;
+    border: 1px solid {theme['border_strong']} !important;
+}}
+/* 覆蓋 streamlit emotion-cache 內層（這層是純白，bug 源） */
+.stSelectbox [data-testid="stSelectbox"] > div:not([class*="react-aria"]) {{
+    background: {theme['bg_card']} !important;
+}}
+/* React Aria combobox 容器：覆蓋白底 */
+[data-testid="stSelectbox"] .react-aria-ComboBox > div,
+[data-testid="stSelectboxVirtual"] .react-aria-ComboBox > div,
+[data-testid="stMultiSelect"] .react-aria-ComboBox > div {{
+    background: {theme['bg_card']} !important;
+    color: {theme['text_primary']} !important;
+    border: 1px solid {theme['border_strong']} !important;
+}}
+.stSelectbox [data-baseweb="select"] input {{
+    color: {theme['text_primary']} !important;
+    caret-color: {theme['text_primary']} !important;
+}}
+.stSelectbox [data-baseweb="select"] > div > div {{
+    color: {theme['text_primary']} !important;
+}}
+/* 修正 selectbox 內 svg（箭頭）顏色 */
+.stSelectbox [data-baseweb="select"] svg,
+.stSelectbox button svg {{
+    fill: {theme['text_secondary']} !important;
+    color: {theme['text_secondary']} !important;
+}}
+
+/* selectbox dropdown 開啟時的 listbox（portal 渲染） */
+[data-baseweb="popover"] [data-baseweb="select-option"] {{
+    background: {theme['bg_card']} !important;
+    color: {theme['text_primary']} !important;
+}}
+[data-baseweb="popover"] [data-baseweb="select-option"]:hover {{
+    background: {theme['bg_subtle']} !important;
+}}
+[data-baseweb="popover"] [data-baseweb="select-option"][aria-selected="true"] {{
+    background: {theme['primary']} !important;
+    color: white !important;
+}}
+
+/* multiselect 同 selectbox */
+.stMultiSelect [data-baseweb="select"] > div,
+.stMultiSelect [data-baseweb="select"] > div > div {{
+    background: {theme['bg_card']} !important;
+    color: {theme['text_primary']} !important;
+}}
+.stMultiSelect [data-baseweb="select"] svg {{
+    fill: {theme['text_secondary']} !important;
+    color: {theme['text_secondary']} !important;
+}}
+
+/* st.info / st.success / st.warning / st.error Impeccable 化（緊湊） */
+.stAlert {{
+    border-radius: 6px !important;
+    padding: 8px 14px !important;
+    font-size: 0.8125rem !important;
+}}
+
+/* st.code 區塊（蒙地卡羅結果等） */
+.stCodeBlock, code, pre {{
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    border: 1px solid {theme['border']} !important;
+}}
 </style>
 
 <script>

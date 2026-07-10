@@ -43,6 +43,10 @@ from utils.ui_components import (
     render_list_of_trades, render_charts,
     render_monte_carlo,
 )
+from utils.impeccable import (
+    section_header, step_indicator, status_pill, empty_state,
+    metric_row, info_card,
+)
 from utils.theme import THEMES, get_theme, get_current_theme, list_themes, theme_css
 
 
@@ -501,7 +505,7 @@ components.html(
 
 # === 側邊欄：資料來源 ===
 with st.sidebar:
-    st.header("🎨 主題")
+    st.markdown(section_header("主題", "🎨", current_theme, size="md"), unsafe_allow_html=True)
 
     theme_options = list_themes()
     current_idx = list(theme_options.keys()).index(st.session_state["theme"]) \
@@ -524,7 +528,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("📊 資料來源")
+    st.markdown(section_header("資料來源", "📊", current_theme, size="md"), unsafe_allow_html=True)
 
     data_source = st.radio(
         "選擇資料來源",
@@ -704,7 +708,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("📚 策略管理")
+    st.markdown(section_header("策略管理", "📚", current_theme, size="md"), unsafe_allow_html=True)
 
     if "user_strategies" not in st.session_state:
         st.session_state["user_strategies"] = {}
@@ -783,7 +787,7 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("⚙️ 回測參數")
+    st.markdown(section_header("回測參數", "⚙️", current_theme, size="md"), unsafe_allow_html=True)
     initial_capital = st.number_input("初始資金 (USDT)", min_value=100.0, value=10000.0, step=1000.0)
     commission_pct = st.number_input("手續費 (%)", min_value=0.0, max_value=5.0, value=0.1, step=0.05) / 100
     slippage_pct = st.number_input("滑點 (%)", min_value=0.0, max_value=2.0, value=0.05, step=0.01) / 100
@@ -808,19 +812,21 @@ with st.sidebar:
 
 # === 主區域：先檢查資料 ===
 if df is None or df.empty:
-    st.info("👈 請從左側選擇資料來源並載入資料")
-    st.markdown("""
-    ### 🚀 快速開始
-
-    1. **選擇資料來源**（左側）
-       - 加密貨幣：自動從 Binance、OKX、Bybit、BingX 等交易所抓取
-       - CSV：上傳自己的 OHLCV 資料
-       - 配對交易：BTC/ETH 等配對組合
-    2. **選擇功能分頁**（下方）
-
-    ### 🧠 內建 15 種策略範本
-    SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對
-    """)
+    # Impeccable 風格空狀態（取代原本 st.info + 大塊 markdown）
+    st.markdown(section_header("快速開始", "🚀", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(step_indicator(
+        ["選擇資料來源", "載入資料", "選擇策略", "執行回測", "檢視結果"],
+        current=0,
+        theme=current_theme,
+    ), unsafe_allow_html=True)
+    st.markdown(empty_state(
+        "從左側開始",
+        "選擇資料來源（加密貨幣 / CSV / 配對交易），按「一鍵測試資料」即可用 500 根模擬 K 線快速體驗。",
+        icon="📊",
+        theme=current_theme,
+    ), unsafe_allow_html=True)
+    st.markdown(section_header("內建策略範本", "🧠", current_theme, size="sm"), unsafe_allow_html=True)
+    st.caption("SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對")
     st.stop()
 
 
@@ -831,17 +837,23 @@ pair_info = st.session_state.get("pair_info", {})
 
 # === 三大功能分頁 ===
 main_tab1, main_tab2, main_tab3 = st.tabs([
-    "🎯 單次回測",
-    "🤖 自動參數優化",
-    "📊 Walk-Forward 驗證"
+    "單次回測",
+    "自動參數優化",
+    "Walk-Forward 驗證"
 ])
 
 
 # ===========================
-# 分頁 1：單次回測
+# 分頁 1：單回目測
 # ===========================
 with main_tab1:
-    st.header("🧠 策略程式碼")
+    # 流程指示器（Impeccable）
+    st.markdown(section_header("策略程式碼", "🧠", current_theme, size="lg"), unsafe_allow_html=True)
+    st.markdown(step_indicator(
+        ["選擇策略", "編輯代碼", "執行回測", "檢視結果"],
+        current=1,
+        theme=current_theme,
+    ), unsafe_allow_html=True)
 
     col_src1, col_src2 = st.columns([3, 1])
     with col_src1:
@@ -916,7 +928,7 @@ with main_tab1:
         help="定義函數：def generate_signals(df, params) -> (entries, exits)",
     )
 
-    with st.expander("🎛️ 策略參數", expanded=False):
+    with st.expander("策略參數", expanded=False):
         current_t = st.session_state.get("current_template", "")
         if current_t and current_t != "（自訂）":
             default_params = get_default_params(current_t)
@@ -1043,11 +1055,11 @@ with main_tab1:
             else:
                 # 5 分頁結果顯示
                 result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
-                    "📊 Overview",
-                    "📈 Performance Summary",
-                    "📋 List of Trades",
-                    "🕯️ Charts",
-                    "🎲 蒙地卡羅",
+                    "Overview",
+                    "Performance Summary",
+                    "List of Trades",
+                    "Charts",
+                    "蒙地卡羅",
                 ])
 
                 with result_tab1:
@@ -1074,11 +1086,11 @@ with main_tab1:
         st.info("📊 顯示先前的回測結果（如需重新執行請按「▶️ 執行回測」）")
 
         result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
-            "📊 Overview",
-            "📈 Performance Summary",
-            "📋 List of Trades",
-            "🕯️ Charts",
-            "🎲 蒙地卡羅",
+            "Overview",
+            "Performance Summary",
+            "List of Trades",
+            "Charts",
+            "蒙地卡羅",
         ])
 
         with result_tab1:
@@ -1101,7 +1113,7 @@ with main_tab1:
 # 分頁 2：自動參數優化
 # ===========================
 with main_tab2:
-    st.header("🤖 自動參數優化")
+    st.markdown(section_header("自動參數優化", "🤖", current_theme, size="lg"), unsafe_allow_html=True)
     st.caption("自動測試所有參數組合，找出最佳表現。支援 Grid Search 與 Bayesian Optimization。")
 
     col_o1, col_o2 = st.columns([3, 1])
@@ -1193,7 +1205,7 @@ with main_tab2:
                               height=200, key="opt_code_editor")
 
     # === 可見性（放在外面，label + widget 並排格式）===
-    st.markdown("**👁️ 可見性**")
+    st.markdown(section_header("可見性", "👁️", current_theme, size="md"), unsafe_allow_html=True)
 
     vis_left, vis_right = st.columns([1, 3])
     with vis_left:
@@ -1248,7 +1260,7 @@ with main_tab2:
     st.divider()
 
     # === 兩個 tab：輸入（固定參數）/ 模式（參數空間）===
-    tab_input, tab_mode = st.tabs(["🎛️ 輸入", "🔍 模式"])
+    tab_input, tab_mode = st.tabs(["輸入", "模式"])
 
     with tab_input:
         st.caption("固定參數（所有測試都會使用）。可新增/刪除列。")
@@ -1619,7 +1631,7 @@ with main_tab2:
 # 分頁 3：Walk-Forward 驗證
 # ===========================
 with main_tab3:
-    st.header("📊 Walk-Forward 驗證")
+    st.markdown(section_header("Walk-Forward 驗證", "📊", current_theme, size="lg"), unsafe_allow_html=True)
     st.caption("""
     將資料切成多個 in-sample（訓練）與 out-of-sample（測試）區段，
     確保策略在「未見過的資料」上也能獲利，避免過擬合。
@@ -1711,7 +1723,7 @@ with main_tab3:
     wf_code = st.text_area("策略代碼", value=st.session_state["wf_code"], height=200, key="wf_code_editor")
 
     # === 可見性（放在外面，label + widget 並排格式）===
-    st.markdown("**👁️ 可見性**")
+    st.markdown(section_header("可見性", "👁️", current_theme, size="md"), unsafe_allow_html=True)
     vis_left1, vis_right1 = st.columns([1, 3])
     with vis_left1:
         st.markdown("<div style='padding-top: 12px; padding-right: 8px; text-align: right;'>切分數量</div>", unsafe_allow_html=True)
@@ -1774,7 +1786,7 @@ with main_tab3:
     st.divider()
 
     # === 兩個 tab：輸入（固定參數）/ 模式（參數空間）===
-    wf_tab_input, wf_tab_mode = st.tabs(["🎛️ 輸入", "🔍 模式"])
+    wf_tab_input, wf_tab_mode = st.tabs(["輸入", "模式"])
 
     with wf_tab_input:
         st.caption("固定參數。可新增/刪除列。")

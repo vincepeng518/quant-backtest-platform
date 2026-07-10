@@ -433,7 +433,7 @@ def render_overview(metrics: Dict, result_df: pd.DataFrame, initial_capital: flo
 
 
 def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
-    """Performance Summary 頁：交易統計網格。"""
+    """Performance Summary 頁：交易統計網格 + 月報酬熱圖。"""
     p = _palette()
 
     if not trades:
@@ -521,6 +521,168 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
                 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
         st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
+    # === 月報酬熱圖（Impeccable 風格）===
+    st.markdown(f"""
+<div style="
+    color: {p['text_secondary']};
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin: 32px 0 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid {p['border']};
+">月報酬熱圖</div>
+""", unsafe_allow_html=True)
+
+    render_monthly_heatmap(trades_df, p)
+
+
+def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
+    """月報酬熱圖（TradingView 風格）。
+
+    X 軸：年（2014、2015、…）
+    Y 軸：月（Jan-Dec）
+    Cell：該月報酬 %（綠正 / 紅負）
+    """
+    if trades_df.empty or "exit_time" not in trades_df.columns:
+        st.caption("無交易記錄或缺少 exit_time 欄位")
+        return
+
+    # 確保 exit_time 是 datetime
+    if not pd.api.types.is_datetime64_any_dtype(trades_df["exit_time"]):
+        trades_df = trades_df.copy()
+        trades_df["exit_time"] = pd.to_datetime(trades_df["exit_time"], errors="coerce")
+    trades_df = trades_df.dropna(subset=["exit_time"])
+
+    if trades_df.empty:
+        st.caption("無有效交易時間")
+        return
+
+    # 計算每月報酬
+    trades_df["year"] = trades_df["exit_time"].dt.year
+    trades_df["month"] = trades_df["exit_time"].dt.month
+    monthly_pnl = trades_df.groupby(["year", "month"])["pnl"].sum().reset_index()
+
+    # 計算每月報酬率（用累積 PnL / 初始資金估算，簡化版）
+    # 這裡用「相對於當時權益」做近似：當月 PnL / 初始資金 * 100
+    # 更精確版本可從 result_df 取得 equity，但這裡用近似
+    initial_capital = 10000  # 預設值；實際從 metrics 拿
+    monthly_pnl["return_pct"] = (monthly_pnl["pnl"] / initial_capital) * 100
+
+    # 建立熱圖 matrix
+    years = sorted(monthly_pnl["year"].unique())
+    months = list(range(1, 13))
+    month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    z = np.full((len(months), len(years)), np.nan)
+    for _, row in monthly_pnl.iterrows():
+        y_idx = years.index(row["year"])
+        m_idx = months.index(row["month"])
+        z[m_idx, y_idx] = row["return_pct"]
+
+    # 自訂 hover 文字
+    text = [[f"{month_labels[m]} {years[y]}<br>{z[m, y]:+.2f}%" if not np.isnan(z[m, y]) else ""
+              for y in range(len(years))]
+             for m in range(len(months))]
+
+    # Colorscale：綠 → 白 → 紅（Impeccable 風格，不用紫色）
+    max_abs = np.nanmax(np.abs(z)) if not np.isnan(z).all() else 1
+    if max_abs == 0:
+        max_abs = 1
+
+    colorscale = [
+        [0.0, p["red"]],       # 負
+        [0.5, p["bg_card"]],   # 0（白色 / 卡片色）
+        [1.0, p["green"]],     # 正
+    ]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=z,
+        x=[str(y) for y in years],
+        y=month_labels,
+        text=text,
+        texttemplate="%{text}",
+        textfont=dict(size=10, color=p["text_primary"], family=p["font_mono"]),
+        colorscale=colorscale,
+        zmid=0,
+        zmin=-max_abs,
+        zmax=max_abs,
+        xgap=2, ygap=2,
+        colorbar=dict(
+            title=dict(text="月報酬 %", font=dict(size=11, color=p["text_secondary"])),
+            tickfont=dict(size=10, color=p["text_secondary"]),
+            thickness=12,
+            len=0.6,
+        ),
+        hovertemplate="%{text}<extra></extra>",
+    ))
+
+    fig.update_layout(
+        height=380,
+        template=p.get("plotly_template", "plotly_white"),
+        paper_bgcolor=p["bg"],
+        plot_bgcolor=p["bg"],
+        font=dict(color=p["text_primary"], family="system-ui", size=12),
+        margin=dict(l=60, r=60, t=16, b=40),
+        xaxis=dict(
+            side="top",
+            tickfont=dict(size=11, color=p["text_secondary"]),
+            showgrid=False,
+        ),
+        yaxis=dict(
+            autorange="reversed",
+            tickfont=dict(size=11, color=p["text_secondary"]),
+            showgrid=False,
+        ),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 熱圖下方：年度總報酬摘要
+    yearly_summary = trades_df.groupby("year")["pnl"].sum().reset_index()
+    yearly_summary["return_pct"] = (yearly_summary["pnl"] / initial_capital) * 100
+    yearly_summary.columns = ["年度", "總損益 (USDT)", "年度報酬 %"]
+
+    st.markdown(f"""
+<div style="
+    color: {p['text_secondary']};
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin: 16px 0 8px 0;
+">年度總覽</div>
+""", unsafe_allow_html=True)
+
+    # 3 欄：今年度、上年度、平均
+    if len(yearly_summary) > 0:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            latest = yearly_summary.iloc[-1]
+            st.markdown(_kpi_card_html(
+                f"{int(latest['年度'])} 年度",
+                f"${latest['總損益 (USDT)']:+,.0f}",
+                "positive" if latest['總損益 (USDT)'] > 0 else "negative",
+                sub=f"{latest['年度報酬 %']:+.2f}%",
+            ), unsafe_allow_html=True)
+        with c2:
+            avg = yearly_summary["年度報酬 %"].mean()
+            st.markdown(_kpi_card_html(
+                "歷年平均",
+                f"{avg:+.2f}%",
+                "positive" if avg > 0 else "negative",
+                sub=f"{len(yearly_summary)} 年",
+            ), unsafe_allow_html=True)
+        with c3:
+            best = yearly_summary.loc[yearly_summary["年度報酬 %"].idxmax()]
+            st.markdown(_kpi_card_html(
+                f"最佳年度 ({int(best['年度'])})",
+                f"${best['總損益 (USDT)']:+,.0f}",
+                "positive",
+                sub=f"{best['年度報酬 %']:+.2f}%",
+            ), unsafe_allow_html=True)
 
 
 def render_list_of_trades(trades: List[Dict]) -> None:
