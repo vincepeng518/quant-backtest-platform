@@ -2024,7 +2024,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
             st.markdown(_kpi_card_html(
                 "風險調整", f"{p_stats['risk_adj_ratio']:.2f}",
                 "positive" if p_stats['risk_adj_ratio'] > 1 else "neutral",
-                help="平均報酬 / 平均回撤",
+                sub="平均報酬 / 平均回撤",
             ), unsafe_allow_html=True)
 
         st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
