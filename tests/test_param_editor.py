@@ -8,7 +8,7 @@
 import pytest
 import pandas as pd
 
-from utils.param_editor import _parse_value, render_param_editor
+from utils.param_editor import _parse_value, render_param_editor, PARAM_SUGGESTIONS
 
 
 class TestParseValue:
@@ -56,3 +56,54 @@ class TestParseValue:
     def test_scientific_notation(self):
         assert _parse_value("1e5") == 100000.0
         assert isinstance(_parse_value("1e5"), float)
+
+    def test_small_decimal(self):
+        """小數（手續費、滑點等）"""
+        assert _parse_value("0.001") == 0.001
+        assert _parse_value("0.0005") == 0.0005
+        assert _parse_value("0.05") == 0.05
+        assert _parse_value("1.5") == 1.5
+        assert _parse_value("2.0") == 2.0
+
+    def test_float_list(self):
+        """浮點數 list"""
+        assert _parse_value("[0.001, 0.005, 0.01]") == [0.001, 0.005, 0.01]
+        assert _parse_value("[1.5, 2.0, 2.5]") == [1.5, 2.0, 2.5]
+
+    def test_bool(self):
+        assert _parse_value("true") is True
+        assert _parse_value("false") is False
+        assert _parse_value("True") is True
+        assert _parse_value("False") is False
+
+
+class TestParamSuggestions:
+    """PARAM_SUGGESTIONS 測試（自動填入預設值提示）"""
+
+    def test_ma_period_suggestions(self):
+        assert "fast_period" in PARAM_SUGGESTIONS
+        assert "slow_period" in PARAM_SUGGESTIONS
+        assert "ma_period" in PARAM_SUGGESTIONS
+
+    def test_rsi_suggestions(self):
+        assert "rsi_period" in PARAM_SUGGESTIONS
+        assert "rsi_overbought" in PARAM_SUGGESTIONS
+        assert "rsi_oversold" in PARAM_SUGGESTIONS
+
+    def test_risk_suggestions(self):
+        """風險參數預設（支援小數）"""
+        assert "stop_loss" in PARAM_SUGGESTIONS
+        assert "take_profit" in PARAM_SUGGESTIONS
+        assert "0.02" in PARAM_SUGGESTIONS["stop_loss"]
+        assert "0.04" in PARAM_SUGGESTIONS["take_profit"]
+
+    def test_broadcast_suggestions(self):
+        """布林通道預設（num_std 為小數）"""
+        assert "bb_period" in PARAM_SUGGESTIONS
+        assert "num_std" in PARAM_SUGGESTIONS
+        assert "2.0" in PARAM_SUGGESTIONS["num_std"]
+
+    def test_general_period(self):
+        """通用 period 預設"""
+        assert "period" in PARAM_SUGGESTIONS
+

@@ -1,15 +1,49 @@
 """
 參數編輯器 - 簡潔 Row layout（Notion 風格）
 
-每行：[名稱 input] [值 input] [🗑 刪除]
+每行：[名稱 input] [值 input]
 底部：[➕ 新增參數]
-
-純 session_state 實作，無 data_editor 內建工具列
+支援型別自動推斷（int / float / string / list / bool）
 """
 from __future__ import annotations
 
 from typing import Dict, Any, Optional
 import streamlit as st
+
+
+# 預設建議值（讓用戶知道可用什麼值）
+PARAM_SUGGESTIONS = {
+    # 移動平均
+    "fast_period": "[5, 10, 15, 20, 25, 30]",
+    "slow_period": "[30, 40, 50, 60, 80, 100]",
+    "ma_period": "[10, 20, 30, 50, 100]",
+    # RSI
+    "rsi_period": "[7, 14, 21, 28]",
+    "rsi_overbought": "70",
+    "rsi_oversold": "30",
+    "entry_level": "30",
+    "exit_level": "70",
+    # 布林通道
+    "bb_period": "[15, 20, 25, 30]",
+    "num_std": "2.0",
+    "std_multiplier": "1.5",
+    # MACD
+    "fast": "12",
+    "slow": "26",
+    "signal": "9",
+    # 風控
+    "stop_loss": "0.02",
+    "take_profit": "0.04",
+    "commission": "0.001",
+    "slippage": "0.0005",
+    # KDJ
+    "n": "9",
+    "m1": "3",
+    "m2": "3",
+    # 一般
+    "period": "[10, 20, 30, 50, 100]",
+    "threshold": "0.5",
+}
 
 
 def render_param_editor(
@@ -52,18 +86,12 @@ def render_param_editor(
         st.session_state[storage_key][new_name] = 0
         st.rerun()
 
-    # 處理「刪除」
-    delete_key_to_remove = st.session_state.pop(f"{key_prefix}_to_delete", None)
-    if delete_key_to_remove and delete_key_to_remove in st.session_state[storage_key]:
-        del st.session_state[storage_key][delete_key_to_remove]
-        st.rerun()
-
-    # 渲染每一列
+    # 渲染每一列（無刪除按鈕）
     params = dict(st.session_state[storage_key])
     keys_to_remove = []
 
     for i, key in enumerate(list(params.keys())):
-        col1, col2, col3 = st.columns([2, 2, 0.3])
+        col1, col2 = st.columns([2, 3])
         with col1:
             new_key = st.text_input(
                 "名稱",
@@ -73,23 +101,20 @@ def render_param_editor(
                 placeholder="參數名稱",
             )
         with col2:
+            # 預設值提示
+            placeholder = PARAM_SUGGESTIONS.get(key, "支援 int / float / string / list")
             value_str = st.text_input(
                 "值",
                 value=str(params[key]),
                 key=f"{key_prefix}_v_{key}",
                 label_visibility="collapsed",
-                placeholder="參數值",
+                placeholder=placeholder,
             )
-        with col3:
-            if st.button("🗑", key=f"{key_prefix}_del_{key}", help=f"刪除 {key}"):
-                st.session_state[f"{key_prefix}_to_delete"] = key
-                st.rerun()
-
         # 即時更新
         new_key_clean = new_key.strip()
         if new_key_clean:
             if new_key_clean != key:
-                # key 改了，刪舊的
+                # key 改名
                 if key in st.session_state[storage_key]:
                     old_value = st.session_state[storage_key].pop(key)
                 st.session_state[storage_key][new_key_clean] = _parse_value(value_str)
@@ -114,7 +139,7 @@ def render_param_editor(
 
 
 def _parse_value(value: Any) -> Any:
-    """解析輸入值"""
+    """解析輸入值（支援 int / float / string / list / dict / bool）"""
     if value is None or value == "":
         return ""
     s = str(value).strip()
@@ -131,7 +156,7 @@ def _parse_value(value: Any) -> Any:
     except ValueError:
         pass
     try:
-        return float(s)
+        return float(s)  # 支援小數（0.001, 0.05, 1.5, 2.0 等）
     except ValueError:
         pass
     return s
