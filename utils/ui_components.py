@@ -112,7 +112,7 @@ def _kpi_card_html(
     sentiment: str = "neutral",  # 'positive' | 'negative' | 'neutral'
     sub: str = "",
 ) -> str:
-    """單個 TradingView 風格的 KPI 卡。"""
+    """單個 KPI 卡（Impeccable 風格：緊湊、border-only、右對齊）。"""
     p = _palette()
     if sentiment == "positive":
         accent = p["green_text"]
@@ -121,7 +121,6 @@ def _kpi_card_html(
     else:
         accent = p["text_primary"]
 
-    # 結構：3 個 div 區塊（label / value / sub），用普通字符串拼接避免 f-string 嵌套 escape
     sub_block = ""
     if sub:
         sub_color = p["text_muted"]
@@ -130,37 +129,37 @@ def _kpi_card_html(
         elif sub.startswith("-"):
             sub_color = p["red_text"]
         sub_block = (
-            '<div style="color: ' + sub_color + '; font-size: 11px; margin-top: 4px; font-weight: 500;">'
+            '<div style="color: ' + sub_color + '; font-size: 10px; margin-top: 2px; font-weight: 500; '
+            'font-family: ' + p["font_mono"] + '; text-align: right;">'
             + sub +
             '</div>'
         )
 
-    # 用字符串拼接而非 f-string 嵌入 sub_block
     card_html = (
         '<div style="'
         'background: ' + p["bg_card"] + '; '
         'border: 1px solid ' + p["border"] + '; '
-        'border-radius: 8px; '
-        'padding: 12px 16px; '
-        'min-height: 78px; '
+        'border-radius: 5px; '
+        'padding: 8px 12px; '
+        'min-height: 58px; '
         'display: flex; '
         'flex-direction: column; '
-        'justify-content: space-between;'
+        'justify-content: center;'
         '">'
         '<div style="'
         'color: ' + p["text_secondary"] + '; '
-        'font-size: 11px; '
-        'text-transform: uppercase; '
-        'letter-spacing: 0.06em; '
-        'font-weight: 500;'
+        'font-size: 10px; '
+        'font-weight: 700; '
+        'text-align: left;'
         '">' + label + '</div>'
-        '<div style="margin-top: 6px;">'
+        '<div style="margin-top: 4px; text-align: right;">'
         '<div style="'
         'color: ' + accent + '; '
         'font-family: ' + p["font_mono"] + '; '
-        'font-size: 22px; '
+        'font-size: 20px; '
         'font-weight: 600; '
-        'line-height: 1.1;'
+        'line-height: 1.15; '
+        'text-align: right;'
         '">' + value + '</div>'
         + sub_block +
         '</div>'
@@ -418,23 +417,23 @@ def _tv_kpi_card_html(
     icon_svg: str = "",
     tooltip: str = "",
 ) -> str:
-    """TradingView 風格單個 KPI 卡（v6：更緊湊、SVG ⓘ icon）。
+    """TradingView 風格單個 KPI 卡（Impeccable 重構：緊湊、border-only、右對齊）。
 
-    設計參考 TradingView Strategy Tester：
-    - 標題小寫灰字（10px，更小更克制）
-    - 數值大，monospace（18px，比原本 22px 小更貼 TV 緊湊感）
-    - 副標題小字（百分比變化紅綠）
-    - 右上角 SVG 圓圈問號 tooltip icon
-    - 整體 padding 縮小（從 14px 18px → 10px 12px）
+    設計：
+    - 標題 10px 粗體灰（不 uppercase, 不 tracking）
+    - 數值 20px monospace（右對齊）
+    - 副標題 10px
+    - padding 8px 12px, border 1px, radius 5px
+    - 無 shadow，用 border 區分層級
+    - 右上角 SVG 圓圈問號 tooltip icon（可選）
     """
     p = _palette()
     if sub_color is None:
         sub_color = p["text_muted"]
 
-    # SVG ⓘ icon：圓圈 + 問號（14×14 圓形，比 unicode 字元更精緻）
+    # SVG ⓘ icon
     info_icon = ""
     if tooltip:
-        # tooltip text 跳脫引號
         tooltip_escaped = tooltip.replace('"', '&quot;').replace("'", "&#39;")
         info_icon = (
             '<span style="display: inline-flex; align-items: center; justify-content: center; '
@@ -446,11 +445,11 @@ def _tv_kpi_card_html(
     sub_block = ""
     if sub:
         sub_block = (
-            '<div style="color: ' + sub_color + '; font-size: 10.5px; margin-top: 1px; font-weight: 500; '
-            'font-family: ' + p["font_mono"] + ';">'
+            '<div style="color: ' + sub_color + '; font-size: 10px; margin-top: 2px; font-weight: 500; '
+            'font-family: ' + p["font_mono"] + '; text-align: right;">'
             + sub + '</div>'
         )
-    # 主卡片結構（更緊湊）
+    # 主卡片結構（Impeccable：緊湊、border-only、右對齊數值）
     return (
         '<div style="'
         'background: ' + p["bg_card"] + '; '
@@ -465,9 +464,7 @@ def _tv_kpi_card_html(
         '<div style="'
         'color: ' + p["text_secondary"] + '; '
         'font-size: 10px; '
-        'font-weight: 500; '
-        'text-transform: uppercase; '
-        'letter-spacing: 0.04em; '
+        'font-weight: 700; '
         'display: flex; '
         'align-items: center; '
         '">'
@@ -477,10 +474,11 @@ def _tv_kpi_card_html(
         '<div style="'
         'color: ' + p["text_primary"] + '; '
         'font-family: ' + p["font_mono"] + '; '
-        'font-size: 18px; '
+        'font-size: 20px; '
         'font-weight: 600; '
         'line-height: 1.15; '
-        'margin-top: 4px;'
+        'margin-top: 4px; '
+        'text-align: right;'
         '">' + value + '</div>'
         + sub_block +
         '</div>'
@@ -758,8 +756,8 @@ def render_tv_overview(
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin: 24px 0 8px 0;
     padding-bottom: 6px;
@@ -774,8 +772,8 @@ def render_tv_overview(
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin: 28px 0 8px 0;
     padding-bottom: 6px;
@@ -1221,8 +1219,8 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin: 32px 0 8px 0;
     padding-bottom: 8px;
@@ -1369,8 +1367,8 @@ def render_monthly_heatmap(trades_df: pd.DataFrame, p: dict) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin: 16px 0 8px 0;
 ">年度總覽</div>
@@ -1479,8 +1477,8 @@ def render_list_of_trades(trades: List[Dict]) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin-bottom: 8px;
     margin-top: 4px;
@@ -1631,15 +1629,8 @@ def render_list_of_trades(trades: List[Dict]) -> None:
         render_trade_highlight_card(trade, p)
     else:
         st.markdown(f"""
-<div style="
+<div class="empty-state" style="
     margin-top: 12px;
-    padding: 10px 14px;
-    background: {p['bg_subtle']};
-    border: 1px dashed {p['border']};
-    border-radius: 6px;
-    color: {p['text_muted']};
-    font-size: 12px;
-    text-align: center;
 ">
      點擊上表任一列，下方會顯示該交易詳情與圖表高亮
 </div>
@@ -1685,7 +1676,7 @@ def render_trade_highlight_card(trade: Dict, p: dict) -> None:
     padding: 14px 18px;
     background: {p['bg_subtle']};
     border: 1px solid {p['border']};
-    border-left: 3px solid {accent};
+    border-left: 1px solid {p['border']};
     border-radius: 6px;
 ">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1705,37 +1696,37 @@ def render_trade_highlight_card(trade: Dict, p: dict) -> None:
     </div>
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">進場時間</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">進場時間</div>
             <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{entry}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場時間</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">出場時間</div>
             <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{exit_}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">持倉時間</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">持倉時間</div>
             <div style="color: {p['text_primary']}; font-size: 12px; font-family: {p['font_mono']};">{dur_str}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場原因</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">出場原因</div>
             <div style="color: {p['text_primary']}; font-size: 12px;">{exit_reason}</div>
         </div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid {p['border']};">
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">進場價</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">進場價</div>
             <div style="color: {p['text_primary']}; font-size: 14px; font-family: {p['font_mono']};">${entry_price:,.2f}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">出場價</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">出場價</div>
             <div style="color: {p['text_primary']}; font-size: 14px; font-family: {p['font_mono']};">${exit_price:,.2f}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">損益</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">損益</div>
             <div style="color: {accent}; font-size: 14px; font-weight: 600; font-family: {p['font_mono']};">${pnl:+,.2f}</div>
         </div>
         <div>
-            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;">報酬率</div>
+            <div style="color: {p['text_muted']}; font-size: 10px; text-transform: none; letter-spacing: 0; margin-bottom: 2px;">報酬率</div>
             <div style="color: {accent}; font-size: 14px; font-weight: 600; font-family: {p['font_mono']};">{pnl_pct:+.2f}%</div>
         </div>
     </div>
@@ -1794,8 +1785,8 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin-bottom: 8px;
     margin-top: 4px;
@@ -1958,8 +1949,8 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin-bottom: 8px;
     margin-top: 4px;
@@ -2007,8 +1998,8 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
 <div style="
     color: {p['text_secondary']};
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0;
     font-weight: 600;
     margin: 20px 0 8px 0;
 ">模擬結果摘要 ({mc['n_simulations']} 次)</div>

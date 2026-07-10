@@ -54,9 +54,17 @@ THEMES: Dict[str, Dict[str, str]] = {
         "plotly_axis": "#475569",
         "plotly_text": "#0F172A",
         # 形狀
-        "radius": "8px",
-        "shadow": "0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)",
-        "shadow_strong": "0 4px 12px rgba(15, 23, 42, 0.08)",
+        "radius": "6px",
+        "radius_sm": "5px",
+        "shadow": "none",
+        "shadow_strong": "none",
+        # Spacing scale (4 / 8 / 12 / 16 / 24 / 32)
+        "space_xs": "4px",
+        "space_sm": "8px",
+        "space_md": "12px",
+        "space_lg": "16px",
+        "space_xl": "24px",
+        "space_2xl": "32px",
     },
     "dark": {
         "name": "Dark Trading",
@@ -90,8 +98,16 @@ THEMES: Dict[str, Dict[str, str]] = {
         "plotly_axis": "#787B86",
         "plotly_text": "#D1D4DC",
         "radius": "6px",
-        "shadow": "0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2)",
-        "shadow_strong": "0 4px 16px rgba(0, 0, 0, 0.5)",
+        "radius_sm": "5px",
+        "shadow": "none",
+        "shadow_strong": "none",
+        # Spacing scale (4 / 8 / 12 / 16 / 24 / 32)
+        "space_xs": "4px",
+        "space_sm": "8px",
+        "space_md": "12px",
+        "space_lg": "16px",
+        "space_xl": "24px",
+        "space_2xl": "32px",
     },
 }
 
@@ -148,7 +164,8 @@ def css_variables(theme: Dict[str, str]) -> str:
         "orange", "purple", "yellow",
         "font_family", "font_mono",
         "plotly_paper", "plotly_plot", "plotly_grid", "plotly_axis", "plotly_text",
-        "radius", "shadow", "shadow_strong",
+        "radius", "radius_sm", "shadow", "shadow_strong",
+        "space_xs", "space_sm", "space_md", "space_lg", "space_xl", "space_2xl",
     ]
     lines = []
     for k in keys:
@@ -202,7 +219,7 @@ html, body, [class*="css"] {{
     background: var(--bg-primary);
     color: var(--text-primary);
     /* 全站過渡：切換主題時平滑變色 */
-    transition: background-color 250ms ease, color 250ms ease;
+    transition: background-color 150ms ease-out, color 150ms ease-out;
 }}
 
 .main .block-container {{
@@ -268,7 +285,7 @@ h3 {{
     background: var(--bg-subtle);
     border-right: 1px solid var(--border);
     color: var(--text-primary) !important;
-    transition: background-color 250ms ease, border-color 250ms ease;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
 }}
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p,
@@ -276,11 +293,11 @@ h3 {{
     color: var(--text-primary) !important;
 }}
 [data-testid="stSidebar"] h2 {{
-    font-size: 0.75rem !important;
-    font-weight: 600 !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
     color: var(--text-secondary) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-transform: none;
+    letter-spacing: 0;
     margin-top: 16px !important;
     margin-bottom: 8px !important;
 }}
@@ -300,7 +317,7 @@ h3 {{
     color: var(--text-secondary);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
-    transition: color 150ms ease, border-color 150ms ease;
+    transition: color 150ms ease-out, border-color 150ms ease-out;
 }}
 .stTabs [aria-selected="true"] {{
     color: var(--primary) !important;
@@ -317,7 +334,7 @@ h3 {{
     border: 1px solid var(--border-strong);
     background: var(--bg-card);
     color: var(--text-primary);
-    transition: all 150ms ease;
+    transition: all 150ms ease-out;
     padding: 0.5rem 1rem;
     min-height: 38px;
     box-shadow: none;
@@ -353,7 +370,7 @@ h3 {{
     font-size: 0.875rem;
     background: var(--bg-card);
     color: var(--text-primary);
-    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 250ms ease, color 250ms ease;
+    transition: border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
 }}
 .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {{
     border-color: var(--primary);
@@ -363,17 +380,20 @@ h3 {{
 /* === Metric 卡片 === */
 [data-testid="stMetric"] {{
     background: var(--bg-card);
-    padding: 12px 16px;
-    border-radius: var(--radius);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-    transition: background-color 250ms ease, border-color 250ms ease;
+    box-shadow: none;
+    transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}}
+[data-testid="stMetric"]:hover {{
+    border-color: var(--border-strong);
 }}
 [data-testid="stMetricValue"] {{
     font-family: var(--font-mono);
     font-weight: 600;
+    text-align: right;
 }}
-
 /* === 展開區塊 === */
 .streamlit-expanderHeader {{
     background: var(--bg-subtle) !important;
@@ -395,6 +415,43 @@ h3 {{
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
+}}
+/* 表格質感：條紋行、header 加粗、數據靠右、monospace 數字 */
+.stDataFrame table thead tr th {{
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    color: var(--text-secondary) !important;
+    background: var(--bg-subtle) !important;
+    border-bottom: 1px solid var(--border-strong) !important;
+}}
+.stDataFrame table tbody tr:nth-child(even) {{
+    background: var(--bg-subtle) !important;
+}}
+.stDataFrame table tbody tr:hover {{
+    background: var(--bg-card) !important;
+    border-color: var(--border-strong) !important;
+}}
+.stDataFrame table tbody td {{
+    font-family: var(--font-mono) !important;
+    text-align: right !important;
+    font-size: 0.8125rem !important;
+    color: var(--text-primary) !important;
+    transition: background-color 150ms ease-out;
+}}
+/* ag-Grid table styling */
+.ag-theme-alpine .ag-header-cell-text,
+.ag-theme-alpine-dark .ag-header-cell-text {{
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+}}
+.ag-theme-alpine .ag-row-even,
+.ag-theme-alpine-dark .ag-row-even {{
+    background-color: var(--bg-subtle) !important;
+}}
+.ag-theme-alpine .ag-row:hover,
+.ag-theme-alpine-dark .ag-row:hover {{
+    border-color: var(--border-strong) !important;
+    transition: border-color 150ms ease-out;
 }}
 
 /* === Divider === */
@@ -545,9 +602,9 @@ iframe[height="0"] {{
 
 /* === Impeccable 風格增強 === */
 [data-testid="stSidebar"] h1 {{
-    font-size: 0.75rem !important; font-weight: 600 !important;
+    font-size: 12px !important; font-weight: 700 !important;
     color: var(--text-secondary) !important;
-    text-transform: uppercase; letter-spacing: 0.08em;
+    text-transform: none; letter-spacing: 0;
     margin-top: 0 !important; margin-bottom: 10px !important; padding: 0 !important;
 }}
 [data-testid="stSidebar"] [data-testid="stRadio"] > div {{ gap: 4px !important; }}
@@ -579,15 +636,15 @@ iframe[height="0"] {{
     margin-top: 0.5rem !important; margin-bottom: 0.25rem !important;
 }}
 .main h2 {{
-    font-size: 0.75rem !important; font-weight: 600 !important;
+    font-size: 12px !important; font-weight: 700 !important;
     color: var(--text-secondary) !important;
-    text-transform: uppercase !important; letter-spacing: 0.08em !important;
+    text-transform: none !important; letter-spacing: 0 !important;
     margin-top: 20px !important; margin-bottom: 10px !important;
 }}
 .main h3 {{
-    font-size: 0.875rem !important; font-weight: 600 !important;
+    font-size: 12px !important; font-weight: 700 !important;
     color: var(--text-secondary) !important;
-    text-transform: uppercase !important; letter-spacing: 0.06em !important;
+    text-transform: none !important; letter-spacing: 0 !important;
     margin-top: 16px !important; margin-bottom: 8px !important;
 }}
 .main [data-testid="stCaptionContainer"] {{
@@ -633,8 +690,8 @@ iframe[height="0"] {{
     margin-bottom: 20px !important;
 }}
 .impeccable-field-label {{
-    font-size: 0.6875rem !important; font-weight: 600 !important;
-    text-transform: uppercase !important; letter-spacing: 0.08em !important;
+    font-size: 12px !important; font-weight: 700 !important;
+    text-transform: none !important; letter-spacing: 0 !important;
     color: var(--text-secondary) !important;
     margin-bottom: 4px !important; display: block;
 }}
@@ -643,14 +700,15 @@ iframe[height="0"] {{
     font-size: 0.8125rem; font-family: var(--font-mono);
 }}
 .impeccable-result-table th {{
-    text-align: left; font-size: 0.6875rem;
-    text-transform: uppercase; letter-spacing: 0.06em;
+    text-align: left; font-size: 12px;
+    text-transform: none; letter-spacing: 0;
     color: var(--text-secondary);
-    padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 600;
+    padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 700;
 }}
 .impeccable-result-table td {{
     padding: 8px 12px; border-bottom: 1px solid var(--border);
     color: var(--text-primary);
+    text-align: right;
 }}
 .impeccable-result-table tr:last-child td {{ border-bottom: none; }}
 .impeccable-num-pill {{
@@ -666,7 +724,7 @@ iframe[height="0"] {{
     background: var(--bg-card) !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border-strong) !important;
-    transition: background-color 250ms ease, color 250ms ease, border-color 150ms ease;
+    transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
 }}
 .stSelectbox [data-testid="stSelectbox"] > div:not([class*="react-aria"]) {{
     background: var(--bg-card) !important;
@@ -724,7 +782,7 @@ iframe[height="0"] {{
 .plotly .legend text {{
     fill: var(--plotly-text) !important;
     font-weight: 500 !important;
-    transition: fill 250ms ease;
+    transition: fill 150ms ease-out;
 }}
 .plotly .legend-title {{
     fill: var(--plotly-axis) !important;
@@ -733,24 +791,24 @@ iframe[height="0"] {{
 .plotly .xaxislayer-above text, .plotly .yaxislayer-above text,
 .plotly .xtick text, .plotly .ytick text {{
     fill: var(--plotly-axis) !important;
-    transition: fill 250ms ease;
+    transition: fill 150ms ease-out;
 }}
 /* 軸線 */
 .plotly .xaxis line, .plotly .yaxis line,
 .plotly .xaxis path, .plotly .yaxis path {{
     stroke: var(--plotly-grid) !important;
-    transition: stroke 250ms ease;
+    transition: stroke 150ms ease-out;
 }}
 /* 網格線 */
 .plotly .gridlines path {{
     stroke: var(--plotly-grid) !important;
-    transition: stroke 250ms ease;
+    transition: stroke 150ms ease-out;
 }}
 /* Hover 標籤 */
 .plotly .hoverlayer .hovertext {{
     fill: var(--bg-card) !important;
     stroke: var(--border) !important;
-    transition: fill 250ms ease, stroke 250ms ease;
+    transition: fill 150ms ease-out, stroke 150ms ease-out;
 }}
 .plotly .hovertext text {{ fill: var(--plotly-text) !important; }}
 .plotly .spikeline {{ stroke: var(--plotly-axis) !important; }}
@@ -758,16 +816,49 @@ iframe[height="0"] {{
 /* 不強制改 .main-svg 背景，避免遮蔽 */
 .plotly .plot-container .svg-plot .xy .bglayer .bg {{ fill: var(--plotly-plot) !important; }}
 
-/* === 過渡：所有元素都加平滑切換 === */
-.stApp, .main .block-container, [data-testid="stSidebar"],
+/* === 過渡：所有互動元件統一 150ms ease-out === */
+.stApp, .main .block-container, [data-testid="stSidebar"] {{
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+}}
 .stButton button, .stTextInput input, .stTextArea textarea,
 .stSelectbox [data-baseweb="select"], [data-testid="stMetric"],
-.stAlert, .stCodeBlock, code, pre, [data-testid="stExpander"] {{
-    transition: background-color 250ms ease, color 250ms ease,
-                border-color 250ms ease, box-shadow 250ms ease !important;
+.stAlert, .stCodeBlock, code, pre, [data-testid="stExpander"],
+.stTabs [data-baseweb="tab"], [data-testid="stExpander"] {{
+    transition: background-color 150ms ease-out, color 150ms ease-out,
+                border-color 150ms ease-out, box-shadow 150ms ease-out !important;
 }}
 
 [data-testid="stHeader"] {{ z-index: 999997; }}
+
+/* === Empty State 樣式 === */
+.empty-state {{
+    text-align: center;
+    padding: 32px 16px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    margin: 8px 0;
+}}
+.empty-state-icon {{
+    font-size: 24px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+}}
+
+/* === Skeleton Loading === */
+.skeleton {{
+    background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite ease-in-out;
+    border-radius: var(--radius-sm);
+}}
+@keyframes skeleton-loading {{
+    0% {{ background-position: 200% 0; }}
+    100% {{ background-position: -200% 0; }}
+}}
 
 </style>
 
