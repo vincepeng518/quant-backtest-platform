@@ -65,9 +65,9 @@ st.set_page_config(
 # 用戶檢核 v4 要求「深色模式為預設」，但尊重用戶先前在 session 內的選擇
 # 完整跨 session 持久化用 localStorage（透過 JS 注入）
 # 注意：streamlit 每次 rerun 都會重新執行這段，所以 theme 仍由 session_state 主導
-# 第一次進入時用「dark」為預設，之後用戶切換會被 session_state 記住
+# v5 改為：預設 light（淺色）— 因為「淺色 = 太陽」符合預期，深色用戶會主動切換
 if "theme" not in st.session_state:
-    st.session_state["theme"] = "dark"
+    st.session_state["theme"] = "light"
 
 current_theme = get_theme(st.session_state["theme"])
 
@@ -108,8 +108,8 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 st.markdown("""
 <button id="theme-toggle-fab" type="button" aria-label="切換主題" data-cblab-theme-toggle>
     <svg id="theme-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;fill:currentColor;">
-        <path id="icon-sun" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"/>
-        <path id="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" style="display:block;"/>
+        <path id="icon-sun" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"/>
+        <path id="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" style="display:none;"/>
     </svg>
 </button>
 """, unsafe_allow_html=True)
@@ -554,7 +554,9 @@ components.html(
             var sun = pdoc.getElementById('icon-sun');
             var moon = pdoc.getElementById('icon-moon');
             if (!sun || !moon) return;
-            if (theme === 'dark') {
+            // 淺色 = 太陽 ☀️（白天天亮了）
+            // 深色 = 月亮 🌙（夜晚）
+            if (theme === 'light') {
                 sun.style.display = 'block';
                 moon.style.display = 'none';
             } else {
