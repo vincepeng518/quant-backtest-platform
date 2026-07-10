@@ -61,9 +61,13 @@ st.set_page_config(
 )
 
 
-# === 主題系統（從 session_state 讀取） ===
+# === v4 改進：記住用戶主題偏好 ===
+# 用戶檢核 v4 要求「深色模式為預設」，但尊重用戶先前在 session 內的選擇
+# 完整跨 session 持久化用 localStorage（透過 JS 注入）
+# 注意：streamlit 每次 rerun 都會重新執行這段，所以 theme 仍由 session_state 主導
+# 第一次進入時用「dark」為預設，之後用戶切換會被 session_state 記住
 if "theme" not in st.session_state:
-    st.session_state["theme"] = "light"
+    st.session_state["theme"] = "dark"
 
 current_theme = get_theme(st.session_state["theme"])
 
@@ -76,6 +80,29 @@ st.markdown(
 )
 
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
+
+
+# === v4 改進：Top Bar 主題切換按鈕（右上角浮動 FAB） ===
+# 功能：
+# 1. 浮動按鈕在右上角（避開 sidebar 和 main 內容）
+# 2. 點擊切換 Light/Dark
+# 3. 旋轉動畫（切換時）
+# 4. localStorage 記住用戶偏好
+# 5. 自動跟隨系統 prefers-color-scheme
+# 用 st.markdown 注入 button 到 streamlit 主頁（不是 iframe）
+# 重要：用 addEventListener 綁定 click（不要用 onclick HTML 屬性，會觸發 React error #231）
+#
+# Streamlit 1.59 radio 用 index (0, 1, 2) 當 value，不是 id。
+# 我們的 theme_options 是 dict 排序，index 0=light, 1=dark
+# 所以點 dark → 找 input[value="1"]
+st.markdown("""
+<button id="theme-toggle-fab" type="button" aria-label="切換主題" data-cblab-theme-toggle>
+    <svg id="theme-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;fill:currentColor;">
+        <path id="icon-sun" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"/>
+        <path id="icon-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" style="display:block;"/>
+    </svg>
+</button>
+""", unsafe_allow_html=True)
 
 
 # === 注入 CSS：防止平板鍵盤在 selectbox 點擊時彈出 ===
@@ -482,6 +509,126 @@ components.html(
     // === 啟動 ===
     setupMainClickHandler();
     setupKeyboardSuppressor();
+
+    // === v4 改進：FAB 主題切換（在 parent document 找 FAB 元素並綁定） ===
+    function setupThemeToggle() {
+        if (window._themeToggleInstalled) return;
+        window._themeToggleInstalled = true;
+        var pdoc = window.parent.document;
+        var STORAGE_KEY = 'cblab_theme';
+        var THEME_INDEX = { light: '0', dark: '1' };
+
+        function getCurrentTheme() {
+            try {
+                var saved = pdoc.defaultView.localStorage.getItem(STORAGE_KEY);
+                if (saved === 'light' || saved === 'dark') return saved;
+            } catch (e) {}
+            if (pdoc.defaultView.matchMedia && pdoc.defaultView.matchMedia('(prefers-color-scheme: dark)').matches) {
+                return 'dark';
+            }
+            return 'light';
+        }
+
+        function updateIcon(theme) {
+            var sun = pdoc.getElementById('icon-sun');
+            var moon = pdoc.getElementById('icon-moon');
+            if (!sun || !moon) return;
+            if (theme === 'dark') {
+                sun.style.display = 'block';
+                moon.style.display = 'none';
+            } else {
+                sun.style.display = 'none';
+                moon.style.display = 'block';
+            }
+        }
+
+        function clickStreamlitRadioByLabel(textMatch) {
+            var labels = pdoc.querySelectorAll('label');
+            for (var i = 0; i < labels.length; i++) {
+                if (labels[i].textContent.indexOf(textMatch) >= 0) {
+                    var input = labels[i].querySelector('input[type="radio"]');
+                    if (input) { input.click(); return true; }
+                }
+            }
+            return false;
+        }
+
+        function clickStreamlitRadioByIndex(themeId) {
+            var idx = THEME_INDEX[themeId];
+            var sidebarRadios = pdoc.querySelectorAll('[data-testid="stSidebar"] input[type="radio"][value="' + idx + '"]');
+            var target = sidebarRadios[0];
+            if (target) { target.click(); return true; }
+            return false;
+        }
+
+        function switchTheme(theme) {
+            try { pdoc.defaultView.localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+            try { pdoc.defaultView.localStorage.setItem(STORAGE_KEY + '_user_set', '1'); } catch (e) {}
+            updateIcon(theme);
+
+            var targetText = theme === 'dark' ? 'Dark Trading' : 'Light Pro';
+            var ok = clickStreamlitRadioByLabel(targetText);
+            if (!ok) ok = clickStreamlitRadioByIndex(theme);
+            if (!ok) {
+                setTimeout(function() { pdoc.defaultView.location.reload(); }, 200);
+            }
+        }
+
+        function bindFab() {
+            var fab = pdoc.getElementById('theme-toggle-fab');
+            if (!fab) return false;
+            // 避免重複綁定
+            if (fab._cblabBound) return true;
+            fab._cblabBound = true;
+            fab.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cur = getCurrentTheme();
+                var next = cur === 'dark' ? 'light' : 'dark';
+                fab.classList.add('switching');
+                switchTheme(next);
+                setTimeout(function() { fab.classList.remove('switching'); }, 800);
+            });
+            // SVG 不吃 click
+            var iconSvg = pdoc.getElementById('theme-icon');
+            if (iconSvg) iconSvg.style.pointerEvents = 'none';
+            // 初始化 icon
+            updateIcon(getCurrentTheme());
+            // 監聽系統主題變化
+            try {
+                pdoc.defaultView.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                    if (!pdoc.defaultView.localStorage.getItem(STORAGE_KEY + '_user_set')) {
+                        switchTheme(e.matches ? 'dark' : 'light');
+                    }
+                });
+            } catch (e) {}
+            return true;
+        }
+
+        // 立即試一次 + 多次 retry（FAB 是 st.markdown 注入，streamlit rerun 後可能重建）
+        if (!bindFab()) {
+            var tries = [100, 300, 600, 1000, 2000, 4000];
+            for (var i = 0; i < tries.length; i++) {
+                setTimeout(bindFab, tries[i]);
+            }
+            // 監聽 streamlit rerun
+            try {
+                new pdoc.defaultView.MutationObserver(function(muts) {
+                    for (var j = 0; j < muts.length; j++) {
+                        var added = muts[j].addedNodes;
+                        for (var k = 0; k < added.length; k++) {
+                            var n = added[k];
+                            if (n && n.id === 'theme-toggle-fab') {
+                                bindFab();
+                                return;
+                            }
+                        }
+                    }
+                }).observe(pdoc.body, { childList: true, subtree: true });
+            } catch (e) {}
+        }
+    }
+    setupThemeToggle();
 
     // 多重 retry 確保一定注入
     if (!tryInject()) {

@@ -24,15 +24,15 @@ THEMES: Dict[str, Dict[str, str]] = {
         "text_muted": "#94A3B8",    # slate-400
         "primary": "#2563EB",       # blue-600 主色
         "primary_hover": "#1D4ED8", # blue-700
-        "green": "#22C55E",         # 獲利
+        "green": "#16A34A",         # 獲利（深一點更顯眼）
         "green_light": "#DCFCE7",
         "green_text": "#15803D",    # green-700
-        "red": "#EF4444",           # 虧損
+        "red": "#DC2626",           # 虧損（深一點更顯眼）
         "red_light": "#FEE2E2",
         "red_text": "#B91C1C",      # red-700
-        "orange": "#F59E0B",        # 警告
-        "purple": "#8B5CF6",
-        "yellow": "#EAB308",
+        "orange": "#EA580C",        # Buy & Hold（深一點在淺色也顯眼）
+        "purple": "#7C3AED",
+        "yellow": "#CA8A04",
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
         "font_mono": "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
         "plotly_template": "plotly_white",
@@ -48,18 +48,18 @@ THEMES: Dict[str, Dict[str, str]] = {
         "bg_card": "#1E293B",       # slate-800 卡片底
         "border": "#334155",        # slate-700
         "border_strong": "#475569", # slate-600
-        "text_primary": "#F1F5F9",  # slate-100（不要太刺眼的白）
+        "text_primary": "#F8FAFC",  # slate-50（更亮的白）
         "text_secondary": "#CBD5E1",# slate-300
         "text_muted": "#94A3B8",    # slate-400
         "primary": "#60A5FA",       # blue-400（亮一點對暗底）
         "primary_hover": "#93C5FD",
-        "green": "#4ADE80",         # 獲利（亮綠）
+        "green": "#22C55E",         # 獲利（更顯眼）
         "green_light": "rgba(74, 222, 128, 0.15)",
-        "green_text": "#86EFAC",    # green-300
-        "red": "#F87171",
+        "green_text": "#4ADE80",    # green-400
+        "red": "#EF4444",
         "red_light": "rgba(248, 113, 113, 0.15)",
-        "red_text": "#FCA5A5",      # red-300
-        "orange": "#FBBF24",
+        "red_text": "#F87171",      # red-400
+        "orange": "#FB923C",        # Buy & Hold（亮橙在深色底明顯）
         "purple": "#C4B5FD",
         "yellow": "#FDE047",
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
@@ -836,6 +836,111 @@ iframe[height="0"] {{
     border-radius: 6px !important;
     font-size: 0.8125rem !important;
     border: 1px solid {theme['border']} !important;
+}}
+
+/* === v4 改進：Top Bar 主題切換 + 動畫 === */
+/* 主題切換平滑過渡（所有 element） */
+.stApp, .main .block-container, [data-testid="stSidebar"],
+.stButton button, .stTextInput input, .stTextArea textarea,
+.stSelectbox [data-baseweb="select"], [data-testid="stMetric"] {{
+    transition: background-color 200ms ease, color 200ms ease,
+                border-color 200ms ease, box-shadow 200ms ease !important;
+}}
+
+/* Plotly 圖表層次加強（深色模式圖例更顯眼） */
+.plotly .legend text {{
+    fill: {theme['text_primary']} !important;
+    font-weight: 500 !important;
+}}
+.plotly .modebar-btn path {{
+    fill: {theme['text_secondary']} !important;
+}}
+.plotly .modebar-btn:hover path {{
+    fill: {theme['primary']} !important;
+}}
+
+/* Plotly 坐標軸文字（深色模式更亮） */
+.plotly .xaxislayer-above text, .plotly .yaxislayer-above text,
+.plotly .xtick text, .plotly .ytick text {{
+    fill: {theme['text_secondary']} !important;
+}}
+
+/* Plotly hover 標籤（深色模式更亮） */
+.plotly .hovertext text {{
+    fill: {theme['text_primary']} !important;
+}}
+.plotly .spikeline {{
+    stroke: {theme['text_secondary']} !important;
+}}
+
+/* === v4 改進：Top Bar 切換按鈕（右上角浮動） === */
+#theme-toggle-fab {{
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 999998;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    background: {theme['bg_card']};
+    color: {theme['text_primary']};
+    border: 1.5px solid {theme['border_strong']};
+    box-shadow: 0 4px 16px rgba(0,0,0,{0.15 if theme['bg'] != '#0F172A' else 0.4});
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    font-size: 0;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 200ms ease, background 200ms ease, border-color 200ms ease, color 200ms ease;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}}
+#theme-toggle-fab:hover {{
+    transform: scale(1.08);
+    border-color: {theme['primary']};
+    background: {theme['primary']};
+    color: white;
+}}
+#theme-toggle-fab:focus,
+#theme-toggle-fab:focus-visible,
+#theme-toggle-fab:focus-within {{
+    outline: none !important;
+    box-shadow: 0 0 0 3px {theme['primary']}40, 0 4px 16px rgba(0,0,0,{0.15 if theme['bg'] != '#0F172A' else 0.4}) !important;
+}}
+#theme-toggle-fab:active {{
+    transform: scale(0.95);
+}}
+#theme-toggle-fab svg {{
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+    pointer-events: none;
+}}
+
+/* Top Bar 隱藏內建 streamlit header（避免 FAB 衝突） */
+[data-testid="stHeader"] {{
+    z-index: 999997;
+}}
+
+/* FAB 圖示旋轉動畫（切換時） */
+#theme-toggle-fab.switching svg {{
+    animation: rotateTheme 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}}
+@keyframes rotateTheme {{
+    from {{ transform: rotate(0deg); }}
+    to {{ transform: rotate(360deg); }}
+}}
+
+/* 隱藏原本的浮動漢堡按鈕（避免和 FAB 衝突） */
+button[data-testid="stBaseButton-headerNoPadding"] {{
+    display: none !important;
 }}
 </style>
 
