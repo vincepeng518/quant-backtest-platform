@@ -1530,8 +1530,16 @@ with main_tab2:
         result = None
 
         try:
+            # 自動判斷交易方向：策略有 short 訊號 → long_short，否則 long
+            _r = execute_user_strategy(opt_code, df, fixed_params)
+            if isinstance(_r, tuple) and len(_r) == 7:
+                _, _, _, _le, _, _se, _ = _r
+                direction_code = "long_short" if (_se is not None and _se.any()) else "long"
+            else:
+                direction_code = "long"
+
             if mode_code == "bayesian":
-                status_text.text(f"⏳ 開始 Bayesian Optimization（{n_trials} trials）...")
+                status_text.text(f"開始 Bayesian Optimization（{n_trials} trials）...")
                 set_global_seed(int(opt_seed))
                 opt_engine = OptunaOptimizer(
                     strategy_runner=execute_user_strategy,
@@ -2047,7 +2055,15 @@ with main_tab3:
             inner_objective=wf_metric,
         )
 
-        with st.spinner(f"⏳ Walk-Forward 驗證中（內部優化器: {wf_inner_opt}，可能需要幾分鐘）..."):
+        # 自動判斷交易方向：策略有 short 訊號 → long_short，否則 long
+        _r = execute_user_strategy(wf_code, df, wf_fixed)
+        if isinstance(_r, tuple) and len(_r) == 7:
+            _, _, _, _le, _, _se, _ = _r
+            direction_code = "long_short" if (_se is not None and _se.any()) else "long"
+        else:
+            direction_code = "long"
+
+        with st.spinner(f"Walk-Forward 驗證中（內部優化器: {wf_inner_opt}，可能需要幾分鐘）..."):
             wf_results = validator.run(
                 df, wf_code,
                 param_space=wf_param_space,

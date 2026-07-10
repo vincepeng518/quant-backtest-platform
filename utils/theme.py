@@ -34,15 +34,15 @@ THEMES: Dict[str, Dict[str, str]] = {
         "primary": "#2563EB",          # blue-600
         "primary_hover": "#1D4ED8",    # blue-700
         # 語意色
-        "green": "#16A34A",
-        "green_light": "#DCFCE7",
-        "green_text": "#15803D",
-        "red": "#DC2626",
+        "green": "#0D9488",            # Tiffany 綠
+        "green_light": "#CCFBF1",
+        "green_text": "#0F766E",
+        "red": "#EF4444",
         "red_light": "#FEE2E2",
-        "red_text": "#B91C1C",
-        "orange": "#EA580C",
+        "red_text": "#DC2626",
+        "orange": "#F97316",            # 亮橘
         "purple": "#7C3AED",
-        "yellow": "#CA8A04",
+        "yellow": "#EAB308",
         # 字體
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
         "font_mono": "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
@@ -72,10 +72,10 @@ THEMES: Dict[str, Dict[str, str]] = {
         "text_muted": "#5D606B",       # 弱化文字
         "primary": "#2962FF",          # TV blue（用真實的 TV 主色）
         "primary_hover": "#1E53E5",
-        "green": "#26A69A",            # TV 上漲綠
-        "green_light": "rgba(38, 166, 154, 0.15)",
-        "green_text": "#26A69A",
-        "red": "#EF5350",              # TV 下跌紅
+        "green": "#0D9488",            # Tiffany 綠
+        "green_light": "rgba(13, 148, 136, 0.15)",
+        "green_text": "#2DD4BF",
+        "red": "#EF5350",
         "red_light": "rgba(239, 83, 80, 0.15)",
         "red_text": "#EF5350",
         "orange": "#FF9800",           # TV 橘
