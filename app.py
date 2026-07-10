@@ -45,7 +45,6 @@ from utils.ui_components import (
 )
 from utils.impeccable import (
     section_header, step_indicator, status_pill, empty_state, welcome_panel,
-    metric_row, info_card,
 )
 from utils.theme import get_theme, theme_css
 
