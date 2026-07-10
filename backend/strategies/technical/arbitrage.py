@@ -16,9 +16,9 @@ class StatisticalArbitrageStrategy(StrategyBase):
 
     def init(self, params: dict[str, Any]) -> None:
         super().init(params)
-        self.lookback = params.get("lookback", 200)
-        self.entry_z = params.get("entry_z", 1.5)
-        self.exit_z = params.get("exit_z", 0.3)
+        self.lookback = int(params.get("lookback", 200))
+        self.entry_z = float(params.get("entry_z", 1.5))
+        self.exit_z = float(params.get("exit_z", 0.3))
         self.prices: list[float] = []
 
     def _fit_ou(self) -> tuple[float, float]:
