@@ -44,7 +44,7 @@ from utils.ui_components import (
     render_monte_carlo,
 )
 from utils.impeccable import (
-    section_header, step_indicator, status_pill, empty_state,
+    section_header, step_indicator, status_pill, empty_state, welcome_panel,
     metric_row, info_card,
 )
 from utils.theme import get_theme, theme_css
@@ -871,17 +871,11 @@ if df is None or df.empty:
         current=st.session_state["current_step"],
         theme=current_theme,
     ), unsafe_allow_html=True)
-    # 灰色虛線框：只在 current_step == 0（完全沒開始）時顯示
-    # 一旦進入步驟 1（已載入資料）就自動隱藏
+    # 質感化歡迎面板：只在 current_step == 0（完全沒開始）時顯示
+    # v9 改進：漸層 hero + 3 步驟引導卡 + 策略範本標籤雲 + 底部提示
+    # 一旦進入步驟 1（已載入資料）就自動隱藏，改為渲染策略/回測 UI
     if st.session_state["current_step"] == 0:
-        st.markdown(empty_state(
-            "從左側開始",
-            "選擇資料來源（加密貨幣 / CSV / 配對交易），按「一鍵測試資料」即可用 500 根模擬 K 線快速體驗。",
-            icon="·",
-            theme=current_theme,
-        ), unsafe_allow_html=True)
-        st.markdown(section_header("內建策略範本", "", current_theme, size="sm"), unsafe_allow_html=True)
-        st.caption("SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對")
+        st.markdown(welcome_panel(theme=current_theme), unsafe_allow_html=True)
     st.stop()
 
 
@@ -1022,7 +1016,11 @@ with main_tab1:
     # - 如果 strategy 回傳 2 個 series (entries, exits)
     #   → 預設 long 模式
     # 透過檢查 long_entries/short_entries 是否有訊號來自動選擇
-    if not run_single:
+    # v9 改進：藍色提示框只在「從未執行過回測」時顯示
+    # 只要 session_state["bt_result_df"] 存在（曾執行過）就完全隱藏
+    # 讓回測數據與圖表直接呈現在畫面最上方
+    has_backtest_result = "bt_result_df" in st.session_state and st.session_state.get("bt_result_df") is not None
+    if not run_single and not has_backtest_result:
         st.info("點擊「▶️ 執行回測」開始分析")
     else:
         # 執行策略（最外層 try 確保任何錯誤都不會導致整個 app 崩潰）
@@ -1133,12 +1131,15 @@ with main_tab1:
                     render_monte_carlo(initial_capital, trades)
 
     # 即使沒按「▶️ 執行回測」，若有先前結果 → 顯示結果 tabs
+    # v9 改進：藍色提示框只在「從未執行過回測」時顯示
+    # 已執行過的話，數據直接呈現，不顯示提示
     if not run_single and "bt_result_df" in st.session_state and st.session_state.get("bt_trades"):
         result_df = st.session_state["bt_result_df"]
         trades = st.session_state["bt_trades"]
         metrics = st.session_state["bt_metrics"]
 
-        st.info("顯示先前的回測結果（如需重新執行請按「▶️ 執行回測」）")
+        # 已執行過回測 → 不再顯示「顯示先前的回測結果」提示框
+        # 結果 tabs 直接接續渲染，數據呈現在畫面最上方
 
         result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
             "Overview",

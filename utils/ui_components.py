@@ -607,29 +607,29 @@ def render_tv_overview(
             key="tv_show_buy_hold",
         )
 
-        # 絕對/百分比 toggle
+        # 絕對/百分比 toggle：v9 改為 segmented button 群組
+        # 原本下方還有一個 st.radio，與視覺按鈕完全重複 → 已移除
+        # 改用兩個 st.button 並排，type=primary/secondary 控制藍白配色
         cur_abs = st.session_state["show_absolute"]
-        st.markdown(f"""
-<div style="display: inline-flex; border: 1px solid {p['border']}; border-radius: 4px;
-            overflow: hidden; font-size: 12px; margin-left: 6px;">
-    <button id="abs-btn-tv" style="padding: 4px 12px; background: {p['primary'] if cur_abs else p['bg_subtle']};
-            color: {('white' if cur_abs else p['text_secondary'])}; font-weight: 600; border: none;
-            cursor: pointer;">Absolute</button>
-    <button id="pct-btn-tv" style="padding: 4px 12px; background: {p['bg_subtle'] if cur_abs else p['primary']};
-            color: {p['text_secondary'] if cur_abs else 'white'}; font-weight: 600; border: none;
-            cursor: pointer;">Percentage</button>
-</div>
-""", unsafe_allow_html=True)
-        # 簡化：兩個 radio button 在 col 內（用 st.radio）
-        abs_val = st.radio(
-            "Display unit",
-            options=["Absolute", "Percentage"],
-            index=0 if cur_abs else 1,
-            key="tv_show_absolute",
-            label_visibility="collapsed",
-            horizontal=True,
-        )
-        st.session_state["show_absolute"] = (abs_val == "Absolute")
+        btn_left, btn_right = st.columns(2, gap="small")
+        with btn_left:
+            if st.button(
+                "Absolute",
+                key="tv_abs_btn",
+                use_container_width=True,
+                type="primary" if cur_abs else "secondary",
+            ):
+                st.session_state["show_absolute"] = True
+                st.rerun()
+        with btn_right:
+            if st.button(
+                "Percentage",
+                key="tv_pct_btn",
+                use_container_width=True,
+                type="primary" if not cur_abs else "secondary",
+            ):
+                st.session_state["show_absolute"] = False
+                st.rerun()
 
     # 分隔線
     st.markdown(f"""
