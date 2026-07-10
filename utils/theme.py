@@ -444,24 +444,21 @@ a[href*="streamlit.io/cloud"] {{
     }}
 }}
 
-/* === 全域：漢堡按鈕（用 streamlit 預設的 sidebar 切換按鈕） === */
-/* streamlit 的 [data-testid="stBaseButton-headerNoPadding"] 就是 sidebar 切換按鈕 */
-/* 把它重新樣式為圓形漢堡按鈕（在 sidebar 內或外部顯示） */
+/* === 全域：隱藏 streamlit 內建漢堡按鈕（用我們自製 FAB） === */
+/* 因為我們用 #mobile-hamburger-fab 取代它 */
 button[data-testid="stBaseButton-headerNoPadding"] {{
-    background: {theme['primary']} !important;
-    color: white !important;
-    border-radius: 50% !important;
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
-    border: 2px solid white !important;
-    z-index: 999999 !important;
-}}
-button[data-testid="stBaseButton-headerNoPadding"] svg {{
-    color: white !important;
-    fill: white !important;
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
 }}
 
 /* === 浮動漢堡按鈕（永遠顯示，sidebar 開啟時變成 X 表示關閉） === */
@@ -936,11 +933,6 @@ iframe[height="0"] {{
 @keyframes rotateTheme {{
     from {{ transform: rotate(0deg); }}
     to {{ transform: rotate(360deg); }}
-}}
-
-/* 隱藏原本的浮動漢堡按鈕（避免和 FAB 衝突） */
-button[data-testid="stBaseButton-headerNoPadding"] {{
-    display: none !important;
 }}
 </style>
 
