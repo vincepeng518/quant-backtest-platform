@@ -68,7 +68,7 @@ class Backtester:
             raise ValueError(f"Data must contain columns: {required}")
         self.data = data.sort_values("timestamp").reset_index(drop=True)
 
-    async def run(self) -> BacktestResult:
+    def run(self) -> BacktestResult:
         if self.strategy is None or self.data is None:
             raise ValueError("Strategy and data must be set")
 

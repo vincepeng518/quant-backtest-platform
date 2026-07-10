@@ -17,9 +17,9 @@ class PairsTradingStrategy(StrategyBase):
 
     def init(self, params: dict[str, Any]) -> None:
         super().init(params)
-        self.window = params.get("window", 100)
-        self.entry_z = params.get("entry_z", 2.0)
-        self.exit_z = params.get("exit_z", 0.5)
+        self.window = int(params.get("window", 100))
+        self.entry_z = float(params.get("entry_z", 2.0))
+        self.exit_z = float(params.get("exit_z", 0.5))
         self.spread: list[float] = []
 
     def _calc_zscore(self) -> float:

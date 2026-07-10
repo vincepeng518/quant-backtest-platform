@@ -111,7 +111,10 @@ class Optimizer:
         s = {}
         for k, p in space.items():
             if p["type"] == "range":
-                s[k] = np.random.uniform(p["min"], p["max"])
+                val = np.random.uniform(p["min"], p["max"])
+                if p.get("step", 1) >= 1:
+                    val = int(round(val))
+                s[k] = val
             elif p["type"] == "choice":
                 s[k] = np.random.choice(p["values"])
         return s
@@ -138,8 +141,11 @@ class Optimizer:
         for k, p in space.items():
             if np.random.random() < rate:
                 if p["type"] == "range":
-                    m[k] += np.random.uniform(-p.get("step", 1), p.get("step", 1))
+                    step = p.get("step", 1)
+                    m[k] += np.random.uniform(-step, step) if step < 1 else np.random.choice([-step, step])
                     m[k] = max(p["min"], min(p["max"], m[k]))
+                    if step >= 1:
+                        m[k] = int(round(m[k]))
                 elif p["type"] == "choice":
                     m[k] = np.random.choice(p["values"])
         return m
@@ -168,12 +174,15 @@ class Optimizer:
         from scipy.optimize import minimize
 
         best = None
-        best_val = -np.inf
+        best_val = np.inf
         bounds = [(0, 1)] * len(space)
         for _ in range(5):
             x0 = np.random.uniform(0, 1, len(space))
-            res = minimize(lambda x: -gp.predict([x])[0], x0, bounds=bounds, method="L-BFGS-B")
-            if res.fun < best_val:
-                best_val = res.fun
-                best = res.x
-        return best.tolist()
+            try:
+                res = minimize(lambda x: -gp.predict([x])[0], x0, bounds=bounds, method="L-BFGS-B")
+                if best is None or res.fun < best_val:
+                    best_val = res.fun
+                    best = res.x.copy()
+            except Exception:
+                continue
+        return best.tolist() if best is not None else np.random.uniform(0, 1, len(space)).tolist()

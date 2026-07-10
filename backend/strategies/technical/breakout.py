@@ -14,8 +14,8 @@ class BreakoutStrategy(StrategyBase):
 
     def init(self, params: dict[str, Any]) -> None:
         super().init(params)
-        self.lookback = params.get("lookback_period", 20)
-        self.risk_percent = params.get("risk_percent", 2.0)
+        self.lookback = int(params.get("lookback_period", 20))
+        self.risk_percent = float(params.get("risk_percent", 2.0))
         self.highs: list[float] = []
         self.lows: list[float] = []
 

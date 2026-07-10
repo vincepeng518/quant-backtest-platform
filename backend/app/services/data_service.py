@@ -61,7 +61,7 @@ def create_task_id() -> str:
 
 async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) -> None:
     try:
-        result = await backtester.run()
+        result = backtester.run()
         store[task_id]["status"] = "completed"
         store[task_id]["result"] = result
     except Exception as e:

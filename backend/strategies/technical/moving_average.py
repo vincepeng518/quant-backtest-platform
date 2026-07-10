@@ -14,8 +14,8 @@ class MovingAverageCrossStrategy(StrategyBase):
 
     def init(self, params: dict[str, Any]) -> None:
         super().init(params)
-        self.fast_period = params.get("fast_period", 20)
-        self.slow_period = params.get("slow_period", 50)
+        self.fast_period: int = int(params.get("fast_period", 20))
+        self.slow_period: int = int(params.get("slow_period", 50))
         self.direction = params.get("trade_direction", "both")
         self.prices: list[float] = []
 
