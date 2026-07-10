@@ -836,6 +836,15 @@ iframe[height="0"] {{
 }}
 
 /* === v4 改進：Top Bar 主題切換 + 動畫 === */
+/* === v5 改進：隱藏 Plotly modebar（相機/放大鏡/十字等灰色工具列）=== */
+.plotly .modebar {{
+    display: none !important;
+}}
+/* 連 modebar container 也藏（連同 group 工具列） */
+.plotly .modebar-container {{
+    display: none !important;
+}}
+
 /* 主題切換平滑過渡（所有 element） */
 .stApp, .main .block-container, [data-testid="stSidebar"],
 .stButton button, .stTextInput input, .stTextArea textarea,

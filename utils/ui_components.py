@@ -551,13 +551,13 @@ def render_tv_overview(
     with title_col:
         st.markdown(f"""
 <div>
-    <h2 style="
-        color: {p['text_primary']};
-        font-size: 22px;
-        font-weight: 600;
-        margin: 0 0 4px 0;
-        letter-spacing: -0.01em;
-    ">📊 Strategy Backtest Report</h2>
+        <h2 style="
+            color: {p['text_primary']};
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.01em;
+        ">Strategy Backtest Report</h2>
     <div style="
         color: {p['text_muted']};
         font-size: 12px;
@@ -719,7 +719,7 @@ def render_tv_overview(
     margin: 24px 0 8px 0;
     padding-bottom: 6px;
     border-bottom: 1px solid {p['border']};
-">📈 Equity Curve &amp; Drawdown</div>
+">Equity Curve &amp; Drawdown</div>
 """, unsafe_allow_html=True)
 
     _render_tv_equity_chart(result_df, metrics_with_cap, st.session_state["show_buy_hold"])
@@ -735,7 +735,7 @@ def render_tv_overview(
     margin: 28px 0 8px 0;
     padding-bottom: 6px;
     border-bottom: 1px solid {p['border']};
-">📊 Trade Statistics</div>
+">Trade Statistics</div>
 """, unsafe_allow_html=True)
 
     _render_trade_stats_grid(metrics, n_trades, n_wins, win_rate, profit_factor, avg_win, avg_loss, rr, recovery, p)
@@ -1010,9 +1010,9 @@ def render_performance_summary(trades: List[Dict], metrics: Dict) -> None:
 
     # 多維度分組
     blocks = [
-        ("📊 全部交易", trades_df),
-        ("🟢 做多", trades_df[trades_df["direction"] == "long"] if "direction" in trades_df.columns else pd.DataFrame()),
-        ("🔴 做空", trades_df[trades_df["direction"] == "short"] if "direction" in trades_df.columns else pd.DataFrame()),
+        ("全部交易", trades_df),
+        ("做多", trades_df[trades_df["direction"] == "long"] if "direction" in trades_df.columns else pd.DataFrame()),
+        ("做空", trades_df[trades_df["direction"] == "short"] if "direction" in trades_df.columns else pd.DataFrame()),
     ]
 
     for title, df_block in blocks:
@@ -1305,7 +1305,7 @@ def render_list_of_trades(trades: List[Dict]) -> None:
 """, unsafe_allow_html=True)
 
     # v2: 用 streamlit-aggrid 支援 row click → 圖表高亮
-    st.caption("💡 點擊任一交易，圖表會自動顯示該交易的進出場位置與損益")
+    st.caption("提示：點擊任一交易，圖表會自動顯示該交易的進出場位置與損益")
 
     from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
     import streamlit as st_lib  # 用別名避免 shadowing
@@ -1449,7 +1449,7 @@ def render_list_of_trades(trades: List[Dict]) -> None:
     from datetime import datetime
     csv = trades_df_display.drop(columns=["#"]).to_csv(index=False).encode("utf-8")
     st.download_button(
-        "📥 下載交易明細 CSV",
+        "下載交易明細 CSV",
         data=csv,
         file_name=f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv",
@@ -1627,7 +1627,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     <span style="margin-left: auto; display: flex; gap: 6px;">
         <span style="color: {p['text_muted']}; font-size: 10px; padding: 2px 6px;
                      background: {p['bg']}; border-radius: 3px;">
-            💡 點 vline 跳回明細
+            提示：點 vline 跳回明細
         </span>
         <button onclick="window.parent.st_lib = window.parent.st_lib || {{}};
                 window.parent.st_lib.clear_sel = function() {{
@@ -1970,7 +1970,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
         ruin_threshold = st.number_input("破產門檻 (%)", min_value=10, max_value=90, value=50,
                                           help="虧損超過此百分比視為破產")
 
-    if st.button("🎲 執行蒙地卡羅模擬", type="primary", use_container_width=True):
+    if st.button("執行蒙地卡羅模擬", type="primary", use_container_width=True):
         with st.spinner(f"執行 {n_sims} 次模擬中..."):
             from utils.monte_carlo import MonteCarloSimulator
             sim = MonteCarloSimulator(initial_capital=initial_capital)
@@ -2044,7 +2044,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
     font-weight: 600;
     color: {p['text_primary']};
     margin: 16px 0 8px 0;
-">📈 權益曲線分布（隨機路徑）</div>
+">權益曲線分布（隨機路徑）</div>
 """, unsafe_allow_html=True)
 
         equity_curves = mc["equity_curves"]
@@ -2131,7 +2131,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
     font-weight: 600;
     color: {p['text_primary']};
     margin: 16px 0 8px 0;
-">📊 最終報酬率 &amp; 最大回撤分布</div>
+">最終報酬率 &amp; 最大回撤分布</div>
 """, unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
@@ -2223,23 +2223,23 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
     font-weight: 600;
     color: {p['text_primary']};
     margin: 16px 0 8px 0;
-">📋 風險評估總結</div>
+">風險評估總結</div>
 """, unsafe_allow_html=True)
 
         if mc["ruin_prob"] > 20:
-            risk_level = "🔴 高風險"
+            risk_level = "高風險"
             risk_msg = "破產機率過高（>20%），強烈建議重新設計策略或降低倉位。"
         elif mc["ruin_prob"] > 10:
-            risk_level = "🟠 中風險"
+            risk_level = "中風險"
             risk_msg = "存在一定風險，建議謹慎使用，考慮加入倉位管理。"
         elif p_stats["dd_p95"] > 40:
-            risk_level = "🟡 需注意"
+            risk_level = "需注意"
             risk_msg = "破產機率低，但最壞情況回撤可能較大，請做好風險控制。"
         elif p_stats["return_p5"] > 0:
-            risk_level = "🟢 低風險"
+            risk_level = "低風險"
             risk_msg = "在 95% 信心區間下仍然獲利，策略非常穩健。"
         else:
-            risk_level = "🟡 觀察中"
+            risk_level = "觀察中"
             risk_msg = "整體正向但有風險，建議結合其他指標綜合評估。"
 
         st.markdown(f"""
