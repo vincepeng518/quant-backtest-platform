@@ -18,47 +18,37 @@ THEMES: Dict[str, Dict[str, str]] = {
     "light": {
         "name": "Light Pro",
         "id": "light",
-        # === 語意化色彩變數 ===
-        # 背景層級
-        "bg_primary": "#F8FAFC",       # 頁面主背景（slate-50，柔和淺灰）
-        "bg_subtle": "#F1F5F9",        # 區塊背景（slate-100）
-        "bg_card": "#FFFFFF",          # 卡片白
-        # 邊框
-        "border": "#E2E8F0",           # 細邊框（slate-200）
-        "border_strong": "#CBD5E1",    # 強調邊框（slate-300）
-        # 文字
-        "text_primary": "#0F172A",     # 主要文字（slate-900）
-        "text_secondary": "#475569",   # 次要文字（slate-600）
-        "text_muted": "#94A3B8",       # 弱化文字（slate-400）
-        # 主色
-        "primary": "#2563EB",          # blue-600
-        "primary_hover": "#1D4ED8",    # blue-700
-        # 語意色
-        "green": "#0D9488",            # Tiffany 綠
-        "green_light": "#CCFBF1",
-        "green_text": "#0F766E",
+        "bg_primary": "#FFFFFF",
+        "bg_subtle": "#F9F9F9",
+        "bg_card": "#FFFFFF",
+        "border": "rgba(0,0,0,0.06)",
+        "border_strong": "rgba(0,0,0,0.10)",
+        "text_primary": "#1A1A1A",
+        "text_secondary": "#6B6B6B",
+        "text_muted": "#A0A0A0",
+        "primary": "#2563EB",
+        "primary_hover": "#1D4ED8",
+        "green": "#0D9488",
+        "green_light": "rgba(13, 148, 136, 0.08)",
+        "green_text": "#0D9488",
         "red": "#EF4444",
-        "red_light": "#FEE2E2",
-        "red_text": "#DC2626",
-        "orange": "#F97316",            # 亮橘
+        "red_light": "rgba(239, 68, 68, 0.06)",
+        "red_text": "#EF4444",
+        "orange": "#F97316",
         "purple": "#7C3AED",
         "yellow": "#EAB308",
-        # 字體
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
         "font_mono": "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
-        # 圖表
         "plotly_template": "plotly_white",
-        "plotly_paper": "#F8FAFC",
-        "plotly_plot": "#F8FAFC",
-        "plotly_grid": "#E2E8F0",
-        "plotly_axis": "#475569",
-        "plotly_text": "#0F172A",
-        # 形狀
-        "radius": "6px",
-        "radius_sm": "5px",
+        "plotly_paper": "rgba(0,0,0,0)",
+        "plotly_plot": "rgba(0,0,0,0)",
+        "plotly_grid": "rgba(0,0,0,0.04)",
+        "plotly_axis": "#A0A0A0",
+        "plotly_text": "#1A1A1A",
+        "radius": "0px",
+        "radius_sm": "0px",
         "shadow": "none",
         "shadow_strong": "none",
-        # Spacing scale (4 / 8 / 12 / 16 / 24 / 32)
         "space_xs": "4px",
         "space_sm": "8px",
         "space_md": "12px",
@@ -69,39 +59,37 @@ THEMES: Dict[str, Dict[str, str]] = {
     "dark": {
         "name": "Dark Trading",
         "id": "dark",
-        # === 語意化色彩變數（TradingView 暗色配色：#131722 背景，#D1D4DC 文字）===
-        "bg_primary": "#131722",       # 頁面主背景（TradingView 真實色，避免純黑）
-        "bg_subtle": "#1A1E2A",        # 區塊背景（略淺一點）
-        "bg_card": "#1A1E2A",          # 卡片底
-        "border": "#2A2E39",           # 細邊框（TV border）
-        "border_strong": "#363A45",    # 強調邊框
-        "text_primary": "#D1D4DC",     # 主要文字（TV text，避免純白刺眼）
-        "text_secondary": "#787B86",   # 次要文字（TV text muted）
-        "text_muted": "#5D606B",       # 弱化文字
-        "primary": "#2962FF",          # TV blue（用真實的 TV 主色）
+        "bg_primary": "#0D0D0D",
+        "bg_subtle": "#161616",
+        "bg_card": "#0D0D0D",
+        "border": "rgba(255,255,255,0.06)",
+        "border_strong": "rgba(255,255,255,0.10)",
+        "text_primary": "#E5E5E5",
+        "text_secondary": "#8B8B8B",
+        "text_muted": "#5C5C5C",
+        "primary": "#2962FF",
         "primary_hover": "#1E53E5",
-        "green": "#0D9488",            # Tiffany 綠
-        "green_light": "rgba(13, 148, 136, 0.15)",
+        "green": "#0D9488",
+        "green_light": "rgba(13, 148, 136, 0.10)",
         "green_text": "#2DD4BF",
         "red": "#EF5350",
-        "red_light": "rgba(239, 83, 80, 0.15)",
+        "red_light": "rgba(239, 83, 80, 0.08)",
         "red_text": "#EF5350",
-        "orange": "#FF9800",           # TV 橘
+        "orange": "#FF9800",
         "purple": "#9C27B0",
         "yellow": "#FFEB3B",
         "font_family": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif",
         "font_mono": "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
         "plotly_template": "plotly_dark",
-        "plotly_paper": "#131722",
-        "plotly_plot": "#131722",
-        "plotly_grid": "#2A2E39",
-        "plotly_axis": "#787B86",
-        "plotly_text": "#D1D4DC",
-        "radius": "6px",
-        "radius_sm": "5px",
+        "plotly_paper": "rgba(0,0,0,0)",
+        "plotly_plot": "rgba(0,0,0,0)",
+        "plotly_grid": "rgba(255,255,255,0.04)",
+        "plotly_axis": "#5C5C5C",
+        "plotly_text": "#E5E5E5",
+        "radius": "0px",
+        "radius_sm": "0px",
         "shadow": "none",
         "shadow_strong": "none",
-        # Spacing scale (4 / 8 / 12 / 16 / 24 / 32)
         "space_xs": "4px",
         "space_sm": "8px",
         "space_md": "12px",
@@ -196,96 +184,66 @@ def theme_css(theme: Dict[str, str]) -> str:
 
     return f"""
 <style>
-/* === v7 改進：語意化 CSS Variables + TradingView 配色 === */
-/* 淺色模式變數（預設） */
+/* === BORDERLESS MAGAZINE UI === */
 :root, [data-theme="light"] {{
 {light_vars}
 }}
-
-/* 深色模式變數（覆蓋淺色） */
 [data-theme="dark"] {{
 {dark_vars}
 }}
 
-/* === 字體系統 === */
+/* === 字體系統：Inter + 寬鬆行距 === */
 html, body, [class*="css"] {{
     font-family: var(--font-family), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
+    letter-spacing: -0.003em;
 }}
 
-/* === 頁面背景 === */
+/* === 頁面背景：單一純色，無紋理 === */
 .stApp {{
     background: var(--bg-primary);
     color: var(--text-primary);
-    /* 全站過渡：切換主題時平滑變色 */
     transition: background-color 150ms ease-out, color 150ms ease-out;
 }}
 
 .main .block-container {{
-    padding-top: 0 !important;
+    padding-top: 1rem !important;
     margin-top: 0 !important;
-    max-width: 1280px;
+    max-width: 1200px;
 }}
 
-/* 隱藏 Streamlit 預設的頂部空白區 */
-header[data-testid="stHeader"] {{
+/* 隱藏 Streamlit 預設 header / footer / decoration */
+header[data-testid="stHeader"],
+.stAppHeader, [class*="stAppHeader"],
+[data-testid="stAppViewBlockContainer"] > div:first-child,
+footer, [data-testid="stDecoration"],
+[data-testid="stMainMenuButton"],
+[data-testid="stBaseButton-header"],
+[data-testid="stBaseButton-headerNoPadding"] {{
     display: none !important;
     height: 0 !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-}}
-.stAppHeader, [class*="stAppHeader"] {{
-    display: none !important;
-    height: 0 !important;
-}}
-[data-testid="stAppViewBlockContainer"] {{
-    padding-top: 0 !important;
-    margin-top: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }}
 .stApp {{ margin-top: 0 !important; }}
+[data-testid="stAppViewBlockContainer"] {{ padding-top: 0 !important; }}
 
-/* 隱藏 Streamlit Cloud 的「Manage app」按鈕 */
-[data-testid="manage-app-button"],
-[class*="ManageApp"], [class*="manage-app"],
-a[href*="streamlit.io/cloud"], div[id*="manage"] {{
-    display: none !important; visibility: hidden !important; pointer-events: none !important;
-}}
-footer {{ display: none !important; }}
-
-/* === 標題層級 === */
-.main-header {{
-    font-size: 1.875rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-    letter-spacing: -0.02em;
-}}
-.sub-header {{
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-top: 0;
-    margin-bottom: 28px;
-    font-weight: 400;
-}}
-h1, h2, h3, h4 {{
-    color: var(--text-primary) !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.01em;
-}}
-h3 {{
-    font-size: 1.125rem !important;
-    margin-top: 24px !important;
-    margin-bottom: 12px !important;
+/* Manage app / deploy 按鈕 */
+a[href*="streamlit.io/cloud"], [class*="deploy"], [class*="Deploy"],
+[data-testid="manage-app-button"], [class*="ManageApp"] {{
+    display: none !important;
 }}
 
-/* === Sidebar === */
+/* === Sidebar：無邊框，僅用背景色區分 === */
 [data-testid="stSidebar"] {{
     background: var(--bg-subtle);
-    border-right: 1px solid var(--border);
+    border-right: none;
     color: var(--text-primary) !important;
-    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+    transition: background-color 150ms ease-out;
 }}
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p,
@@ -293,573 +251,429 @@ h3 {{
     color: var(--text-primary) !important;
 }}
 [data-testid="stSidebar"] h2 {{
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: var(--text-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
     text-transform: none;
     letter-spacing: 0;
-    margin-top: 16px !important;
+    margin-top: 20px !important;
+    margin-bottom: 6px !important;
+}}
+
+/* === 標題層級：雜誌風 === */
+h1 {{
+    font-size: 1.75rem !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.2 !important;
+}}
+h2 {{
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    margin-top: 24px !important;
+    margin-bottom: 8px !important;
+}}
+h3 {{
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.01em !important;
+    margin-top: 20px !important;
     margin-bottom: 8px !important;
 }}
 
-/* === Tabs === */
+/* === Tabs：無邊框底線，僅用文字粗細區分 === */
 .stTabs [data-baseweb="tab-list"] {{
     gap: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
     background: transparent;
 }}
 .stTabs [data-baseweb="tab"] {{
     background: transparent;
     border-radius: 0;
-    padding: 10px 18px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: color 150ms ease-out, border-color 150ms ease-out;
+    padding: 8px 16px;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    border-bottom: none;
+    transition: color 150ms ease-out, opacity 150ms ease-out;
 }}
 .stTabs [aria-selected="true"] {{
-    color: var(--primary) !important;
-    border-bottom: 2px solid var(--primary) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    border-bottom: none !important;
     background: transparent !important;
 }}
-.stTabs [data-baseweb="tab"]:hover {{ color: var(--text-primary); }}
+.stTabs [data-baseweb="tab"]:hover {{
+    color: var(--text-secondary);
+    opacity: 0.8;
+}}
 
-/* === 按鈕 === */
+/* === 按鈕：細線條 Outline 風格 === */
 .stButton button {{
-    border-radius: var(--radius);
+    border-radius: 0;
     font-weight: 500;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     border: 1px solid var(--border-strong);
-    background: var(--bg-card);
+    background: transparent;
     color: var(--text-primary);
-    transition: all 150ms ease-out;
-    padding: 0.5rem 1rem;
-    min-height: 38px;
+    transition: opacity 150ms ease-out, border-color 150ms ease-out;
+    padding: 0.45rem 1rem;
+    min-height: 36px;
     box-shadow: none;
 }}
 .stButton button:hover {{
-    background: var(--bg-subtle);
-    border-color: var(--primary);
-    color: var(--text-primary);
+    opacity: 0.7;
+    border-color: var(--border-strong);
 }}
 .stButton button:focus {{
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
+    outline: none;
+    opacity: 0.6;
 }}
-.stButton button:active {{ transform: scale(0.98); }}
+.stButton button:active {{
+    opacity: 0.5;
+    transform: none;
+}}
 .stButton button[kind="primary"] {{
     background: var(--primary);
     color: white;
-    border: 1px solid var(--primary);
+    border: none;
     font-weight: 600;
 }}
 .stButton button[kind="primary"]:hover {{
-    background: var(--primary-hover);
-    border-color: var(--primary-hover);
-    color: white;
+    opacity: 0.85;
+    background: var(--primary);
 }}
 
-/* === 輸入框 === */
-.stTextInput input, .stTextArea textarea, .stNumberInput input,
-.stSelectbox [data-baseweb="select"] > div,
-.stMultiSelect [data-baseweb="select"] > div {{
-    border-radius: 6px;
-    border: 1px solid var(--border-strong);
-    font-size: 0.875rem;
-    background: var(--bg-card);
+/* === 輸入框：無邊框底線風格 === */
+.stTextInput input, .stTextArea textarea, .stNumberInput input {{
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border-strong);
+    font-size: 0.8125rem;
+    background: transparent;
     color: var(--text-primary);
-    transition: border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
+    transition: border-color 150ms ease-out;
+    padding: 6px 0;
 }}
 .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {{
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    border-bottom: 1px solid var(--text-primary);
+    box-shadow: none;
+}}
+.stSelectbox [data-baseweb="select"] > div,
+.stMultiSelect [data-baseweb="select"] > div {{
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border-strong);
+    font-size: 0.8125rem;
+    background: transparent;
+    color: var(--text-primary);
+    transition: border-color 150ms ease-out;
 }}
 
-/* === Metric 卡片 === */
+/* === Metric：純文字排版，無卡片框 === */
 [data-testid="stMetric"] {{
-    background: var(--bg-card);
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    background: transparent;
+    padding: 4px 0;
+    border-radius: 0;
+    border: none;
     box-shadow: none;
-    transition: border-color 150ms ease-out, background-color 150ms ease-out;
-}}
-[data-testid="stMetric"]:hover {{
-    border-color: var(--border-strong);
 }}
 [data-testid="stMetricValue"] {{
     font-family: var(--font-mono);
     font-weight: 600;
-    text-align: right;
+    font-size: 1.125rem;
+    text-align: left;
+    color: var(--text-primary);
 }}
-/* === 展開區塊 === */
-.streamlit-expanderHeader {{
-    background: var(--bg-subtle) !important;
-    border-radius: var(--radius) !important;
-    border: 1px solid var(--border) !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    color: var(--text-primary) !important;
-}}
-.streamlit-expanderContent {{
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 var(--radius) var(--radius);
+[data-testid="stMetricDelta"] {{
+    font-size: 0.75rem;
 }}
 
-/* === 表格 === */
-.stDataFrame {{
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
+/* === Expander：無邊框 === */
+[data-testid="stExpander"], .streamlit-expanderHeader {{
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
 }}
-/* 表格質感：條紋行、header 加粗、數據靠右、monospace 數字 */
+.streamlit-expanderContent {{
+    background: transparent;
+    border: none;
+}}
+
+/* === 表格：無分隔線，極簡 === */
+.stDataFrame {{
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+}}
+.stDataFrame table {{
+    border-collapse: collapse;
+}}
 .stDataFrame table thead tr th {{
-    font-weight: 700 !important;
-    font-size: 0.75rem !important;
-    color: var(--text-secondary) !important;
-    background: var(--bg-subtle) !important;
-    border-bottom: 1px solid var(--border-strong) !important;
+    font-weight: 600 !important;
+    font-size: 0.6875rem !important;
+    color: var(--text-muted) !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--border) !important;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 6px 10px !important;
+}}
+.stDataFrame table tbody tr {{
+    border-bottom: none;
 }}
 .stDataFrame table tbody tr:nth-child(even) {{
-    background: var(--bg-subtle) !important;
+    background: transparent;
 }}
 .stDataFrame table tbody tr:hover {{
-    background: var(--bg-card) !important;
-    border-color: var(--border-strong) !important;
+    background: var(--bg-subtle) !important;
 }}
 .stDataFrame table tbody td {{
     font-family: var(--font-mono) !important;
     text-align: right !important;
-    font-size: 0.8125rem !important;
-    color: var(--text-primary) !important;
-    transition: background-color 150ms ease-out;
-}}
-/* ag-Grid table styling */
-.ag-theme-alpine .ag-header-cell-text,
-.ag-theme-alpine-dark .ag-header-cell-text {{
-    font-weight: 700 !important;
     font-size: 0.75rem !important;
-}}
-.ag-theme-alpine .ag-row-even,
-.ag-theme-alpine-dark .ag-row-even {{
-    background-color: var(--bg-subtle) !important;
-}}
-.ag-theme-alpine .ag-row:hover,
-.ag-theme-alpine-dark .ag-row:hover {{
-    border-color: var(--border-strong) !important;
-    transition: border-color 150ms ease-out;
+    color: var(--text-primary) !important;
+    border-bottom: none !important;
+    padding: 6px 10px !important;
 }}
 
-/* === Divider === */
+/* === Divider：極淡 === */
 hr {{
-    margin: 20px 0 !important;
-    border-color: var(--border) !important;
+    margin: 16px 0 !important;
+    border: none !important;
+    border-top: 1px solid var(--border) !important;
 }}
 
 /* === Caption === */
 .stCaption, [data-testid="stCaptionContainer"] {{
-    color: var(--text-secondary) !important;
-    font-size: 0.8125rem !important;
+    color: var(--text-muted) !important;
+    font-size: 0.75rem !important;
 }}
 
-/* === 隱藏預設 UI 元素 === */
-#MainMenu {{visibility: hidden !important;}}
-footer {{visibility: hidden !important;}}
-[data-testid="stDecoration"] {{visibility: hidden !important;}}
-[data-testid="stMainMenuButton"] {{visibility: hidden !important;}}
-[data-testid="stBaseButton-header"] {{visibility: hidden !important;}}
-[data-testid="stBaseButton-headerNoPadding"] {{
-    color: var(--primary) !important;
-}}
+/* === Hide streamlit chrome === */
+#MainMenu {{ visibility: hidden !important; }}
 
-a:has-text("Manage app"), div:has-text("Manage app"), .stAppDeployButton {{
-    display: none !important; visibility: hidden !important; pointer-events: none !important;
-}}
-[class*="deploy"], [class*="Deploy"], a[href*="streamlit.io/cloud"] {{
-    display: none !important;
-}}
-
-/* === 手機版：sidebar 切換按鈕 === */
+/* === 手機版 === */
 @media (max-width: 768px) {{
     .main .block-container {{
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         padding-top: 0.5rem !important;
     }}
-    [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {{
-        display: none !important; visibility: hidden !important;
-    }}
-    [data-testid="stExpandSidebarButton"] {{
-        visibility: visible !important;
-        display: flex !important;
-        position: fixed !important;
-        top: 12px !important;
-        left: 12px !important;
-        right: auto !important;
-        bottom: auto !important;
-        z-index: 999998 !important;
-        background: var(--primary) !important;
-        color: white !important;
-        border-radius: 50% !important;
-        width: 48px !important;
-        height: 48px !important;
-        min-width: 48px !important; min-height: 48px !important;
-        max-width: 48px !important; max-height: 48px !important;
-        box-shadow: var(--shadow-strong) !important;
-        border: 2px solid white !important;
-        align-items: center !important; justify-content: center !important;
-        opacity: 1 !important; transform: none !important;
-        margin: 0 !important; padding: 0 !important;
-    }}
-    [data-testid="stExpandSidebarButton"] * {{
-        width: 48px !important; height: 48px !important;
-        min-width: 48px !important; min-height: 48px !important;
-    }}
-    [data-testid="stExpandSidebarButton"] svg {{
-        color: white !important; fill: white !important;
-        width: 24px !important; height: 24px !important; margin: auto !important;
-    }}
-    [data-testid="stExpandSidebarButton"]:hover {{
-        background: var(--primary-hover) !important;
-        transform: scale(1.05) !important;
-    }}
-    [data-testid="stAppViewBlockContainer"] {{ padding-top: 0.5rem !important; }}
-    .main .block-container {{ padding-top: 0.5rem !important; }}
-    [data-testid="stSidebar"][aria-expanded="false"] {{
-        transform: translateX(-100%) !important;
-        margin-left: -21rem !important;
-    }}
-    [data-testid="stSidebar"] {{
-        transition: transform 200ms ease, margin-left 200ms ease !important;
-    }}
-    .main {{
-        margin-left: 0 !important;
-        transition: margin-left 200ms ease !important;
-    }}
-}}
-
-/* === 隱藏 streamlit 內建漢堡按鈕 === */
-button[data-testid="stBaseButton-headerNoPadding"] {{
-    display: none !important; visibility: hidden !important; pointer-events: none !important;
-    width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important;
-    border: 0 !important; overflow: hidden !important;
-    position: absolute !important; top: -9999px !important; left: -9999px !important;
-}}
-
-/* === 浮動漢堡按鈕 === */
-#mobile-hamburger-fab {{
-    position: fixed;
-    top: 12px; left: 12px;
-    z-index: 999999;
-    width: 44px; height: 44px;
-    min-width: 44px; min-height: 44px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    border: 2px solid white;
-    box-shadow: var(--shadow-strong);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    padding: 0; margin: 0; font-size: 0; line-height: 1;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 120ms ease, background 120ms ease;
-}}
-#mobile-hamburger-fab:hover {{
-    background: var(--primary-hover);
-    transform: scale(1.05);
-}}
-#mobile-hamburger-fab:active {{ transform: scale(0.95); }}
-#mobile-hamburger-fab svg {{
-    width: 22px; height: 22px; fill: white; color: white;
-}}
-@media (min-width: 769px) {{
-    #mobile-hamburger-fab {{
-        display: flex !important;
-        top: 4px; left: 248px;
-    }}
-    body.sidebar-collapsed #mobile-hamburger-fab {{
-        left: 12px !important;
-    }}
-    [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {{
-        display: none !important; visibility: hidden !important;
-    }}
-}}
-@media (min-width: 769px) {{
-    [data-testid="stExpandSidebarButton"] {{display: none;}}
-    [data-testid="stToolbar"] {{visibility: hidden;}}
 }}
 
 /* === 隱藏 0x0 iframe === */
 iframe[height="0"] {{
     display: none !important;
-    height: 0 !important; width: 0 !important; border: none !important;
-    position: absolute !important; visibility: hidden !important;
 }}
 
-/* === Impeccable 風格增強 === */
-[data-testid="stSidebar"] h1 {{
-    font-size: 12px !important; font-weight: 700 !important;
-    color: var(--text-secondary) !important;
-    text-transform: none; letter-spacing: 0;
-    margin-top: 0 !important; margin-bottom: 10px !important; padding: 0 !important;
-}}
-[data-testid="stSidebar"] [data-testid="stRadio"] > div {{ gap: 4px !important; }}
-[data-testid="stSidebar"] [data-testid="stRadio"] label {{
-    padding: 4px 0 !important; font-size: 0.8125rem !important;
-}}
-[data-testid="stSidebar"] details,
-[data-testid="stSidebar"] [data-testid="stExpander"] {{
-    border: 1px solid var(--border) !important;
-    border-radius: 6px !important;
-    background: var(--bg-card) !important;
-    margin-bottom: 6px !important;
-}}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
-    color: var(--text-muted) !important; font-size: 0.75rem !important;
-}}
-[data-testid="stSidebar"] [data-baseweb="select"] {{ font-size: 0.8125rem !important; }}
-[data-testid="stSidebar"] .stButton button {{
-    min-height: 34px !important; padding: 0.4rem 0.75rem !important; font-size: 0.8125rem !important;
-}}
-[data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
-    font-size: 0.8125rem !important; padding: 0.25rem 0.5rem !important;
-}}
-[data-testid="stSidebar"] [data-testid="stCheckbox"] {{ font-size: 0.8125rem !important; }}
-
-.main h1 {{
-    font-size: 1.5rem !important; font-weight: 700 !important;
-    letter-spacing: -0.02em !important;
-    margin-top: 0.5rem !important; margin-bottom: 0.25rem !important;
-}}
-.main h2 {{
-    font-size: 12px !important; font-weight: 700 !important;
-    color: var(--text-secondary) !important;
-    text-transform: none !important; letter-spacing: 0 !important;
-    margin-top: 20px !important; margin-bottom: 10px !important;
-}}
-.main h3 {{
-    font-size: 12px !important; font-weight: 700 !important;
-    color: var(--text-secondary) !important;
-    text-transform: none !important; letter-spacing: 0 !important;
-    margin-top: 16px !important; margin-bottom: 8px !important;
-}}
-.main [data-testid="stCaptionContainer"] {{
-    color: var(--text-secondary) !important; font-size: 0.8125rem !important;
-    margin-top: 0 !important; margin-bottom: 12px !important;
-}}
-.stAlert[data-baseweb="notification"] {{
-    border-radius: 6px !important; padding: 8px 12px !important; font-size: 0.8125rem !important;
-}}
-[data-testid="stTextArea"] textarea {{
-    font-family: var(--font-mono) !important; font-size: 12.5px !important;
-    line-height: 1.55 !important; border-radius: 6px !important;
-    background: var(--bg-card) !important; border: 1px solid var(--border) !important;
-    padding: 12px 14px !important;
-}}
-[data-testid="stTextArea"] textarea:focus {{
-    border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
-}}
-.main [data-testid="stSlider"] {{ padding: 0 !important; }}
-.main [data-testid="stDataFrameResizable"] {{
-    border: 1px solid var(--border) !important; border-radius: 6px !important;
-}}
-.main [data-testid="stExpander"] {{
-    border: 1px solid var(--border) !important; border-radius: 6px !important;
-    background: var(--bg-card) !important; margin-bottom: 8px !important;
-}}
-.main [data-testid="stProgress"] > div > div {{ background: var(--primary) !important; }}
-.main [data-testid="stSpinner"] > div {{
-    padding: 4px 0 !important; font-size: 0.875rem !important;
-}}
-.main .stTabs [aria-selected="true"] {{
-    color: var(--primary) !important; font-weight: 600 !important;
-    border-bottom: 2px solid var(--primary) !important;
-}}
-.main .stTabs [data-baseweb="tab"] {{ font-size: 0.875rem !important; }}
-.main-header {{
-    font-size: 1.5rem !important; font-weight: 700 !important;
-    letter-spacing: -0.02em !important; margin-bottom: 4px !important;
-}}
-.sub-header {{
-    font-size: 0.875rem !important; color: var(--text-secondary) !important;
-    margin-bottom: 20px !important;
-}}
-.impeccable-field-label {{
-    font-size: 12px !important; font-weight: 700 !important;
-    text-transform: none !important; letter-spacing: 0 !important;
-    color: var(--text-secondary) !important;
-    margin-bottom: 4px !important; display: block;
-}}
-.impeccable-result-table {{
-    width: 100%; border-collapse: collapse;
-    font-size: 0.8125rem; font-family: var(--font-mono);
-}}
-.impeccable-result-table th {{
-    text-align: left; font-size: 12px;
-    text-transform: none; letter-spacing: 0;
-    color: var(--text-secondary);
-    padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 700;
-}}
-.impeccable-result-table td {{
-    padding: 8px 12px; border-bottom: 1px solid var(--border);
-    color: var(--text-primary);
-    text-align: right;
-}}
-.impeccable-result-table tr:last-child td {{ border-bottom: none; }}
-.impeccable-num-pill {{
-    display: inline-block; padding: 1px 8px; border-radius: 4px;
-    font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600;
-}}
-.impeccable-num-pill.success {{ background: var(--green-light); color: var(--green-text); }}
-.impeccable-num-pill.error {{ background: var(--red-light); color: var(--red-text); }}
-.impeccable-num-pill.neutral {{ background: var(--bg-subtle); color: var(--text-primary); }}
-
-/* === Streamlit selectbox 容器 === */
-.stSelectbox [data-baseweb="select"] > div {{
-    background: var(--bg-card) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-strong) !important;
-    transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
-}}
-.stSelectbox [data-testid="stSelectbox"] > div:not([class*="react-aria"]) {{
-    background: var(--bg-card) !important;
-}}
-[data-testid="stSelectbox"] .react-aria-ComboBox > div,
-[data-testid="stSelectboxVirtual"] .react-aria-ComboBox > div,
-[data-testid="stMultiSelect"] .react-aria-ComboBox > div {{
-    background: var(--bg-card) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-strong) !important;
-}}
-.stSelectbox [data-baseweb="select"] input {{
-    color: var(--text-primary) !important;
-    caret-color: var(--text-primary) !important;
-}}
-.stSelectbox [data-baseweb="select"] > div > div {{
-    color: var(--text-primary) !important;
-}}
-.stSelectbox [data-baseweb="select"] svg,
-.stSelectbox button svg {{
-    fill: var(--text-secondary) !important;
-    color: var(--text-secondary) !important;
-}}
-[data-baseweb="popover"] [data-baseweb="select-option"] {{
-    background: var(--bg-card) !important; color: var(--text-primary) !important;
-}}
-[data-baseweb="popover"] [data-baseweb="select-option"]:hover {{
-    background: var(--bg-subtle) !important;
-}}
-[data-baseweb="popover"] [data-baseweb="select-option"][aria-selected="true"] {{
-    background: var(--primary) !important; color: white !important;
-}}
-.stMultiSelect [data-baseweb="select"] > div,
-.stMultiSelect [data-baseweb="select"] > div > div {{
-    background: var(--bg-card) !important; color: var(--text-primary) !important;
-}}
-.stMultiSelect [data-baseweb="select"] svg {{
-    fill: var(--text-secondary) !important; color: var(--text-secondary) !important;
-}}
-
-.stAlert {{
-    border-radius: 6px !important; padding: 8px 14px !important; font-size: 0.8125rem !important;
-}}
-.stCodeBlock, code, pre {{
-    border-radius: 6px !important; font-size: 0.8125rem !important;
-    border: 1px solid var(--border) !important;
-}}
-
-/* === v5 改進：隱藏 Plotly modebar === */
-.plotly .modebar {{ display: none !important; }}
-.plotly .modebar-container {{ display: none !important; }}
-
-/* === v7 改進：Plotly 圖表完全用 CSS Variables 同步 === */
-/* 圖例文字 */
+/* === Plotly：完全透明背景 === */
+.plotly .modebar, .plotly .modebar-container {{ display: none !important; }}
+.plotly .plot-container .svg-plot .xy .bglayer .bg {{ fill: transparent !important; }}
+.plotly .main-svg {{ background: transparent !important; }}
 .plotly .legend text {{
     fill: var(--plotly-text) !important;
     font-weight: 500 !important;
-    transition: fill 150ms ease-out;
+    font-size: 11px !important;
 }}
-.plotly .legend-title {{
-    fill: var(--plotly-axis) !important;
-}}
-/* 軸文字 */
 .plotly .xaxislayer-above text, .plotly .yaxislayer-above text,
 .plotly .xtick text, .plotly .ytick text {{
     fill: var(--plotly-axis) !important;
-    transition: fill 150ms ease-out;
+    font-size: 10px !important;
 }}
-/* 軸線 */
 .plotly .xaxis line, .plotly .yaxis line,
 .plotly .xaxis path, .plotly .yaxis path {{
     stroke: var(--plotly-grid) !important;
-    transition: stroke 150ms ease-out;
 }}
-/* 網格線 */
 .plotly .gridlines path {{
     stroke: var(--plotly-grid) !important;
-    transition: stroke 150ms ease-out;
 }}
-/* Hover 標籤 */
 .plotly .hoverlayer .hovertext {{
-    fill: var(--bg-card) !important;
-    stroke: var(--border) !important;
-    transition: fill 150ms ease-out, stroke 150ms ease-out;
+    fill: rgba(28, 31, 42, 0.92) !important;
+    stroke: rgba(80, 85, 100, 0.2) !important;
 }}
-.plotly .hovertext text {{ fill: var(--plotly-text) !important; }}
+.plotly .hovertext text {{ fill: #FFFFFF !important; font-size: 11px !important; }}
 .plotly .spikeline {{ stroke: var(--plotly-axis) !important; }}
-/* Plotly 圖表背景（用 paper_bgcolor/plot_bgcolor 控制，不強制覆蓋 SVG 內部）*/
-/* 不強制改 .main-svg 背景，避免遮蔽 */
-.plotly .plot-container .svg-plot .xy .bglayer .bg {{ fill: var(--plotly-plot) !important; }}
 
-/* === 過渡：所有互動元件統一 150ms ease-out === */
+/* === 統一過渡 === */
 .stApp, .main .block-container, [data-testid="stSidebar"] {{
     transition: background-color 150ms ease-out, color 150ms ease-out;
 }}
-.stButton button, .stTextInput input, .stTextArea textarea,
-.stSelectbox [data-baseweb="select"], [data-testid="stMetric"],
-.stAlert, .stCodeBlock, code, pre, [data-testid="stExpander"],
-.stTabs [data-baseweb="tab"], [data-testid="stExpander"] {{
-    transition: background-color 150ms ease-out, color 150ms ease-out,
-                border-color 150ms ease-out, box-shadow 150ms ease-out !important;
-}}
 
-[data-testid="stHeader"] {{ z-index: 999997; }}
-
-/* === Empty State 樣式 === */
+/* === Empty State === */
 .empty-state {{
     text-align: center;
-    padding: 32px 16px;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    padding: 48px 16px;
+    background: transparent;
+    border: none;
     color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 500;
-    margin: 8px 0;
-}}
-.empty-state-icon {{
-    font-size: 24px;
-    margin-bottom: 8px;
-    opacity: 0.5;
+    font-size: 0.8125rem;
+    font-weight: 400;
 }}
 
-/* === Skeleton Loading === */
+/* === Skeleton === */
 .skeleton {{
     background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 50%, var(--bg-subtle) 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite ease-in-out;
-    border-radius: var(--radius-sm);
+    border-radius: 0;
 }}
 @keyframes skeleton-loading {{
     0% {{ background-position: 200% 0; }}
     100% {{ background-position: -200% 0; }}
 }}
 
+/* === Impeccable 風格 === */
+[data-testid="stSidebar"] h1 {{
+    font-size: 11px !important; font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    text-transform: none; letter-spacing: 0;
+    margin-top: 0 !important; margin-bottom: 6px !important; padding: 0 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stRadio"] > div {{ gap: 2px !important; }}
+[data-testid="stSidebar"] [data-testid="stRadio"] label {{
+    padding: 3px 0 !important; font-size: 0.8125rem !important;
+}}
+[data-testid="stSidebar"] details,
+[data-testid="stSidebar"] [data-testid="stExpander"] {{
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin-bottom: 4px !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
+    color: var(--text-muted) !important; font-size: 0.6875rem !important;
+}}
+[data-testid="stSidebar"] [data-baseweb="select"] {{ font-size: 0.8125rem !important; }}
+[data-testid="stSidebar"] .stButton button {{
+    min-height: 32px !important; padding: 0.35rem 0.75rem !important; font-size: 0.75rem !important;
+}}
+[data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
+    font-size: 0.8125rem !important; padding: 4px 0 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCheckbox"] {{ font-size: 0.8125rem !important; }}
+
+.main h1 {{
+    font-size: 1.5rem !important; font-weight: 700 !important;
+    letter-spacing: -0.03em !important;
+    margin-top: 0.5rem !important; margin-bottom: 0.25rem !important;
+}}
+.main h2 {{
+    font-size: 0.75rem !important; font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    text-transform: none !important; letter-spacing: 0 !important;
+    margin-top: 20px !important; margin-bottom: 8px !important;
+}}
+.main h3 {{
+    font-size: 0.9375rem !important; font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.01em !important;
+    margin-top: 16px !important; margin-bottom: 6px !important;
+}}
+.main [data-testid="stCaptionContainer"] {{
+    color: var(--text-muted) !important; font-size: 0.75rem !important;
+    margin-top: 0 !important; margin-bottom: 8px !important;
+}}
+.stAlert[data-baseweb="notification"] {{
+    border-radius: 0 !important; padding: 6px 0 !important; font-size: 0.8125rem !important;
+    border: none !important; background: transparent !important;
+}}
+[data-testid="stTextArea"] textarea {{
+    font-family: var(--font-mono) !important; font-size: 12px !important;
+    line-height: 1.6 !important; border-radius: 0 !important;
+    background: var(--bg-subtle) !important; border: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 10px 12px !important;
+}}
+[data-testid="stTextArea"] textarea:focus {{
+    border-bottom: 1px solid var(--text-primary) !important;
+    box-shadow: none !important;
+}}
+.main [data-testid="stSlider"] {{ padding: 0 !important; }}
+.main [data-testid="stDataFrameResizable"] {{
+    border: none !important; border-radius: 0 !important;
+}}
+.main [data-testid="stExpander"] {{
+    border: none !important; border-radius: 0 !important;
+    background: transparent !important; margin-bottom: 4px !important;
+}}
+.main [data-testid="stProgress"] > div > div {{ background: var(--primary) !important; }}
+.main [data-testid="stSpinner"] > div {{
+    padding: 4px 0 !important; font-size: 0.8125rem !important;
+}}
+.main .stTabs [aria-selected="true"] {{
+    color: var(--text-primary) !important; font-weight: 600 !important;
+    border-bottom: none !important;
+}}
+.main .stTabs [data-baseweb="tab"] {{ font-size: 0.8125rem !important; }}
+.main-header {{
+    font-size: 1.5rem !important; font-weight: 700 !important;
+    letter-spacing: -0.03em !important; margin-bottom: 4px !important;
+}}
+.sub-header {{
+    font-size: 0.8125rem !important; color: var(--text-muted) !important;
+    margin-bottom: 16px !important;
+}}
+.impeccable-field-label {{
+    font-size: 0.75rem !important; font-weight: 600 !important;
+    text-transform: none !important; letter-spacing: 0 !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 2px !important; display: block;
+}}
+.impeccable-result-table {{
+    width: 100%; border-collapse: collapse;
+    font-size: 0.75rem; font-family: var(--font-mono);
+}}
+.impeccable-result-table th {{
+    text-align: left; font-size: 0.6875rem;
+    text-transform: none; letter-spacing: 0;
+    color: var(--text-muted);
+    padding: 6px 8px; border-bottom: 1px solid var(--border); font-weight: 600;
+}}
+.impeccable-result-table td {{
+    padding: 6px 8px; border-bottom: none;
+    color: var(--text-primary);
+    text-align: right;
+}}
+.impeccable-num-pill {{
+    display: inline-block; padding: 1px 6px; border-radius: 0;
+    font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600;
+}}
+.impeccable-num-pill.success {{ background: var(--green-light); color: var(--green-text); }}
+.impeccable-num-pill.error {{ background: var(--red-light); color: var(--red-text); }}
+.impeccable-num-pill.neutral {{ background: var(--bg-subtle); color: var(--text-primary); }}
+
+/* Selectbox dropdowns */
+.stSelectbox [data-baseweb="select"] > div {{
+    background: transparent !important;
+    color: var(--text-primary) !important;
+}}
+[data-testid="stSelectbox"] .react-aria-ComboBox > div,
+[data-testid="stSelectboxVirtual"] .react-aria-ComboBox > div,
+[data-testid="stMultiSelect"] .react-aria-ComboBox > div {{
+    background: transparent !important;
+    color: var(--text-primary) !important;
+}}
+.stSelectbox [data-baseweb="select"] input {{
+    color: var(--text-primary) !important;
+    caret-color: var(--text-primary) !important;
+}}
+[data-baseweb="popover"] [data-baseweb="select-option"] {{
+    background: var(--bg-primary) !important; color: var(--text-primary) !important;
+}}
+[data-baseweb="popover"] [data-baseweb="select-option"]:hover {{
+    background: var(--bg-subtle) !important;
+}}
+
+.stCodeBlock, code, pre {{
+    border-radius: 0 !important; font-size: 0.75rem !important;
+    border: none !important; border-bottom: 1px solid var(--border) !important;
+}}
 </style>
 
 <script>
@@ -882,7 +696,6 @@ iframe[height="0"] {{
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserving);
     else startObserving();
     setTimeout(startObserving, 500);
-    setTimeout(startObserving, 2000);
     var bodyObserver = new MutationObserver(function() {{
         var sidebar = document.querySelector('[data-testid="stSidebar"]');
         if (sidebar && !sidebar._observed) {{
@@ -892,7 +705,6 @@ iframe[height="0"] {{
         }}
     }});
     bodyObserver.observe(document.body, {{ childList: true, subtree: true }});
-    setInterval(updateSidebarState, 1000);
 }})();
 </script>
 """
