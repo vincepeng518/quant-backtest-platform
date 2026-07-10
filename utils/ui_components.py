@@ -749,13 +749,21 @@ def render_list_of_trades(trades: List[Dict]) -> None:
     trades_df_display.insert(0, "#", trades_df_display.index)
 
     # 顏色 cell renderer：盈虧綠紅
+    # aggrid 32.2+ cellStyle 接受 function(params) 或 object
+    # 注意：cell 文字可能是 -9.48（純數字）或 -9.48%
+    # 用字串 function（aggrid 32+ 直接執行字串 JS）
     pnl_color_js = JsCode(f"""
     function(params) {{
-        if (params.value == null) return params.value;
-        if (typeof params.value === 'string' && params.value.includes('-')) {{
+        if (params.value == null) return null;
+        const val = params.value;
+        const isNeg = (typeof val === 'number' && val < 0) ||
+                       (typeof val === 'string' && (val.trim().startsWith('-') || val.includes('-')));
+        if (isNeg) {{
             return {{ 'color': '{p["red_text"]}', 'fontWeight': '600' }};
         }}
-        if (typeof params.value === 'string' && params.value.includes('+')) {{
+        const isPos = (typeof val === 'number' && val > 0) ||
+                       (typeof val === 'string' && val.trim().startsWith('+'));
+        if (isPos) {{
             return {{ 'color': '{p["green_text"]}', 'fontWeight': '600' }};
         }}
         return null;
@@ -783,10 +791,23 @@ def render_list_of_trades(trades: List[Dict]) -> None:
         pre_selected_rows=pre_selected,
     )
     gb.configure_grid_options(domLayout="normal")
-    gb.configure_column("報酬 %", cellStyle=pnl_color_js)
-    gb.configure_column("損益 (USDT)", cellStyle=pnl_color_js)
-    gb.configure_column("累計 PnL", cellStyle=pnl_color_js)
-    gb.configure_column("方向", cellStyle=direction_color_js)
+    # cellStyle JS 在 aggrid 32.2+ 用 JsCode 套色（streamlit-aggrid 1.2.1 會處理）
+    try:
+        gb.configure_column("報酬 %", cellStyle=pnl_color_js)
+    except Exception:
+        pass
+    try:
+        gb.configure_column("損益 (USDT)", cellStyle=pnl_color_js)
+    except Exception:
+        pass
+    try:
+        gb.configure_column("累計 PnL", cellStyle=pnl_color_js)
+    except Exception:
+        pass
+    try:
+        gb.configure_column("方向", cellStyle=direction_color_js)
+    except Exception:
+        pass
     # 不要顯示「#」欄（純內部 ID）
     gb.configure_column("#", hide=True)
     grid_options = gb.build()
