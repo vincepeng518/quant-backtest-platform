@@ -127,6 +127,17 @@ st.markdown(
 st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 
 
+# === 快速開始步進器狀態管理 ===
+# 0 = 步驟 1「選擇資料來源」（初始）
+# 1 = 步驟 2「載入資料」（成功後自動 +1）
+# 2 = 步驟 3「選擇策略」
+# 3 = 步驟 4「執行回測」
+# 4 = 步驟 5「檢視結果」
+# 用 session_state 動態管理，當用戶在側邊欄載入資料成功後自動前進
+if "current_step" not in st.session_state:
+    st.session_state["current_step"] = 0
+
+
 # === 注入 CSS：防止平板鍵盤在 selectbox 點擊時彈出 ===
 # 問題：Streamlit 1.59 用 React Aria Components 渲染 selectbox
 #       內含 <input role="combobox" type="text">，
@@ -613,7 +624,10 @@ with st.sidebar:
                         st.session_state["symbol"] = symbol
                         st.session_state["timeframe"] = timeframe
                         st.session_state["is_pair"] = False
+                        # v9：載入成功 → 自動前進步進器到「選擇策略」
+                        st.session_state["current_step"] = 1
                         st.success(f"✅ 從 {get_exchange_display_name(selected_exchange)} 抓取 {len(df):,} 根 K 線")
+                        st.rerun()
                     else:
                         st.error("❌ 抓取失敗：無資料")
                 except ValueError as e:
@@ -653,6 +667,8 @@ with st.sidebar:
                 st.session_state["exchange"] = "synthetic"
                 st.session_state["timeframe"] = "1d"
                 st.session_state.pop("pair_info", None)
+                # v9：載入成功 → 自動前進步進器到「選擇策略」
+                st.session_state["current_step"] = 1
                 st.success(f"✅ 已生成 {len(test_df):,} 根測試 K 線（價格 ${close[0]:,.0f} → ${close[-1]:,.0f}）")
                 st.rerun()
             except Exception as e:
@@ -667,7 +683,10 @@ with st.sidebar:
                     if df is not None and not df.empty:
                         st.session_state["df"] = df
                         st.session_state["is_pair"] = False
+                        # v9：載入成功 → 自動前進步進器到「選擇策略」
+                        st.session_state["current_step"] = 1
                         st.success(f"✅ 載入 {len(df):,} 筆資料")
+                        st.rerun()
                 except Exception as e:
                     st.error(f"❌ {e}")
 
@@ -708,7 +727,10 @@ with st.sidebar:
                             st.session_state["df"] = pair_df
                             st.session_state["is_pair"] = True
                             st.session_state["pair_info"] = selected_pair
+                            # v9：載入成功 → 自動前進步進器到「選擇策略」
+                            st.session_state["current_step"] = 1
                             st.success(f"✅ 抓取 {len(pair_df):,} 根配對 K 線")
+                            st.rerun()
                         else:
                             st.error("❌ 抓取失敗")
                     except Exception as e:
@@ -726,6 +748,8 @@ with st.sidebar:
             del st.session_state["df"]
             st.session_state["is_pair"] = False
             st.session_state.pop("pair_info", None)
+            # v9：清除資料 → 重置步進器回步驟 0
+            st.session_state["current_step"] = 0
             st.rerun()
 
     if df is not None and not df.empty:
@@ -837,22 +861,27 @@ with st.sidebar:
         take_profit = None
 
 # === 主區域：先檢查資料 ===
+# v9 改進：用 st.session_state["current_step"] 動態管理步進器
+# 載入資料成功後自動前進到下一步（current_step=1）
 if df is None or df.empty:
-    # Impeccable 風格空狀態（取代原本 st.info + 大塊 markdown）
+    # 步驟 0/1：仍顯示「快速開始」引導，但步進器跟著 session_state 動態變
     st.markdown(section_header("快速開始", "", current_theme, size="lg"), unsafe_allow_html=True)
     st.markdown(step_indicator(
         ["選擇資料來源", "載入資料", "選擇策略", "執行回測", "檢視結果"],
-        current=0,
+        current=st.session_state["current_step"],
         theme=current_theme,
     ), unsafe_allow_html=True)
-    st.markdown(empty_state(
-        "從左側開始",
-        "選擇資料來源（加密貨幣 / CSV / 配對交易），按「一鍵測試資料」即可用 500 根模擬 K 線快速體驗。",
-        icon="·",
-        theme=current_theme,
-    ), unsafe_allow_html=True)
-    st.markdown(section_header("內建策略範本", "", current_theme, size="sm"), unsafe_allow_html=True)
-    st.caption("SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對")
+    # 灰色虛線框：只在 current_step == 0（完全沒開始）時顯示
+    # 一旦進入步驟 1（已載入資料）就自動隱藏
+    if st.session_state["current_step"] == 0:
+        st.markdown(empty_state(
+            "從左側開始",
+            "選擇資料來源（加密貨幣 / CSV / 配對交易），按「一鍵測試資料」即可用 500 根模擬 K 線快速體驗。",
+            icon="·",
+            theme=current_theme,
+        ), unsafe_allow_html=True)
+        st.markdown(section_header("內建策略範本", "", current_theme, size="sm"), unsafe_allow_html=True)
+        st.caption("SMA 交叉、RSI、布林通道、MACD、網格、海龜、KDJ、CCI、Donchian、TEMA、VWAP、OBV、一目均衡表、Parabolic SAR、BTC/ETH 比率配對")
     st.stop()
 
 
