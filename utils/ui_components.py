@@ -610,7 +610,7 @@ def render_tv_overview(
             if _old_key.startswith("tv_show_buy_hold") and _old_key != _widget_key:
                 del st.session_state[_old_key]
         st.session_state["show_buy_hold"] = st.checkbox(
-            "Buy & hold",
+            "買入持有",
             value=st.session_state["show_buy_hold"],
             key=_widget_key,
         )
@@ -622,7 +622,7 @@ def render_tv_overview(
         btn_left, btn_right = st.columns(2, gap="small")
         with btn_left:
             if st.button(
-                "Absolute",
+                "絕對值",
                 key="tv_abs_btn",
                 use_container_width=True,
                 type="primary" if cur_abs else "secondary",
@@ -631,7 +631,7 @@ def render_tv_overview(
                 st.rerun()
         with btn_right:
             if st.button(
-                "Percentage",
+                "百分比",
                 key="tv_pct_btn",
                 use_container_width=True,
                 type="primary" if not cur_abs else "secondary",
@@ -1472,7 +1472,7 @@ def render_list_of_trades(trades: List[Dict]) -> None:
         _HAS_AGGRID = True
     except ImportError:
         _HAS_AGGRID = False
-        st.warning("⚠️ streamlit-aggrid 未安裝，使用簡易表格替代（功能受限）")
+        st.warning(" streamlit-aggrid 未安裝，使用簡易表格替代（功能受限）")
         st.dataframe(trades_df_display.drop(columns=["累計 PnL"], errors="ignore"),
                       use_container_width=True, hide_index=True)
         st.download_button(
@@ -1948,7 +1948,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
     """)
 
     if not trades or len(trades) < 5:
-        st.warning("⚠️ 交易數不足（需要至少 5 筆交易才能進行有意義的蒙地卡羅模擬）")
+        st.warning(" 交易數不足（需要至少 5 筆交易才能進行有意義的蒙地卡羅模擬）")
         return
 
     # 設定區
@@ -1974,7 +1974,7 @@ def render_monte_carlo(initial_capital: float, trades: List[Dict]) -> None:
     if "mc_results" in st.session_state and st.session_state["mc_results"]:
         mc = st.session_state["mc_results"]
         if "error" in mc:
-            st.error(f"❌ {mc['error']}")
+            st.error(f" {mc['error']}")
             return
 
         p_stats = mc["percentiles"]

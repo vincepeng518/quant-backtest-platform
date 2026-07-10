@@ -458,7 +458,7 @@ class WalkForwardValidator:
         elif score >= 40:
             return "🟠 不穩定：參數在不同區段差異大，可能有過擬合"
         else:
-            return "🔴 極不穩定：強烈建議重新設計策略或縮小參數空間"
+            return " 極不穩定：強烈建議重新設計策略或縮小參數空間"
 
 
 # === TimeSeriesSplit 交叉驗證 ===

@@ -46,7 +46,7 @@ def validate_strategy_code(code: str) -> Tuple[bool, str]:
     if not func_args_ok:
         return False, "函數必須接受兩個參數 (df, params)"
 
-    return True, "✅ 策略代碼有效"
+    return True, " 策略代碼有效"
 
 
 def extract_strategy_name(code: str, fallback: str = "My Strategy") -> str:
@@ -128,12 +128,12 @@ def load_strategy_from_file(file) -> Tuple[bool, str, str]:
         # 驗證
         valid, msg = validate_strategy_code(code)
         if not valid:
-            return False, f"❌ {file.name}: {msg}", file.name
+            return False, f" {file.name}: {msg}", file.name
 
         return True, code, file.name
 
     except Exception as e:
-        return False, f"❌ {file.name}: {type(e).__name__}: {e}", file.name
+        return False, f" {file.name}: {type(e).__name__}: {e}", file.name
 
 
 def load_strategy_from_pasted_code(code: str) -> Tuple[bool, str]:

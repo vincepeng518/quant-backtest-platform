@@ -305,7 +305,7 @@ def calculate_overfit_score(results: List[Dict], top_n: int = 10) -> Dict:
     elif score >= 40:
         warning = "🟠 參數平原狹窄：過擬合風險中等，建議保守倉位"
     else:
-        warning = "🔴 尖峰最佳化：高度過擬合風險，不建議實盤使用"
+        warning = " 尖峰最佳化：高度過擬合風險，不建議實盤使用"
 
     return {
         "score": score,

@@ -250,7 +250,7 @@ class PerturbationTester:
         elif stability_score >= 40:
             interpretation = "🟠 不太穩定：最佳參數附近波動較大，建議縮小搜尋範圍"
         else:
-            interpretation = "🔴 極不穩定：可能存在過擬合，不建議實盤使用"
+            interpretation = " 極不穩定：可能存在過擬合，不建議實盤使用"
 
         return {
             "baseline_value": baseline_value,

@@ -82,7 +82,7 @@ class NotificationHub:
 
     async def notify_fill(self, fill: FillEvent) -> None:
         """成交通知"""
-        side = "🟢 買" if fill.side.value == "BUY" else "🔴 賣"
+        side = "🟢 買" if fill.side.value == "BUY" else " 賣"
         msg = (
             f"{side} {fill.symbol} {fill.quantity} @ {fill.price:.2f}\n"
             f"手續費: {fill.commission:.4f}\n"
@@ -94,17 +94,17 @@ class NotificationHub:
         """下單通知"""
         side = "買" if order.side.value == "BUY" else "賣"
         order_type = order.order_type.value
-        msg = f"📝 {side}單 {order_type} {order.quantity} @ {order.price}"
+        msg = f" {side}單 {order_type} {order.quantity} @ {order.price}"
         await self._send(msg)
 
     async def notify_risk(self, message: str) -> None:
         """風控通知"""
-        msg = f"⚠️ 風控：{message}"
+        msg = f" 風控：{message}"
         await self._send(msg)
 
     async def notify_error(self, error: Exception) -> None:
         """錯誤通知"""
-        msg = f"❌ 錯誤：{type(error).__name__}: {error}"
+        msg = f" 錯誤：{type(error).__name__}: {error}"
         await self._send(msg)
 
     async def _send(self, message: str) -> None:

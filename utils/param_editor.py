@@ -2,7 +2,7 @@
 參數編輯器 - 簡潔 Row layout（Notion 風格）
 
 每行：[名稱 input] [值 input]
-底部：[➕ 新增參數]
+底部：[ 新增參數]
 支援型別自動推斷（int / float / string / list / bool）
 """
 from __future__ import annotations
@@ -130,8 +130,8 @@ def render_param_editor(
         if k in st.session_state[storage_key]:
             del st.session_state[storage_key][k]
 
-    # 「➕ 新增參數」按鈕
-    if st.button("➕ 新增參數", key=f"{key_prefix}_add"):
+    # 「 新增參數」按鈕
+    if st.button(" 新增參數", key=f"{key_prefix}_add"):
         st.session_state[f"{key_prefix}_add_clicked"] = True
         st.rerun()
 

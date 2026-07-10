@@ -353,6 +353,94 @@ def get_study_summary(study_name: str) -> Optional[Dict[str, Any]]:
     }
 
 
+BACKTEST_RESULTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS backtest_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT,
+    symbol TEXT,
+    timeframe TEXT,
+    strategy_name TEXT,
+    params_json TEXT,
+    metrics_json TEXT,
+    trades_json TEXT,
+    equity_curve_json TEXT
+);
+"""
+
+
+def save_backtest_result(
+    symbol: str,
+    timeframe: str,
+    strategy_name: str,
+    params: Dict[str, Any],
+    metrics: Dict[str, Any],
+    trades: Optional[List[Dict]] = None,
+    equity_curve: Optional[pd.DataFrame] = None,
+) -> int:
+    """儲存單次回測結果到 SQLite，回傳新增的 id"""
+    init_db()
+    with _connect() as conn:
+        conn.executescript(BACKTEST_RESULTS_SCHEMA)
+        ec_json = None
+        if equity_curve is not None and not equity_curve.empty:
+            ec_json = json.dumps(equity_curve.reset_index().to_dict(orient="records"), default=str)
+        cursor = conn.execute(
+            """INSERT INTO backtest_results
+               (created_at, symbol, timeframe, strategy_name, params_json, metrics_json, trades_json, equity_curve_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                _utc_now(), symbol, timeframe, strategy_name,
+                json.dumps(_jsonable(params), default=str),
+                json.dumps(_jsonable(metrics), default=str),
+                json.dumps(_jsonable(trades), default=str) if trades else None,
+                ec_json,
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def load_backtest_result(result_id: int) -> Optional[Dict[str, Any]]:
+    """載入指定的回測結果"""
+    init_db()
+    with _connect() as conn:
+        conn.executescript(BACKTEST_RESULTS_SCHEMA)
+        row = conn.execute(
+            "SELECT * FROM backtest_results WHERE id = ?", (result_id,)
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "symbol": row["symbol"],
+        "timeframe": row["timeframe"],
+        "strategy_name": row["strategy_name"],
+        "params": json.loads(row["params_json"]) if row["params_json"] else {},
+        "metrics": json.loads(row["metrics_json"]) if row["metrics_json"] else {},
+        "trades": json.loads(row["trades_json"]) if row["trades_json"] else None,
+        "equity_curve": json.loads(row["equity_curve_json"]) if row["equity_curve_json"] else None,
+    }
+
+
+def list_backtest_results(symbol: Optional[str] = None) -> pd.DataFrame:
+    """列出回測結果（不含 trades/equity_curve 以節省記憶體）"""
+    init_db()
+    with _connect() as conn:
+        conn.executescript(BACKTEST_RESULTS_SCHEMA)
+        if symbol:
+            df = pd.read_sql_query(
+                "SELECT id, created_at, symbol, timeframe, strategy_name, metrics_json FROM backtest_results WHERE symbol = ? ORDER BY id DESC",
+                conn, params=(symbol,)
+            )
+        else:
+            df = pd.read_sql_query(
+                "SELECT id, created_at, symbol, timeframe, strategy_name, metrics_json FROM backtest_results ORDER BY id DESC",
+                conn
+            )
+    return df
+
+
 __all__ = [
     "get_sqlite_url",
     "init_db",
@@ -364,6 +452,9 @@ __all__ = [
     "list_trial_metadata",
     "delete_study",
     "get_study_summary",
+    "save_backtest_result",
+    "load_backtest_result",
+    "list_backtest_results",
     "DATA_DIR",
     "DB_PATH",
     "TRIALS_DIR",

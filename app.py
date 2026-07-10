@@ -576,7 +576,7 @@ components.html(
 # 進階（策略管理、BingX 熱門）內嵌 expander 折疊
 with st.sidebar:
     # === 區塊 1：交易所與基本設定 ===
-    with st.expander("🏛️ 交易所與基本設定", expanded=True):
+    with st.expander(" 交易所與基本設定", expanded=True):
         data_source = st.radio(
             "選擇資料來源",
             ["加密貨幣 (CCXT)", "上傳 CSV", "配對交易 (Pair)"],
@@ -607,7 +607,7 @@ with st.sidebar:
 
             if selected_exchange == "bingx":
                 popular = get_bingx_popular_symbols()
-                with st.expander("⭐ BingX 熱門交易對（快速填入）", expanded=False):
+                with st.expander(" BingX 熱門交易對（快速填入）", expanded=False):
                     st.caption("點擊按鈕快速填入交易對")
                     for i in range(0, len(popular), 2):
                         cols = st.columns(2)
@@ -632,10 +632,10 @@ with st.sidebar:
                         st.session_state["df"] = df
                         st.session_state["is_pair"] = False
                         st.session_state["current_step"] = 1
-                        st.success(f"✅ 載入 {len(df):,} 筆資料")
+                        st.success(f" 載入 {len(df):,} 筆資料")
                         st.rerun()
                 except Exception as e:
-                    st.error(f"❌ {e}")
+                    st.error(f" {e}")
 
         elif data_source == "配對交易 (Pair)":
             st.caption("配對交易：同時下兩個反向部位")
@@ -648,12 +648,12 @@ with st.sidebar:
                 help="選擇內建的配對交易組合（如 BTC/ETH 比率）",
             )
             selected_pair = pair_labels[selected_pair_name]
-            st.caption(f"📊 {selected_pair['symbol1']} vs {selected_pair['symbol2']}")
+            st.caption(f" {selected_pair['symbol1']} vs {selected_pair['symbol2']}")
 
     df = None
 
     # === 區塊 2：回測時間與數據 ===
-    with st.expander("📅 回測時間與數據", expanded=True):
+    with st.expander(" 回測時間與數據", expanded=True):
         if data_source == "加密貨幣 (CCXT)":
             timeframe = st.selectbox(
                 "時間框架",
@@ -702,7 +702,7 @@ with st.sidebar:
 
     # === 核心動作按鈕：放最顯眼處（不藏在 expander 內）===
     if data_source == "加密貨幣 (CCXT)":
-        if st.button("🔄 抓取資料", type="primary", use_container_width=True,
+        if st.button(" 抓取資料", type="primary", use_container_width=True,
                      help=f"從 {get_exchange_display_name(selected_exchange)} 抓取 {symbol} 的 {timeframe} K 線"):
             with st.spinner(f"正在從 {get_exchange_display_name(selected_exchange)} 抓取 {symbol} 資料..."):
                 try:
@@ -714,49 +714,71 @@ with st.sidebar:
                         st.session_state["timeframe"] = timeframe
                         st.session_state["is_pair"] = False
                         st.session_state["current_step"] = 1
-                        st.success(f"✅ 從 {get_exchange_display_name(selected_exchange)} 抓取 {len(df):,} 根 K 線")
+                        st.success(f" 從 {get_exchange_display_name(selected_exchange)} 抓取 {len(df):,} 根 K 線")
                         st.rerun()
                     else:
-                        st.error("❌ 抓取失敗：無資料")
+                        st.error(" 抓取失敗：無資料")
                 except ValueError as e:
-                    st.error(f"❌ 參數錯誤: {e}")
+                    st.error(f" 參數錯誤: {e}")
                 except ConnectionError as e:
-                    st.error(f"❌ 連線問題: {e}")
+                    st.error(f" 連線問題: {e}")
                 except RuntimeError as e:
-                    st.error(f"❌ 交易所錯誤: {e}")
+                    st.error(f" 交易所錯誤: {e}")
                 except Exception as e:
-                    st.error(f"❌ 未預期錯誤 ({type(e).__name__}): {e}")
+                    st.error(f" 未預期錯誤 ({type(e).__name__}): {e}")
 
-        if st.button("⚡ 一鍵測試資料", use_container_width=True,
-                     help="生成 500 根固定 seed 的模擬 K 線，無需網路（適合快速體驗）"):
+        if st.button("一鍵測試資料", use_container_width=True,
+                     help="根據目前 timeframe 與回看天數生成模擬 K 線，無需網路"):
             try:
                 np.random.seed(42)
-                n = 500
+                # 根據 UI 選擇的 timeframe 動態計算 K 線數量
+                tf_hours_map = {
+                    "1m": 1/60, "5m": 5/60, "15m": 0.25, "30m": 0.5,
+                    "1h": 1, "2h": 2, "4h": 4, "6h": 6, "12h": 12,
+                    "1d": 24, "1w": 168,
+                }
+                freq_map = {
+                    "1m": "1min", "5m": "5min", "15m": "15min", "30m": "30min",
+                    "1h": "1h", "2h": "2h", "4h": "4h", "6h": "6h", "12h": "12h",
+                    "1d": "1D", "1w": "1W",
+                }
+                hours_per_bar = tf_hours_map.get(timeframe, 1)
+                freq_str = freq_map.get(timeframe, "1h")
+                n = max(100, int(days * 24 / hours_per_bar))
+                n = min(n, 50000)  # 上限保護
+
+                # 真實加密貨幣波動率：年化 70%
+                bars_per_year = 365 * 24 / hours_per_bar
+                bar_vol = 0.70 / (bars_per_year ** 0.5)
+
                 base_price = 30000
-                returns = np.random.normal(0.0005, 0.02, n)
+                returns = np.random.normal(0.0001, bar_vol, n)
                 close = base_price * np.exp(np.cumsum(returns))
-                high = close * (1 + np.abs(np.random.normal(0, 0.005, n)))
-                low = close * (1 - np.abs(np.random.normal(0, 0.005, n)))
+                intrabar = np.abs(np.random.normal(0, bar_vol * 0.3, n))
+                high = close * (1 + intrabar)
+                low = close * (1 - intrabar)
                 open_ = np.roll(close, 1)
                 open_[0] = base_price
                 volume = np.random.uniform(100, 1000, n)
                 test_df = pd.DataFrame({
                     "open": open_, "high": high, "low": low, "close": close, "volume": volume,
-                }, index=pd.date_range("2024-01-01", periods=n, freq="1D"))
+                }, index=pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=n, freq=freq_str))
                 st.session_state["df"] = test_df
                 st.session_state["is_pair"] = False
                 st.session_state["symbol"] = "TEST/USDT"
                 st.session_state["exchange"] = "synthetic"
-                st.session_state["timeframe"] = "1d"
+                st.session_state["timeframe"] = timeframe
                 st.session_state.pop("pair_info", None)
                 st.session_state["current_step"] = 1
-                st.success(f"✅ 已生成 {len(test_df):,} 根測試 K 線（${close[0]:,.0f} → ${close[-1]:,.0f}）")
+                dt_start = test_df.index[0].strftime("%Y-%m-%d")
+                dt_end = test_df.index[-1].strftime("%Y-%m-%d")
+                st.success(f"已生成 {len(test_df):,} 根 {timeframe} K 線（{dt_start} → {dt_end}，${close[0]:,.0f} → ${close[-1]:,.0f}）")
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ 生成測試資料失敗: {e}")
+                st.error(f"生成測試資料失敗: {e}")
 
     elif data_source == "配對交易 (Pair)":
-        if st.button("🔄 抓取配對資料", type="primary", use_container_width=True,
+        if st.button(" 抓取配對資料", type="primary", use_container_width=True,
                      help=f"抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料"):
             with st.spinner(f"正在抓取 {selected_pair['symbol1']} + {selected_pair['symbol2']} 配對資料..."):
                 try:
@@ -772,12 +794,12 @@ with st.sidebar:
                         st.session_state["is_pair"] = True
                         st.session_state["pair_info"] = selected_pair
                         st.session_state["current_step"] = 1
-                        st.success(f"✅ 抓取 {len(pair_df):,} 根配對 K 線")
+                        st.success(f" 抓取 {len(pair_df):,} 根配對 K 線")
                         st.rerun()
                     else:
-                        st.error("❌ 抓取失敗")
+                        st.error(" 抓取失敗")
                 except Exception as e:
-                    st.error(f"❌ {e}")
+                    st.error(f" {e}")
 
     # === 載入狀態顯示（如果有資料） ===
     if "df" in st.session_state and df is None:
@@ -785,10 +807,10 @@ with st.sidebar:
         is_pair = st.session_state.get("is_pair", False)
         if is_pair:
             pair_info = st.session_state.get("pair_info", {})
-            st.success(f"📦 配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
+            st.success(f" 配對：{pair_info.get('symbol1', '?')} + {pair_info.get('symbol2', '?')} ({len(df):,} 根)")
         else:
-            st.success(f"📦 已載入快取資料：{len(df):,} 根 K 線")
-        if st.button("🗑️ 清除資料", use_container_width=True, help="清除目前載入的資料並重置步進器"):
+            st.success(f" 已載入快取資料：{len(df):,} 根 K 線")
+        if st.button(" 清除資料", use_container_width=True, help="清除目前載入的資料並重置步進器"):
             del st.session_state["df"]
             st.session_state["is_pair"] = False
             st.session_state.pop("pair_info", None)
@@ -800,7 +822,7 @@ with st.sidebar:
         st.caption(data_info)
 
     # === 進階：策略管理（折疊收納，預設關閉）===
-    with st.expander("🧩 策略管理（進階）", expanded=False):
+    with st.expander("策略管理（進階）", expanded=True):
         st.caption("管理自訂策略：上傳 .py / 貼上代碼 / 載入社群範本")
 
         if "user_strategies" not in st.session_state:
@@ -822,7 +844,7 @@ with st.sidebar:
                 if success:
                     name = extract_strategy_name(result, fallback=fname)
                     st.session_state["user_strategies"][fname] = result
-                    st.success(f"✅ 已載入: **{name}** ({fname})")
+                    st.success(f" 已載入: **{name}** ({fname})")
                 else:
                     st.error(result)
 
@@ -841,7 +863,7 @@ with st.sidebar:
             placeholder="給這個策略取個名字",
             help="策略在策略庫中顯示的名稱",
         )
-        if st.button("➕ 加入到策略庫", use_container_width=True, key="add_pasted_strategy",
+        if st.button(" 加入到策略庫", use_container_width=True, key="add_pasted_strategy",
                      help="將貼上的代碼加入「我的策略庫」"):
             if not pasted_code.strip():
                 st.error("請貼上代碼")
@@ -850,7 +872,7 @@ with st.sidebar:
                 if success:
                     final_name = pasted_name.strip() or extract_strategy_name(pasted_code)
                     st.session_state["user_strategies"][final_name] = result
-                    st.success(f"✅ 已加入: **{final_name}**")
+                    st.success(f" 已加入: **{final_name}**")
                     st.rerun()
                 else:
                     st.error(result)
@@ -862,19 +884,19 @@ with st.sidebar:
         for i, sname in enumerate(sample_names):
             with sample_cols[i % 2]:
                 if sname not in st.session_state["user_strategies"]:
-                    if st.button(f"📥 {sname}", key=f"add_sample_{i}",
+                    if st.button(f" {sname}", key=f"add_sample_{i}",
                                   use_container_width=True,
                                   help=f"載入「{sname}」範本到策略庫"):
                         st.session_state["user_strategies"][sname] = SAMPLE_STRATEGIES[sname]
-                        st.success(f"✅ 已加入: {sname}")
+                        st.success(f" 已加入: {sname}")
                         st.rerun()
                 else:
-                    st.button(f"✓ {sname}", key=f"has_sample_{i}",
+                    st.button(f" {sname}", key=f"has_sample_{i}",
                               disabled=True, use_container_width=True,
                               help="已在策略庫中")
 
         if st.session_state["user_strategies"]:
-            st.markdown("**📚 我的策略庫**")
+            st.markdown("** 我的策略庫**")
             for sname in list(st.session_state["user_strategies"].keys()):
                 col_s1, col_s2 = st.columns([4, 1])
                 with col_s1:
@@ -887,7 +909,7 @@ with st.sidebar:
     st.divider()
 
     # === 區塊 3：策略核心參數（回測設定） ===
-    with st.expander("⚙️ 策略核心參數（回測設定）", expanded=True):
+    with st.expander(" 策略核心參數（回測設定）", expanded=True):
         initial_capital = st.number_input(
             "初始資金 (USDT)",
             min_value=100.0,
@@ -1042,7 +1064,7 @@ with main_tab1:
         if template_choice.startswith("──"):
             st.button("載入", key="load_template", disabled=True, use_container_width=True)
         else:
-            if st.button("🔄 重新載入", key="load_template", use_container_width=True,
+            if st.button(" 重新載入", key="load_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
                 if template_choice in list_templates():
                     new_code = get_template(template_choice)
@@ -1072,7 +1094,7 @@ with main_tab1:
         help="定義函數：def generate_signals(df, params) -> (entries, exits)",
     )
 
-    with st.expander("策略參數", expanded=False):
+    with st.expander("策略參數", expanded=True):
         current_t = st.session_state.get("current_template", "")
         if current_t and current_t != "（自訂）":
             default_params = get_default_params(current_t)
@@ -1098,9 +1120,9 @@ with main_tab1:
     st.divider()
     col_btn1, col_btn2 = st.columns([1, 5])
     with col_btn1:
-        run_single = st.button("▶️ 執行回測", type="primary", use_container_width=True, key="run_single")
+        run_single = st.button(" 執行回測", type="primary", use_container_width=True, key="run_single")
     with col_btn2:
-        if st.button("💾 儲存策略代碼", use_container_width=False):
+        if st.button(" 儲存策略代碼", use_container_width=False):
             st.session_state["strategy_code"] = strategy_code
             st.success("已儲存")
 
@@ -1118,7 +1140,7 @@ with main_tab1:
     # （避免 re-render 時重複跑回測 + 觸發 DuplicateElementKey）
     has_backtest_result = "bt_result_df" in st.session_state and st.session_state.get("bt_result_df") is not None
     if not run_single and not has_backtest_result:
-        st.info("點擊「▶️ 執行回測」開始分析")
+        st.info("點擊「 執行回測」開始分析")
     elif run_single:
         # 執行策略（最外層 try 確保任何錯誤都不會導致整個 app 崩潰）
         try:
@@ -1128,7 +1150,7 @@ with main_tab1:
             result_len = len(result) if hasattr(result, '__len__') else 'N/A'
             # 防護：確保 result 是 7-tuple
             if not isinstance(result, tuple) or len(result) != 7:
-                st.warning(f"⚠️ 策略回傳了 {result_len} 個元素（type={result_type}），自動補齊為 7 個")
+                st.warning(f" 策略回傳了 {result_len} 個元素（type={result_type}），自動補齊為 7 個")
                 empty_series = pd.Series(False, index=df.index)
                 result_list = list(result) if isinstance(result, (tuple, list)) else []
                 while len(result_list) < 7:
@@ -1136,7 +1158,7 @@ with main_tab1:
                 result = tuple(result_list[:7])
             entries, exits, err, long_entries, long_exits, short_entries, short_exits = result
         except Exception as e:
-            st.error(f"❌ 策略執行失敗: {type(e).__name__}: {e}")
+            st.error(f" 策略執行失敗: {type(e).__name__}: {e}")
             st.stop()
 
         # 自動判斷方向：策略有 short 訊號 → 用 long_short 模式
@@ -1149,9 +1171,9 @@ with main_tab1:
         if err:
             st.error(err)
         elif actual_direction == "long_short" and not long_entries.any() and not short_entries.any():
-            st.warning("⚠️ 策略沒有產生任何進場訊號（long/short 都沒有）")
+            st.warning(" 策略沒有產生任何進場訊號（long/short 都沒有）")
         elif actual_direction == "long" and not entries.any():
-            st.warning("⚠️ 策略沒有產生任何進場訊號")
+            st.warning(" 策略沒有產生任何進場訊號")
         else:
             # 跑回測
             with st.spinner("執行回測中..."):
@@ -1169,7 +1191,7 @@ with main_tab1:
                         results = engine.run(entries, exits, direction=pair_direction,
                                               stop_loss=stop_loss, take_profit=take_profit)
                     except Exception as e:
-                        st.error(f"❌ 配對回測引擎錯誤: {type(e).__name__}: {e}")
+                        st.error(f" 配對回測引擎錯誤: {type(e).__name__}: {e}")
                         st.stop()
                 else:
                     engine = BacktestEngine(
@@ -1186,7 +1208,7 @@ with main_tab1:
                             short_exits=short_exits,
                         )
                     except Exception as e:
-                        st.error(f"❌ 回測引擎錯誤: {type(e).__name__}: {e}")
+                        st.error(f" 回測引擎錯誤: {type(e).__name__}: {e}")
                         st.stop()
 
             result_df = results["data"]
@@ -1207,10 +1229,10 @@ with main_tab1:
                 st.session_state["_has_rendered_overview_this_run"] = True
                 # 5 分頁結果顯示
                 result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
-                    "Overview",
-                    "Performance Summary",
-                    "List of Trades",
-                    "Charts",
+                    "總覽",
+                    "績效摘要",
+                    "交易明細",
+                    "圖表",
                     "蒙地卡羅",
                 ])
 
@@ -1229,7 +1251,7 @@ with main_tab1:
                 with result_tab5:
                     render_monte_carlo(initial_capital, trades)
 
-    # 即使沒按「▶️ 執行回測」，若有先前結果 → 顯示結果 tabs
+    # 即使沒按「 執行回測」，若有先前結果 → 顯示結果 tabs
     # v9 改進：藍色提示框只在「從未執行過回測」時顯示
     # 已執行過的話，數據直接呈現，不顯示提示
     # v10 改進：避免重複 render_overview（會觸發 DuplicateElementKey）
@@ -1249,10 +1271,10 @@ with main_tab1:
         # 結果 tabs 直接接續渲染，數據呈現在畫面最上方
 
         result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
-            "Overview",
-            "Performance Summary",
-            "List of Trades",
-            "Charts",
+            "總覽",
+            "績效摘要",
+            "交易明細",
+            "圖表",
             "蒙地卡羅",
         ])
 
@@ -1330,7 +1352,7 @@ with main_tab2:
         if opt_template.startswith("──"):
             st.button("載入", key="load_opt_template", disabled=True, use_container_width=True)
         else:
-            if st.button("🔄 重新載入", key="load_opt_template", use_container_width=True,
+            if st.button(" 重新載入", key="load_opt_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
                 if opt_template in list_templates():
                     new_code = get_template(opt_template)
@@ -1593,8 +1615,8 @@ with main_tab2:
                 progress_bar.progress(100)
         except Exception as e:
             progress_bar.progress(100)
-            status_text.text(f"❌ 優化失敗")
-            st.error(f"❌ 參數優化錯誤: {type(e).__name__}: {e}")
+            status_text.text(f" 優化失敗")
+            st.error(f" 參數優化錯誤: {type(e).__name__}: {e}")
             st.exception(e)
             st.stop()
 
@@ -1602,10 +1624,10 @@ with main_tab2:
         elapsed = result.get("elapsed_seconds", time.time() - start_time)
         n_complete = result.get("n_trials_completed", 0)
         n_total = result.get("n_trials_total", 0)
-        status_text.text(f"✅ 完成！耗時 {elapsed:.1f} 秒，有效 {n_complete}/{n_total}")
+        status_text.text(f" 完成！耗時 {elapsed:.1f} 秒，有效 {n_complete}/{n_total}")
 
         if not result.get("best_params"):
-            st.error("❌ 沒有找到任何有效組合，請放寬參數空間或檢查策略代碼")
+            st.error(" 沒有找到任何有效組合，請放寬參數空間或檢查策略代碼")
         else:
             best = result["best_metrics"]
             st.success(f"找到最佳參數！")
@@ -1703,7 +1725,7 @@ with main_tab2:
                 merged = {**fixed_params, **result["best_params"]}
                 st.session_state["strategy_params_dict"] = merged
                 st.session_state.pop("strategy_params_params", None)
-                st.success("✅ 已複製到「單回目測」分頁，請切換查看")
+                st.success(" 已複製到「單回目測」分頁，請切換查看")
 
             # === Top 10 結果 ===
             st.subheader(f"Top 10 結果")
@@ -1850,7 +1872,7 @@ with main_tab3:
         if wf_template.startswith("──"):
             st.button("載入", key="load_wf_template", disabled=True, use_container_width=True)
         else:
-            if st.button("🔄 重新載入", key="load_wf_template", use_container_width=True,
+            if st.button(" 重新載入", key="load_wf_template", use_container_width=True,
                          help="重新從範本載入（會覆蓋目前編輯的代碼）"):
                 if wf_template in list_templates():
                     new_code = get_template(wf_template)
@@ -2043,7 +2065,7 @@ with main_tab3:
         if "error" in wf_results:
             st.error(wf_results["error"])
         else:
-            st.success(f"✅ 完成 {wf_results['n_windows']} 個區段的驗證")
+            st.success(f" 完成 {wf_results['n_windows']} 個區段的驗證")
 
             st.subheader("綜合 OOS 表現")
             oos = wf_results["combined_oos_metrics"]
@@ -2087,11 +2109,11 @@ with main_tab3:
                 st.metric("指標衰退率", f"{deg:+.1f}%", delta="越小越好")
 
             if deg < 30:
-                st.success("✅ 過擬合風險低：訓練與測試指標接近，泛化能力強")
+                st.success(" 過擬合風險低：訓練與測試指標接近，泛化能力強")
             elif deg < 60:
-                st.warning("⚠️ 過擬合風險中等：訓練表現優於測試，建議保守倉位")
+                st.warning(" 過擬合風險中等：訓練表現優於測試，建議保守倉位")
             else:
-                st.error("🔴 過擬合風險高：策略可能在真實市場失效")
+                st.error(" 過擬合風險高：策略可能在真實市場失效")
 
             st.subheader("參數穩定度分析")
             stability = wf_results["parameter_stability"]
@@ -2137,4 +2159,4 @@ with main_tab3:
 
 # === 頁尾 ===
 st.divider()
-st.caption("⚠️ 免責聲明：本工具僅供研究與教育用途。回測結果不代表未來表現。")
+st.caption(" 免責聲明：本工具僅供研究與教育用途。回測結果不代表未來表現。")

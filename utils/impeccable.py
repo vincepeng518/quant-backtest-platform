@@ -58,7 +58,7 @@ def step_indicator(steps: list, current: int, theme: dict = None) -> str:
             # 已完成：綠底白字
             bg = "var(--green)"
             color = "white"
-            num = "✓"
+            num = ""
             text_color = "var(--green-text)"
             border = "var(--green)"
         else:
@@ -111,7 +111,7 @@ def status_pill(text: str, status: str = "info", theme: dict = None) -> str:
     )
 
 
-def empty_state(title: str, description: str, icon: str = "📊", theme: dict = None) -> str:
+def empty_state(title: str, description: str, icon: str = "", theme: dict = None) -> str:
     """
     統一空狀態（v7：用 CSS variables）。
     """
@@ -212,7 +212,7 @@ def welcome_panel(theme: dict = None) -> str:
         '<div style="font-size: 14px; font-weight: 600; color: ' + text_primary + ';">執行回測</div>'
         '</div>'
         '<div style="font-size: 13px; color: ' + text_secondary + '; line-height: 1.55;">'
-        '選擇策略、調整參數，按「▶️ 執行回測」獲得完整報告。</div>'
+        '選擇策略、調整參數，按「 執行回測」獲得完整報告。</div>'
         '</div>'
         + '</div>'
         # 內建策略範本標籤雲

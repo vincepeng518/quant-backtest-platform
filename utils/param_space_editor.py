@@ -214,16 +214,16 @@ def render_param_space_editor(
 
         with c5:
             if new_type == "float_log":
-                st.caption("📈 log")
+                st.caption(" log")
             elif new_type == "float":
-                st.caption("📏 lin")
+                st.caption(" lin")
             elif new_type == "int":
-                st.caption("🔢 int")
+                st.caption(" int")
             elif new_type == "categorical":
-                st.caption("🏷️ cat")
+                st.caption(" cat")
 
         with c6:
-            if st.button("✕", key=f"{key_prefix}_del_{i}", help=f"刪除 {spec['name']}"):
+            if st.button("", key=f"{key_prefix}_del_{i}", help=f"刪除 {spec['name']}"):
                 indices_to_remove.append(i)
 
         # 即時更新到 storage
@@ -257,7 +257,7 @@ def render_param_space_editor(
         st.rerun()
 
     # 新增按鈕
-    if st.button("➕ 新增參數", key=f"{key_prefix}_add"):
+    if st.button(" 新增參數", key=f"{key_prefix}_add"):
         st.session_state[f"{key_prefix}_add_clicked"] = True
         st.rerun()
 

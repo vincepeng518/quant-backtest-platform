@@ -1,58 +1,12 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-
-# Streamlit
-.streamlit/secrets.toml
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Environment variables
 .env
-.env.local
-
-# Logs
-*.log
-
-# OS
-Thumbs.db
-
-# Optuna / Study data (large binary files)
-data/optuna_studies.db
-data/study_metadata.db
-data/trials/*.parquet
-
+data/
+*.db
+*.sqlite
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.streamlit/secrets.toml

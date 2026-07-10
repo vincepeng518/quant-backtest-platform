@@ -62,7 +62,7 @@ def execute_user_strategy(
             empty = pd.Series(False, index=df.index)
             return (
                 empty, empty,
-                "❌ 找不到函數 'generate_signals'。請定義：def generate_signals(df, params):\n    return entries, exits\n    # 雙向模式：\n    # return long_entries, long_exits, short_entries, short_exits",
+                " 找不到函數 'generate_signals'。請定義：def generate_signals(df, params):\n    return entries, exits\n    # 雙向模式：\n    # return long_entries, long_exits, short_entries, short_exits",
                 empty, empty, empty, empty
             )
 
@@ -80,7 +80,7 @@ def execute_user_strategy(
                 if not isinstance(s, pd.Series):
                     return (
                         empty, empty,
-                        f"❌ {name} 必須是 pandas Series",
+                        f" {name} 必須是 pandas Series",
                         empty, empty, empty, empty
                     )
 
@@ -99,7 +99,7 @@ def execute_user_strategy(
             if not isinstance(entries, pd.Series) or not isinstance(exits, pd.Series):
                 return (
                     empty, empty,
-                    "❌ generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits)",
+                    " generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits)",
                     empty, empty, empty, empty
                 )
 
@@ -111,7 +111,7 @@ def execute_user_strategy(
         else:
             return (
                 empty, empty,
-                "❌ generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits) 共 2 或 4 個 Series",
+                " generate_signals 必須回傳 (entries, exits) 或 (long_entries, long_exits, short_entries, short_exits) 共 2 或 4 個 Series",
                 empty, empty, empty, empty
             )
 
@@ -119,28 +119,28 @@ def execute_user_strategy(
         empty = pd.Series(False, index=df.index)
         return (
             empty, empty,
-            f"❌ 語法錯誤: {e}",
+            f" 語法錯誤: {e}",
             empty, empty, empty, empty
         )
     except RecursionError as e:
         empty = pd.Series(False, index=df.index)
         return (
             empty, empty,
-            f"❌ 遞迴錯誤: 策略可能有無限遞迴 ({e})",
+            f" 遞迴錯誤: 策略可能有無限遞迴 ({e})",
             empty, empty, empty, empty
         )
     except MemoryError as e:
         empty = pd.Series(False, index=df.index)
         return (
             empty, empty,
-            f"❌ 記憶體錯誤: 資料量可能過大 ({e})",
+            f" 記憶體錯誤: 資料量可能過大 ({e})",
             empty, empty, empty, empty
         )
     except Exception as e:
         empty = pd.Series(False, index=df.index)
         return (
             empty, empty,
-            f"❌ 執行錯誤: {type(e).__name__}: {e}",
+            f" 執行錯誤: {type(e).__name__}: {e}",
             empty, empty, empty, empty
         )
 

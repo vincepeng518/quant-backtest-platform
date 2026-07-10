@@ -296,16 +296,16 @@ def fetch_pair_data(
     範例:
     df = fetch_pair_data("BTC/USDT", "ETH/USDT", "1h", 180, "bingx")
     """
-    print(f"📥 抓取 {symbol1} 資料...")
+    print(f" 抓取 {symbol1} 資料...")
     df1 = fetch_crypto_data(symbol1, timeframe, days, exchange)
     if df1 is None or df1.empty:
-        print(f"❌ {symbol1} 抓取失敗")
+        print(f" {symbol1} 抓取失敗")
         return None
 
-    print(f"📥 抓取 {symbol2} 資料...")
+    print(f" 抓取 {symbol2} 資料...")
     df2 = fetch_crypto_data(symbol2, timeframe, days, exchange)
     if df2 is None or df2.empty:
-        print(f"❌ {symbol2} 抓取失敗")
+        print(f" {symbol2} 抓取失敗")
         return None
 
     # 合併：以時間索引對齊（inner join）
@@ -327,7 +327,7 @@ def fetch_pair_data(
     merged = df1_renamed.join(df2_renamed, how="inner")
     merged.dropna(inplace=True)
 
-    print(f"✅ 合併完成: {len(merged)} 根 K 線")
+    print(f" 合併完成: {len(merged)} 根 K 線")
     return merged
 
 

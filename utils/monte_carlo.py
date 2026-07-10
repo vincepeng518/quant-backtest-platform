@@ -166,13 +166,13 @@ class MonteCarloSimulator:
 def format_mc_summary(results: Dict) -> str:
     """產生蒙地卡羅結果摘要文字"""
     if "error" in results:
-        return f"❌ 錯誤: {results['error']}"
+        return f" 錯誤: {results['error']}"
 
     p = results["percentiles"]
     s = f"""
 === 蒙地卡羅模擬結果 ({results['n_simulations']} 次, {results['n_trades']} 筆交易) ===
 
-📈 最終報酬率分布
+ 最終報酬率分布
   - 最壞 5%: {p['return_p5']:+.2f}%
   - 25%:    {p['return_p25']:+.2f}%
   - 中位數: {p['return_p50']:+.2f}%
@@ -181,7 +181,7 @@ def format_mc_summary(results: Dict) -> str:
   - 平均:   {p['return_mean']:+.2f}%
   - 標準差: {p['return_std']:.4f}%
 
-📉 最大回撤分布
+ 最大回撤分布
   - 最好 5%: {p['dd_p5']:.2f}%
   - 中位數: {p['dd_p50']:.2f}%
   - 最壞 5%: {p['dd_p95']:.2f}%
@@ -189,7 +189,7 @@ def format_mc_summary(results: Dict) -> str:
   - 標準差: {p['dd_std']:.2f}%
   - 最大值: {p['dd_max']:.2f}%
 
-💀 破產機率: {results['ruin_prob']:.2f}%
-📊 風險調整報酬: {p['risk_adj_ratio']:.2f}
+ 破產機率: {results['ruin_prob']:.2f}%
+ 風險調整報酬: {p['risk_adj_ratio']:.2f}
 """
     return s
