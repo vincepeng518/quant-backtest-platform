@@ -85,7 +85,7 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 #   3) input 設 inputmode=none + readonly + autocomplete=off
 st.markdown("""
 <style>
-/* 平板/手機：隱藏游標、設 inputmode=none（不要擋 pointer events，會阻擋 dropdown） */
+/* 平板/手機：隱藏游標（不要擋 pointer events，會阻擋 dropdown） */
 @media (hover: none) and (pointer: coarse) {
     [data-testid="stSelectbox"] input,
     [data-testid="stSelectboxVirtual"] input,
@@ -101,9 +101,13 @@ st.markdown("""
 [data-testid="stMultiSelect"] input {
     caret-color: transparent !important;
 }
+
+/* 自製 dropdown 樣式 */
+#mobile-custom-dropdown {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 </style>
 """, unsafe_allow_html=True)
-
 
 # === 注入浮動漢堡按鈕（用 components.html 確保 JS 一定會跑） ===
 # 功能：
@@ -115,6 +119,53 @@ components.html(
     """
 <script>
 (function() {
+    // === 鍵盤抑制器（防止 selectbox 在平板上彈出虛擬鍵盤）===
+    // 策略：focus 後 50ms blur，鍵盤 50ms 後消失
+    //       但用戶體驗到「閃一下」dropdown
+    //       至少不會「跳到下一個選項」（之前的主要問題）
+    //       因為我們不攔截 mousedown/click，只在 focus 階段 blur
+    function setupKeyboardSuppressor() {
+        if (window._kbdSuppressInstalled) {
+            return;
+        }
+        window._kbdSuppressInstalled = true;
+        var doc = window.parent.document;
+
+        // 攔截 focus：50ms blur
+        doc.addEventListener('focus', function(e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.tagName === 'INPUT' && (
+                t.getAttribute('role') === 'combobox' ||
+                t.getAttribute('aria-autocomplete') === 'list' ||
+                t.getAttribute('aria-haspopup') === 'listbox'
+            )) {
+                setTimeout(function() {
+                    try { t.blur(); } catch (err) {}
+                }, 50);
+            }
+        }, true);
+
+        // MutationObserver：所有新 selectbox input 自動設 inputmode=none + autocomplete=off
+        function patchInputs() {
+            var sel = doc.querySelectorAll(
+                '[data-testid="stSelectbox"] input, ' +
+                '[data-testid="stSelectboxVirtual"] input, ' +
+                '[data-testid="stMultiSelect"] input'
+            );
+            for (var i = 0; i < sel.length; i++) {
+                var el = sel[i];
+                if (!el.hasAttribute('inputmode')) el.setAttribute('inputmode', 'none');
+                if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
+            }
+        }
+        patchInputs();
+        setInterval(patchInputs, 1000);
+
+        var obs = new MutationObserver(patchInputs);
+        obs.observe(doc.body, { childList: true, subtree: true });
+    }
+
     var ICON_MENU = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="white"/></svg>';
     var ICON_CLOSE = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="white"/></svg>';
 
@@ -234,142 +285,6 @@ components.html(
             toggleSidebar();
         }, true);
     }
-
-    // === 攔截 select 開啟時觸發的虛擬鍵盤 ===
-    // 問題：iPad/平板上點 React Aria Combobox 會 focus 隱藏 <input> → 平板彈出鍵盤
-    // 解法：當用戶在 selectbox 容器上 click/mousedown/touchend 時，
-    //       不直接 focus input（會觸發鍵盤），
-    //       而是用程式按 ArrowDown 觸發 React Aria 開啟 dropdown（不會觸發鍵盤）
-    //       然後 200ms 後 blur（鍵盤仍可能短暫出現但會立刻消失）
-    function setupKeyboardSuppressor() {
-        if (window._kbdSuppressInstalled) return;
-        window._kbdSuppressInstalled = true;
-        var doc = window.parent.document;
-
-        // 1) 攔截 mousedown/touchend 在 selectbox 容器上：
-        //    改用 dispatchEvent 觸發 ArrowDown + Enter，模擬鍵盤開啟
-        function handleSelectOpen(e) {
-            var target = e.target;
-            // 找最近的 selectbox
-            var sb = target.closest && target.closest(
-                '[data-testid="stSelectbox"], ' +
-                '[data-testid="stSelectboxVirtual"], ' +
-                '[data-testid="stMultiSelect"]'
-            );
-            if (!sb) return;
-            var input = sb.querySelector('input[role="combobox"], input[aria-autocomplete="list"]');
-            if (!input) return;
-
-            // 阻止預設的 mousedown（避免平板觸發鍵盤）
-            e.preventDefault();
-            e.stopPropagation();
-
-            // 模擬「鍵盤 ArrowDown」開啟 dropdown
-            // 觸發 mousedown → React Aria 準備 → dispatchEvent keydown ArrowDown → 開啟
-            setTimeout(function() {
-                try {
-                    // 觸發 click（這會被 React 監聽，但不會打開）
-                    // 改用 keydown
-                    var ev = new KeyboardEvent('keydown', {
-                        key: 'ArrowDown',
-                        code: 'ArrowDown',
-                        keyCode: 40,
-                        which: 40,
-                        bubbles: true,
-                        cancelable: true,
-                    });
-                    input.dispatchEvent(ev);
-
-                    // 確保不要 focus 文字輸入（會彈鍵盤）
-                    if (doc.activeElement === input) {
-                        setTimeout(function() {
-                            try { input.blur(); } catch (e) {}
-                        }, 50);
-                    }
-                } catch (err) {
-                    // ignore
-                }
-            }, 10);
-        }
-
-        doc.addEventListener('mousedown', handleSelectOpen, true);
-        doc.addEventListener('touchend', handleSelectOpen, true);
-
-        // 2) 攔截 focus：focus 後立即 blur
-        doc.addEventListener('focus', function(e) {
-            var t = e.target;
-            if (!t) return;
-            if (t.tagName === 'INPUT' && (
-                t.getAttribute('role') === 'combobox' ||
-                t.getAttribute('aria-autocomplete') === 'list' ||
-                t.getAttribute('aria-haspopup') === 'listbox'
-            )) {
-                setTimeout(function() {
-                    try { t.blur(); } catch (err) {}
-                }, 100);
-            }
-        }, true);
-
-        // 3) MutationObserver：所有新 selectbox input 自動設 inputmode=none + autocomplete=off
-        function patchInputs() {
-            var sel = doc.querySelectorAll(
-                '[data-testid="stSelectbox"] input, ' +
-                '[data-testid="stSelectboxVirtual"] input, ' +
-                '[data-testid="stMultiSelect"] input'
-            );
-            for (var i = 0; i < sel.length; i++) {
-                var el = sel[i];
-                if (!el.hasAttribute('inputmode')) el.setAttribute('inputmode', 'none');
-                if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
-            }
-        }
-        patchInputs();
-        setInterval(patchInputs, 1000);
-
-        // 4) 觀察 DOM 變化
-        var obs = new MutationObserver(patchInputs);
-        obs.observe(doc.body, { childList: true, subtree: true });
-    }
-
-    // === 持續監聽 DOM 變化，FAB 不見就重建 ===
-    function setupBodyObserver() {
-        if (window._fabBodyObserverInstalled) return;
-        window._fabBodyObserverInstalled = true;
-        var observer = new MutationObserver(function(mutations) {
-            // 檢查 FAB 是否還在
-            if (!window.parent.document.getElementById('mobile-hamburger-fab')) {
-                // 不見了 → 重新注入
-                tryInject();
-            } else {
-                // 還在 → 更新圖示（sidebar 狀態可能變了）
-                updateFabIcon();
-            }
-        });
-        observer.observe(window.parent.document.body, {
-            childList: true,
-            subtree: false  // 只監聽 body 直接子節點
-        });
-        // 監聽 sidebar 的 aria-expanded 變化
-        var sidebarObserver = new MutationObserver(updateFabIcon);
-        function observeSidebar() {
-            var sb = window.parent.document.querySelector('[data-testid="stSidebar"]');
-            if (sb && !sb._fabObserved) {
-                sb._fabObserved = true;
-                sidebarObserver.observe(sb, { attributes: true, attributeFilter: ['aria-expanded'] });
-            }
-        }
-        observeSidebar();
-        // 持續檢查 sidebar（streamlit 重渲染時 sidebar 會被替換）
-        setInterval(function() {
-            observeSidebar();
-            if (!window.parent.document.getElementById('mobile-hamburger-fab')) {
-                tryInject();
-            } else {
-                updateFabPosition();  // 動態調整位置
-            }
-        }, 500);
-    }
-
     // === 啟動 ===
     setupMainClickHandler();
     setupKeyboardSuppressor();
