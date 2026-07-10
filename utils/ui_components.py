@@ -601,10 +601,18 @@ def render_tv_overview(
 
     with toggle_col:
         # Buy & Hold toggle：用 st.toggle (segmented control 風格) — 替代原本的 HTML checkbox + streamlit checkbox 雙重顯示
+        # v10 改進：清理舊版可能殘留的 session_state widget key，
+        # 避免 streamlit 偵測到重複的 widget 註冊（DuplicateElementKey）。
+        # 同時保持主要 key 名稱不變，確保 state 持久性。
+        _widget_key = "tv_show_buy_hold_main"
+        # 清理舊版本可能留下的 session_state 殘留（多餘 key 會導致 widget 衝突）
+        for _old_key in list(st.session_state.keys()):
+            if _old_key.startswith("tv_show_buy_hold") and _old_key != _widget_key:
+                del st.session_state[_old_key]
         st.session_state["show_buy_hold"] = st.checkbox(
             "Buy & hold",
             value=st.session_state["show_buy_hold"],
-            key="tv_show_buy_hold",
+            key=_widget_key,
         )
 
         # 絕對/百分比 toggle：v9 改為 segmented button 群組

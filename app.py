@@ -136,6 +136,12 @@ st.markdown(theme_css(current_theme), unsafe_allow_html=True)
 if "current_step" not in st.session_state:
     st.session_state["current_step"] = 0
 
+# v10 改進：每個 rerun 開始時重置 _has_rendered_overview_this_run 旗標
+# 避免下方 else/if 兩處都呼叫 render_overview（會觸發 DuplicateElementKey）
+# 旗標在「剛執行完回測」的 else 分支內設為 True
+if "_has_rendered_overview_this_run" in st.session_state:
+    del st.session_state["_has_rendered_overview_this_run"]
+
 
 # === 注入 CSS：防止平板鍵盤在 selectbox 點擊時彈出 ===
 # 問題：Streamlit 1.59 用 React Aria Components 渲染 selectbox
@@ -1100,10 +1106,12 @@ with main_tab1:
     # v9 改進：藍色提示框只在「從未執行過回測」時顯示
     # 只要 session_state["bt_result_df"] 存在（曾執行過）就完全隱藏
     # 讓回測數據與圖表直接呈現在畫面最上方
+    # v10 改進：else 內只在 run_single=True 時執行回測
+    # （避免 re-render 時重複跑回測 + 觸發 DuplicateElementKey）
     has_backtest_result = "bt_result_df" in st.session_state and st.session_state.get("bt_result_df") is not None
     if not run_single and not has_backtest_result:
         st.info("點擊「▶️ 執行回測」開始分析")
-    else:
+    elif run_single:
         # 執行策略（最外層 try 確保任何錯誤都不會導致整個 app 崩潰）
         try:
             result = execute_user_strategy(strategy_code, df, strategy_params)
@@ -1187,6 +1195,8 @@ with main_tab1:
             if "error" in metrics:
                 st.warning(metrics["error"])
             else:
+                # v10 改進：標記已 render overview，避免下方 if 區塊重複執行
+                st.session_state["_has_rendered_overview_this_run"] = True
                 # 5 分頁結果顯示
                 result_tab1, result_tab2, result_tab3, result_tab4, result_tab5 = st.tabs([
                     "Overview",
@@ -1214,7 +1224,15 @@ with main_tab1:
     # 即使沒按「▶️ 執行回測」，若有先前結果 → 顯示結果 tabs
     # v9 改進：藍色提示框只在「從未執行過回測」時顯示
     # 已執行過的話，數據直接呈現，不顯示提示
-    if not run_single and "bt_result_df" in st.session_state and st.session_state.get("bt_trades"):
+    # v10 改進：避免重複 render_overview（會觸發 DuplicateElementKey）
+    # 用 _has_rendered_overview_this_run 旗標防止 else 與 if 兩處都執行
+    _already_rendered = st.session_state.get("_has_rendered_overview_this_run", False)
+    if (
+        not run_single
+        and "bt_result_df" in st.session_state
+        and st.session_state.get("bt_trades")
+        and not _already_rendered
+    ):
         result_df = st.session_state["bt_result_df"]
         trades = st.session_state["bt_trades"]
         metrics = st.session_state["bt_metrics"]
