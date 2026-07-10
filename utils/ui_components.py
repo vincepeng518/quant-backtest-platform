@@ -1048,6 +1048,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     align-items: center;
     gap: 12px;
     font-size: 12px;
+    flex-wrap: wrap;
 ">
     <span style="color: {p['text_secondary']};">高亮交易</span>
     <span style="color: {p['text_primary']}; font-weight: 600;">#{selected_idx + 1}</span>
@@ -1057,8 +1058,21 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
     <span style="color: {accent}; font-weight: 600; font-family: {p['font_mono']};">{pnl_pct:+.2f}% (${pnl:+,.2f})</span>
     <span style="color: {p['text_secondary']};">·</span>
     <span style="color: {p['text_muted']}; font-family: {p['font_mono']};">{sel_trade.get('entry_time', '')}</span>
-    <span style="margin-left: auto;">
-        <button onclick="window.parent.document.querySelector('div[role=&quot;tab&quot;]:has-text(\"List of Trades\")').click()"
+    <span style="margin-left: auto; display: flex; gap: 6px;">
+        <span style="color: {p['text_muted']}; font-size: 10px; padding: 2px 6px;
+                     background: {p['bg']}; border-radius: 3px;">
+            💡 點 vline 跳回明細
+        </span>
+        <button onclick="window.parent.st_lib = window.parent.st_lib || {{}};
+                window.parent.st_lib.clear_sel = function() {{
+                    // 透過 streamlit 自訂事件通知
+                    var evt = new CustomEvent('clear-trade-selection', {{ bubbles: true }});
+                    window.parent.document.body.dispatchEvent(evt);
+                }};
+                window.parent.document.body.dispatchEvent(new CustomEvent('clear-trade-selection', {{ bubbles: true }}));
+                // 重新刷新頁面（清空 session_state）
+                window.parent.location.reload();
+            "
             style="
                 background: transparent;
                 border: 1px solid {p['border_strong']};
@@ -1080,7 +1094,28 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
 
     display_n = st.slider("顯示最近 N 根 K 線", min_value=50, max_value=min(1000, len(result_df)),
                             value=min(200, len(result_df)), step=50)
-    display_df = result_df.tail(display_n).copy()
+    # v3: 如果選了交易，確保進出場時間在顯示範圍內
+    display_df = result_df.tail(display_n).copy()  # 預設
+    if selected_idx is not None and 0 <= selected_idx < len(trades):
+        sel = trades[selected_idx]
+        for t_key in ("entry_time", "exit_time"):
+            t = sel.get(t_key)
+            if t is None or pd.isna(t):
+                continue
+            t_ts = pd.Timestamp(t)
+            if t_ts not in result_df.index:
+                continue
+            # 找到 t_ts 在 result_df 中的位置
+            try:
+                pos = result_df.index.get_loc(t_ts)
+            except Exception:
+                continue
+            # 確保 t_ts 在 display_df 範圍：以 t_ts 為中心
+            start = max(0, pos - display_n // 2)
+            end = min(len(result_df), start + display_n)
+            start = max(0, end - display_n)
+            display_df = result_df.iloc[start:end].copy()
+            break
 
     fig = make_subplots(
         rows=2, cols=1,
@@ -1203,7 +1238,27 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
         is_profit = pnl >= 0
         vline_color = p["green"] if is_profit else p["red"]
 
-        # 進場垂直虛線
+        # 進場-出場間填色（v3：layer="below" 讓 hover 穿透）
+        if entry_time is not None and exit_time is not None:
+            try:
+                entry_ts = pd.Timestamp(entry_time)
+                exit_ts = pd.Timestamp(exit_time)
+                # 找出區間內所有 K 線
+                in_range = display_df[(display_df.index >= entry_ts) & (display_df.index <= exit_ts)]
+                if not in_range.empty:
+                    fill_color = f"rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
+                    fig.add_vrect(
+                        x0=entry_ts, x1=exit_ts,
+                        fillcolor=fill_color,
+                        opacity=0.6,
+                        layer="below",  # v3: 在資料下方，hover 穿透
+                        line_width=0,
+                        row=1, col=1,
+                    )
+            except Exception:
+                pass
+
+        # 進場垂直虛線（v3：layer="below"）
         if entry_time is not None and pd.notna(entry_time):
             entry_ts = pd.Timestamp(entry_time)
             if entry_ts in display_df.index or entry_ts in result_df.index:
@@ -1211,6 +1266,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                     x=entry_ts,
                     line=dict(color=vline_color, width=2.5, dash="dot"),
                     opacity=0.85,
+                    layer="below",  # v3: 讓 hover 穿透
                     row=1, col=1,
                 )
                 # 標註框（進場）
@@ -1229,7 +1285,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                     yanchor="bottom",
                 )
 
-        # 出場垂直虛線
+        # 出場垂直虛線（v3：layer="below"）
         if exit_time is not None and pd.notna(exit_time):
             exit_ts = pd.Timestamp(exit_time)
             if exit_ts in display_df.index or exit_ts in result_df.index:
@@ -1237,6 +1293,7 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                     x=exit_ts,
                     line=dict(color=p["orange"], width=2.5, dash="dot"),
                     opacity=0.85,
+                    layer="below",  # v3: 讓 hover 穿透
                     row=1, col=1,
                 )
                 # 標註框（出場）
@@ -1254,26 +1311,6 @@ def render_charts(result_df: pd.DataFrame, trades: List[Dict]) -> None:
                     xanchor="right",
                     yanchor="bottom",
                 )
-
-        # 進場-出場間填色（半透明）
-        if entry_time is not None and exit_time is not None:
-            try:
-                entry_ts = pd.Timestamp(entry_time)
-                exit_ts = pd.Timestamp(exit_time)
-                # 找出區間內所有 K 線
-                in_range = display_df[(display_df.index >= entry_ts) & (display_df.index <= exit_ts)]
-                if not in_range.empty:
-                    fill_color = f"rgba(34, 197, 94, 0.10)" if is_profit else "rgba(239, 68, 68, 0.10)"
-                    fig.add_vrect(
-                        x0=entry_ts, x1=exit_ts,
-                        fillcolor=fill_color,
-                        opacity=0.5,
-                        layer="below",
-                        line_width=0,
-                        row=1, col=1,
-                    )
-            except Exception:
-                pass
 
         # 底部狀態列（PnL 摘要）
         fig.add_annotation(
