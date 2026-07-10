@@ -962,7 +962,15 @@ if df is None or df.empty:
     # v9 改進：漸層 hero + 3 步驟引導卡 + 策略範本標籤雲 + 底部提示
     # 一旦進入步驟 1（已載入資料）就自動隱藏，改為渲染策略/回測 UI
     if st.session_state["current_step"] == 0:
-        st.markdown(welcome_panel(theme=current_theme), unsafe_allow_html=True)
+        # v10 改進：改用 st.html()（streamlit 1.59+ 推薦方式）
+        # 原本用 st.markdown(..., unsafe_allow_html=True) 在某些 streamlit 版本
+        # 會把整段 HTML 當純文字輸出（尤其是含 CSS Grid `display: grid` 時）
+        # st.html() 內部用 DOMPurify sanitize，可靠性更高
+        try:
+            st.html(welcome_panel(theme=current_theme))
+        except AttributeError:
+            # 備援：舊版 streamlit 沒有 st.html
+            st.markdown(welcome_panel(theme=current_theme), unsafe_allow_html=True)
     st.stop()
 
 

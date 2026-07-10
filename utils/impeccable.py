@@ -142,7 +142,12 @@ def welcome_panel(theme: dict = None) -> str:
     - 內建策略範本標籤雲
     - 「快速提示」底部區塊
 
-    用法：
+    v10 改進：完全改用 string concatenation 而非 f-string，避免 f-string 內
+    大段 CSS 導致 streamlit markdown 解析器在某些版本把整段當純文字。
+
+    用法（推薦 streamlit 1.59+）：
+        st.html(welcome_panel(theme=current_theme))
+    備援（streamlit <1.59）：
         st.markdown(welcome_panel(theme=current_theme), unsafe_allow_html=True)
     """
     t = theme or {}
@@ -156,163 +161,93 @@ def welcome_panel(theme: dict = None) -> str:
     border = t.get("border", "#E2E8F0")
     border_strong = t.get("border_strong", "#CBD5E1")
 
-    return f"""
-<div style="
-    border: 1px solid {border};
-    border-radius: 16px;
-    background: linear-gradient(135deg, {primary}11 0%, {bg_card} 60%, {bg_subtle} 100%);
-    padding: 0;
-    margin: 16px 0 24px 0;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-">
-    <!-- Hero 區塊：漸層背景 + 大標題 -->
-    <div style="
-        background: linear-gradient(135deg, {primary} 0%, {primary_hover} 100%);
-        padding: 32px 36px 28px 36px;
-        color: white;
-        position: relative;
-    ">
-        <div style="
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            opacity: 0.85;
-            margin-bottom: 6px;
-        ">WELCOME TO CRYPTO BACKTESTING LAB</div>
-        <div style="
-            font-size: 26px;
-            font-weight: 700;
-            line-height: 1.25;
-            margin-bottom: 8px;
-            letter-spacing: -0.01em;
-        ">從左側邊欄開始你的回測旅程</div>
-        <div style="
-            font-size: 14px;
-            opacity: 0.92;
-            line-height: 1.5;
-            max-width: 560px;
-        ">選擇資料來源、設定策略參數，一鍵執行回測，獲得完整的交易報告與圖表分析。</div>
-    </div>
-
-    <!-- 3 步驟引導卡 -->
-    <div style="
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0;
-        padding: 24px 36px 8px 36px;
-    ">
-        <div style="
-            border-right: 1px solid {border};
-            padding: 4px 20px 4px 0;
-        ">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                <div style="
-                    width: 28px; height: 28px;
-                    border-radius: 50%;
-                    background: {primary};
-                    color: white;
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 14px; font-weight: 700;
-                ">1</div>
-                <div style="font-size: 14px; font-weight: 600; color: {text_primary};">選擇資料</div>
-            </div>
-            <div style="font-size: 13px; color: {text_secondary}; line-height: 1.55;">
-                從左側邊欄選擇「加密貨幣 / CSV / 配對交易」任一來源。
-            </div>
-        </div>
-        <div style="
-            border-right: 1px solid {border};
-            padding: 4px 20px;
-        ">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                <div style="
-                    width: 28px; height: 28px;
-                    border-radius: 50%;
-                    background: {primary};
-                    color: white;
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 14px; font-weight: 700;
-                ">2</div>
-                <div style="font-size: 14px; font-weight: 600; color: {text_primary};">載入資料</div>
-            </div>
-            <div style="font-size: 13px; color: {text_secondary}; line-height: 1.55;">
-                按「<b style="color:{text_primary}">一鍵測試資料</b>」用 500 根模擬 K 線立刻體驗，
-                或從交易所抓取真實歷史資料。
-            </div>
-        </div>
-        <div style="padding: 4px 0 4px 20px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                <div style="
-                    width: 28px; height: 28px;
-                    border-radius: 50%;
-                    background: {primary};
-                    color: white;
-                    display: flex; align-items: center; justify-content: center;
-                    font-size: 14px; font-weight: 700;
-                ">3</div>
-                <div style="font-size: 14px; font-weight: 600; color: {text_primary};">執行回測</div>
-            </div>
-            <div style="font-size: 13px; color: {text_secondary}; line-height: 1.55;">
-                選擇策略、調整參數，按「▶️ 執行回測」獲得完整報告。
-            </div>
-        </div>
-    </div>
-
-    <!-- 內建策略範本標籤雲 -->
-    <div style="
-        padding: 18px 36px 8px 36px;
-        border-top: 1px solid {border};
-        margin-top: 16px;
-    ">
-        <div style="
-            font-size: 11px;
-            font-weight: 600;
-            color: {text_muted};
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        ">內建策略範本</div>
-        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">SMA 交叉</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">RSI</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">布林通道</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">MACD</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">網格交易</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">海龜</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">KDJ</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">CCI</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">Donchian</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">TEMA</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">VWAP</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">OBV</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">一目均衡表</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">Parabolic SAR</span>
-            <span style="padding: 4px 10px; border-radius: 999px; background: {bg_subtle}; color: {text_secondary}; font-size: 12px; font-weight: 500;">BTC/ETH 比率配對</span>
-        </div>
-    </div>
-
-    <!-- 底部提示 -->
-    <div style="
-        padding: 14px 36px 16px 36px;
-        background: {bg_subtle};
-        color: {text_secondary};
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    ">
-        <span style="
-            display: inline-block;
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: {primary};
-        "></span>
-        <span><b style="color:{text_primary}">快速提示：</b>最簡單的方式 — 在左側選擇「加密貨幣」資料源後，直接點「<b>一鍵測試資料</b>」即可立刻體驗完整回測流程。</span>
-    </div>
-</div>
-"""
+    return (
+        '<div style="border: 1px solid ' + border + '; border-radius: 16px;'
+        'background: linear-gradient(135deg, ' + primary + '11 0%, ' + bg_card + ' 60%, ' + bg_subtle + ' 100%);'
+        'padding: 0; margin: 16px 0 24px 0; overflow: hidden;'
+        'box-shadow: 0 1px 3px rgba(0,0,0,0.04);">'
+        # Hero
+        + '<div style="background: linear-gradient(135deg, ' + primary + ' 0%, ' + primary_hover + ' 100%);'
+        'padding: 32px 36px 28px 36px; color: white;">'
+        '<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em;'
+        'text-transform: uppercase; opacity: 0.85; margin-bottom: 6px;">'
+        'WELCOME TO CRYPTO BACKTESTING LAB</div>'
+        '<div style="font-size: 26px; font-weight: 700; line-height: 1.25;'
+        'margin-bottom: 8px; letter-spacing: -0.01em;">'
+        '從左側邊欄開始你的回測旅程</div>'
+        '<div style="font-size: 14px; opacity: 0.92; line-height: 1.5; max-width: 560px;">'
+        '選擇資料來源、設定策略參數，一鍵執行回測，獲得完整的交易報告與圖表分析。</div>'
+        '</div>'
+        # 3 步驟引導卡（用 flex 而非 grid，相容性更好）
+        + '<div style="display: flex; gap: 0; padding: 24px 36px 8px 36px;">'
+        + '<div style="flex: 1; padding: 4px 20px 4px 0; border-right: 1px solid ' + border + ';">'
+        '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">'
+        '<div style="width: 28px; height: 28px; border-radius: 50%;'
+        'background: ' + primary + '; color: white;'
+        'display: flex; align-items: center; justify-content: center;'
+        'font-size: 14px; font-weight: 700;">1</div>'
+        '<div style="font-size: 14px; font-weight: 600; color: ' + text_primary + ';">選擇資料</div>'
+        '</div>'
+        '<div style="font-size: 13px; color: ' + text_secondary + '; line-height: 1.55;">'
+        '從左側邊欄選擇「加密貨幣 / CSV / 配對交易」任一來源。</div>'
+        '</div>'
+        + '<div style="flex: 1; padding: 4px 20px; border-right: 1px solid ' + border + ';">'
+        '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">'
+        '<div style="width: 28px; height: 28px; border-radius: 50%;'
+        'background: ' + primary + '; color: white;'
+        'display: flex; align-items: center; justify-content: center;'
+        'font-size: 14px; font-weight: 700;">2</div>'
+        '<div style="font-size: 14px; font-weight: 600; color: ' + text_primary + ';">載入資料</div>'
+        '</div>'
+        '<div style="font-size: 13px; color: ' + text_secondary + '; line-height: 1.55;">'
+        '按「<b style="color:' + text_primary + '">一鍵測試資料</b>」用 500 根模擬 K 線立刻體驗，'
+        '或從交易所抓取真實歷史資料。</div>'
+        '</div>'
+        + '<div style="flex: 1; padding: 4px 0 4px 20px;">'
+        '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">'
+        '<div style="width: 28px; height: 28px; border-radius: 50%;'
+        'background: ' + primary + '; color: white;'
+        'display: flex; align-items: center; justify-content: center;'
+        'font-size: 14px; font-weight: 700;">3</div>'
+        '<div style="font-size: 14px; font-weight: 600; color: ' + text_primary + ';">執行回測</div>'
+        '</div>'
+        '<div style="font-size: 13px; color: ' + text_secondary + '; line-height: 1.55;">'
+        '選擇策略、調整參數，按「▶️ 執行回測」獲得完整報告。</div>'
+        '</div>'
+        + '</div>'
+        # 內建策略範本標籤雲
+        + '<div style="padding: 18px 36px 8px 36px; border-top: 1px solid ' + border + '; margin-top: 16px;">'
+        '<div style="font-size: 11px; font-weight: 600; color: ' + text_muted + '; letter-spacing: 0.08em;'
+        'text-transform: uppercase; margin-bottom: 10px;">內建策略範本</div>'
+        '<div style="display: flex; flex-wrap: wrap; gap: 6px;">'
+        + '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">SMA 交叉</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">RSI</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">布林通道</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">MACD</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">網格交易</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">海龜</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">KDJ</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">CCI</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">Donchian</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">TEMA</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">VWAP</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">OBV</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">一目均衡表</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">Parabolic SAR</span>'
+        '<span style="padding: 4px 10px; border-radius: 999px; background: ' + bg_subtle + '; color: ' + text_secondary + '; font-size: 12px; font-weight: 500;">BTC/ETH 比率配對</span>'
+        + '</div>'
+        '</div>'
+        # 底部提示
+        + '<div style="padding: 14px 36px 16px 36px; background: ' + bg_subtle + ';'
+        'color: ' + text_secondary + '; font-size: 12px; display: flex;'
+        'align-items: center; gap: 8px;">'
+        '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%;'
+        'background: ' + primary + ';"></span>'
+        '<span><b style="color:' + text_primary + '">快速提示：</b>最簡單的方式 — 在左側選擇「加密貨幣」資料源後，直接點「<b>一鍵測試資料</b>」即可立刻體驗完整回測流程。</span>'
+        '</div>'
+        # 容器關閉
+        + '</div>'
+    )
 
 
 def metric_row(items: list, theme: dict = None) -> str:
