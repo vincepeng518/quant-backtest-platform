@@ -40,13 +40,13 @@ export const PriceChart: React.FC<PriceChartProps> = ({
         mode: 1, // Magnet mode
         vertLine: {
           color: isDark ? '#a3a3a3' : '#525252',
-          width: 0.5,
-          style: 3, // dashed
+          width: 1,
+          style: 2, // dashed
         },
         horzLine: {
           color: isDark ? '#a3a3a3' : '#525252',
-          width: 0.5,
-          style: 3,
+          width: 1,
+          style: 2,
         },
       },
       timeScale: {
