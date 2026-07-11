@@ -59,7 +59,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
     if (buyHoldData.length > 0) {
       const buyHoldLine = chart.addLineSeries({
         color: '#a3a3a3',
-        lineWidth: 1.5,
+        lineWidth: 1,
         title: 'Buy & Hold',
       });
       buyHoldLine.setData(
