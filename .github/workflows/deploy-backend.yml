@@ -1,0 +1,54 @@
+name: Deploy Backend to Render
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create or trigger Render deploy
+        env:
+          RENDER_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          # Try to create service (will fail if exists)
+          curl -s -X POST "https://api.render.com/v1/services" \
+            -H "Authorization: Bearer $RENDER_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type":"web_service",
+              "name":"quant-backend",
+              "ownerId":"tea-d43tgbmmcj7s73bf3h4g",
+              "repo":"https://github.com/vincepeng518/quant-backtest-platform",
+              "autoDeploy":"yes",
+              "branch":"master",
+              "rootDir":"backend",
+              "runtime":"python",
+              "buildCommand":"pip install -r requirements.txt",
+              "startCommand":"uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+              "healthCheckPath":"/health",
+              "envVars":[{"key":"HOST","value":"0.0.0.0"},{"key":"LOG_LEVEL","value":"info"}],
+              "serviceDetails":{"plan":"free","envSpecificDetails":{"pythonVersion":"3.12"}}
+            }' && echo "Service created" || echo "Service may already exist"
+
+          # Find and trigger deploy on existing service
+          curl -s -H "Authorization: Bearer $RENDER_KEY" \
+            "https://api.render.com/v1/services" | python3 -c "
+import json,sys
+for item in json.load(sys.stdin):
+    s = item.get('service',item)
+    if s.get('name') == 'quant-backend':
+        print(s.get('id'))
+" | while read -r sid; do
+            if [ -n "$sid" ]; then
+              curl -s -X POST -H "Authorization: Bearer $RENDER_KEY" \
+                "https://api.render.com/v1/services/$sid/deploys"
+              echo "Deploy triggered for $sid"
+            fi
+          done
