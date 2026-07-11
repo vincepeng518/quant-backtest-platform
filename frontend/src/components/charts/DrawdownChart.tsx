@@ -45,7 +45,7 @@ export const DrawdownChart: React.FC<DrawdownChartProps> = ({
       topColor: 'rgba(239, 68, 68, 0.4)',
       bottomColor: 'rgba(239, 68, 68, 0.05)',
       lineColor: '#ef4444',
-      lineWidth: 1.5,
+      lineWidth: 1,
       title: 'Drawdown (%)',
     });
 
