@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: quant-backend
+    runtime: python
+    repo: https://github.com/vincepeng518/quant-backtest-platform
+    branch: master
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: info
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: quant-redis
+          property: connectionString
+
+  - type: redis
+    name: quant-redis
+    plan: free
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
