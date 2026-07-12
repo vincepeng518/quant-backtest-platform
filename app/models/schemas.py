@@ -108,6 +108,7 @@ class TaskStatus(BaseModel):
 
 class AnalysisResultOut(BaseModel):
     task_id: str
+    status: str = "completed"
     type: str = "walk_forward"
     summary: dict[str, Any] = {}
     details: dict[str, Any] = {}

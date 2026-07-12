@@ -9,6 +9,17 @@ import numpy as np
 from engine.backtester import Backtester
 
 
+def _to_native(v: Any) -> Any:
+    """Coerce numpy scalars to native Python for JSON safety."""
+    if isinstance(v, np.integer):
+        return int(v)
+    if isinstance(v, np.floating):
+        return float(v)
+    if isinstance(v, np.bool_):
+        return bool(v)
+    return v
+
+
 class Optimizer:
     def __init__(self, backtester: Backtester, metric: str = "sharpe_ratio", maximize: bool = True) -> None:
         self.backtester = backtester
@@ -27,9 +38,9 @@ class Optimizer:
 
         combos = list(itertools.product(*values))
         results: list[dict] = []
-
         for combo in combos:
             params = dict(zip(keys, combo))
+            params = {k: _to_native(v) for k, v in params.items()}
             self.backtester.strategy.init(params)
             result = self.backtester.run()
             metric_val = getattr(result, self.metric, 0)

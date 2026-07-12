@@ -18,6 +18,7 @@ class BreakoutStrategy(StrategyBase):
         self.risk_percent = float(params.get("risk_percent", 2.0))
         self.highs: list[float] = []
         self.lows: list[float] = []
+        self._pos: int = 0  # 0 flat, 1 long
 
     def next(self, bar: Bar) -> Optional[Signal]:
         self.highs.append(bar.high)
@@ -28,11 +29,12 @@ class BreakoutStrategy(StrategyBase):
         recent_high = max(self.highs[-self.lookback : -1])
         recent_low = min(self.lows[-self.lookback : -1])
 
-        if bar.close > recent_high and (self.position is None or self.position.size == 0):
+        if bar.close > recent_high and self._pos == 0:
+            self._pos = 1
             return Signal(action="buy", price=bar.close, stop_loss=bar.close * (1 - self.risk_percent / 100))
-        if bar.close < recent_low and self.position is not None:
+        if bar.close < recent_low and self._pos == 1:
+            self._pos = 0
             return Signal(action="close")
-
         return None
 
     def get_params_space(self) -> dict[str, Any]:

@@ -16,3 +16,5 @@ node_modules/
 .next/
 next-env.d.ts
 frontend/package-lock.json
+.vercel
+.env*
