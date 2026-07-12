@@ -41,7 +41,7 @@ export default function BacktestPage() {
       },
       symbol,
       timeframe,
-      from: Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60, // 1 year ago
+      from: Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60,
       to: Math.floor(Date.now() / 1000),
       risk: {
         initial_capital: 10000.0,
@@ -53,72 +53,86 @@ export default function BacktestPage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Configuration Header Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Select
-          label="Market Instrument"
-          value={symbol}
-          onChange={(e) => {
-            setSymbol(e.target.value);
-            loadOHLCV(e.target.value, timeframe);
-          }}
-          options={symbols.map((s) => ({ label: s.symbol, value: s.symbol }))}
-        />
-        <Select
-          label="Timeframe"
-          value={timeframe}
-          onChange={(e) => {
-            setTimeframe(e.target.value);
-            loadOHLCV(symbol, e.target.value);
-          }}
-          options={[
-            { label: '1 Minute', value: '1m' },
-            { label: '5 Minutes', value: '5m' },
-            { label: '15 Minutes', value: '15m' },
-            { label: '1 Hour', value: '1h' },
-            { label: '4 Hours', value: '4h' },
-            { label: '1 Day', value: '1d' },
-          ]}
-        />
-        <Input
-          label="Fast MA Period"
-          type="number"
-          value={fastPeriod}
-          onChange={(e) => setFastPeriod(Number(e.target.value))}
-        />
-        <Input
-          label="Slow MA Period"
-          type="number"
-          value={slowPeriod}
-          onChange={(e) => setSlowPeriod(Number(e.target.value))}
-        />
-      </div>
-
-      <div className="flex justify-between items-center bg-surface p-4 border-t border-border/10 select-none">
-        <div className="text-sm font-mono text-textSecondary">
-          {status === 'running' ? `Backtesting Progress: ${Math.round(progress)}%` : 'Ready'}
+    <div className="space-y-6">
+      {/* Configuration Card */}
+      <Card>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
+            策略配置
+          </h2>
+          <span className="font-mono text-xs text-textSecondary">MA Cross</span>
         </div>
-        <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
-          {status === 'running' ? 'Running...' : 'Execute Backtest'}
-        </Button>
-      </div>
 
-      {error && (
-        <Card className="border-danger/30 text-danger text-sm font-mono">{error}</Card>
-      )}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Select
+            label="Market Instrument"
+            value={symbol}
+            onChange={(e) => {
+              setSymbol(e.target.value);
+              loadOHLCV(e.target.value, timeframe);
+            }}
+            options={symbols.map((s) => ({ label: s.symbol, value: s.symbol }))}
+          />
+          <Select
+            label="Timeframe"
+            value={timeframe}
+            onChange={(e) => {
+              setTimeframe(e.target.value);
+              loadOHLCV(symbol, e.target.value);
+            }}
+            options={[
+              { label: '1 Minute', value: '1m' },
+              { label: '5 Minutes', value: '5m' },
+              { label: '15 Minutes', value: '15m' },
+              { label: '1 Hour', value: '1h' },
+              { label: '4 Hours', value: '4h' },
+              { label: '1 Day', value: '1d' },
+            ]}
+          />
+          <Input
+            label="Fast MA Period"
+            type="number"
+            value={fastPeriod}
+            onChange={(e) => setFastPeriod(Number(e.target.value))}
+          />
+          <Input
+            label="Slow MA Period"
+            type="number"
+            value={slowPeriod}
+            onChange={(e) => setSlowPeriod(Number(e.target.value))}
+          />
+        </div>
 
-      {/* Main Interactive Indicators Chart View */}
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/10 pt-4">
+          <div className="text-sm font-mono text-textSecondary">
+            {status === 'running' ? `Backtesting Progress: ${Math.round(progress)}%` : 'Ready'}
+          </div>
+          <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
+            {status === 'running' ? 'Running...' : 'Execute Backtest'}
+          </Button>
+        </div>
+
+        {error && (
+          <p className="mt-3 text-sm font-mono text-danger">{error}</p>
+        )}
+      </Card>
+
+      {/* Price Chart */}
       {ohlcv.length > 0 && (
-        <Card className="p-0">
+        <Card className="p-0 overflow-hidden">
+          <div className="p-6 pb-0">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+              Price Action
+            </h3>
+          </div>
           <PriceChart data={ohlcv} theme="dark" />
         </Card>
       )}
 
-      {/* Results View Dashboard */}
+      {/* Results */}
       {results && (
-        <div className="space-y-8">
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <MetricsCard
               label="Total Return"
               value={`${results.metrics.total_return_pct.toFixed(2)}%`}
@@ -137,8 +151,8 @@ export default function BacktestPage() {
             <MetricsCard label="Profit Factor" value={results.metrics.profit_factor.toFixed(2)} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-0">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="p-0 overflow-hidden">
               <div className="p-6 pb-0">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
                   Equity Growth Curve
@@ -147,7 +161,7 @@ export default function BacktestPage() {
               <EquityCurve data={results.equity_curve} buyHoldData={results.buy_hold_equity} />
             </Card>
 
-            <Card className="p-0">
+            <Card className="p-0 overflow-hidden">
               <div className="p-6 pb-0">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
                   Drawdown Profile

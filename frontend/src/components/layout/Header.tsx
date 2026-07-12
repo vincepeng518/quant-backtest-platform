@@ -18,15 +18,15 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
-      <div className="flex h-14 items-center justify-between px-6 max-w-7xl mx-auto">
-        {/* Brand System Logo */}
-        <Link href="/" className="flex items-center space-x-2 font-semibold tracking-tight text-sm">
-          <Database className="h-4 w-4 text-accent" />
-          <span className="font-mono">QUANT.LAB</span>
+      <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6 max-w-7xl mx-auto">
+        {/* Brand */}
+        <Link href="/" className="flex shrink-0 items-center space-x-2 font-semibold tracking-tight text-sm">
+          <Database className="h-4 w-4 shrink-0 text-accent" />
+          <span className="font-mono whitespace-nowrap">QUANT.LAB</span>
         </Link>
 
-        {/* Minimal Navigation items */}
-        <nav className="flex items-center space-x-8 text-sm">
+        {/* Nav */}
+        <nav className="flex flex-1 items-center justify-center space-x-1 sm:space-x-6 text-sm overflow-x-auto no-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.path || (item.path === '/backtest' && pathname === '/');
@@ -34,29 +34,28 @@ export const Header: React.FC = () => {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex items-center space-x-1.5 transition-colors duration-150 ${
+                className={`flex shrink-0 items-center space-x-1.5 rounded-md px-2 py-1 transition-colors duration-150 ${
                   active
-                    ? 'text-text font-medium'
+                    ? 'text-text font-medium bg-surface'
                     : 'text-textSecondary hover:text-text font-normal'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{item.name}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-nowrap">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Global Action Tools Section */}
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-1 rounded text-textSecondary hover:text-text transition-colors"
-          >
-            <Sun className="h-4 w-4 dark:hidden" />
-            <Moon className="h-4 w-4 hidden dark:block" />
-          </button>
-        </div>
+        {/* Theme toggle */}
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="shrink-0 p-1 rounded text-textSecondary hover:text-text transition-colors"
+          aria-label="Toggle theme"
+        >
+          <Sun className="h-4 w-4 dark:hidden" />
+          <Moon className="h-4 w-4 hidden dark:block" />
+        </button>
       </div>
     </header>
   );
