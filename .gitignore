@@ -12,3 +12,7 @@ venv/
 dist/
 build/
 .streamlit/secrets.toml
+node_modules/
+.next/
+next-env.d.ts
+frontend/package-lock.json

@@ -1,5 +1,179 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge } from 'lucide-react';
+
+const modules = [
+  {
+    name: 'Backtest',
+    path: '/backtest',
+    icon: Activity,
+    tag: '回測引擎',
+    desc: '載入市場數據，套用均線交叉、突破、配對交易等策略，秒級生成績效報告與權益曲線。',
+    metric: 'P&L',
+  },
+  {
+    name: 'Optimize',
+    path: '/optimize',
+    icon: Sliders,
+    tag: '參數優化',
+    desc: '網格搜索、遺傳演算法、貝葉斯優化並行掃參，自動收斂到最佳風險調整後參數組合。',
+    metric: 'SHARPE',
+  },
+  {
+    name: 'Analysis',
+    path: '/analysis',
+    icon: TrendingUp,
+    tag: '穩健性驗證',
+    desc: 'Walk-Forward 樣本外驗證與蒙地卡羅模擬，量化策略在未知行情下的存活機率。',
+    metric: 'DRAWDOWN',
+  },
+];
+
+const capabilities = [
+  { icon: Database, label: '多市場數據', detail: 'Crypto · Equity · Futures · FX' },
+  { icon: Cpu, label: '向量化引擎', detail: 'pandas / numpy 高速計算' },
+  { icon: Gauge, label: 'ML 接口預留', detail: 'StrategyBase 抽象層可擴充' },
+];
 
 export default function Home() {
-  redirect('/backtest');
+  return (
+    <div className="space-y-24 pb-12">
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden">
+        {/* 抽象權益曲線視覺 */}
+        <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]">
+          <svg className="h-full w-full" viewBox="0 0 1200 400" preserveAspectRatio="none" fill="none">
+            <path
+              d="M0 320 L120 300 L240 330 L360 250 L480 270 L600 180 L720 210 L840 120 L960 150 L1080 70 L1200 90"
+              stroke="var(--accent)"
+              strokeWidth="2"
+            />
+            <path
+              d="M0 360 L120 350 L240 365 L360 320 L480 335 L600 280 L720 300 L840 230 L960 250 L1080 190 L1200 200"
+              stroke="var(--text)"
+              strokeWidth="1"
+              opacity="0.5"
+            />
+          </svg>
+        </div>
+        <div className="pointer-events-none absolute -top-24 right-0 -z-10 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
+
+        <div className="max-w-3xl pt-16 md:pt-24">
+          <div className="mb-6 flex items-center space-x-2 font-mono text-xs uppercase tracking-[0.2em] text-textSecondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            <span>Quantitative Trading Infrastructure</span>
+          </div>
+
+          <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight md:text-6xl">
+            在市場中
+            <br />
+            <span className="text-accent">持續賺取 P&L</span>
+          </h1>
+
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-textSecondary md:text-lg">
+            極簡、高性能的量化回測與優化平台。從策略構想到樣本外驗證，
+            一套工具完成全部工作流。數據天賦 × 策略思維 × 高速執行。
+          </p>
+
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <Link
+              href="/backtest"
+              className="group inline-flex items-center space-x-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+            >
+              <span>進入平台</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              href="/analysis"
+              className="inline-flex items-center space-x-2 rounded-lg bg-surface px-6 py-3 text-sm font-medium text-text transition-colors hover:bg-surface/70"
+            >
+              <span>穩健性分析</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 三大模塊 ── */}
+      <section className="space-y-8">
+        <div className="flex items-end justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
+            核心模塊
+          </h2>
+          <span className="font-mono text-xs text-textSecondary">03 / workflows</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {modules.map((m) => {
+            const Icon = m.icon;
+            return (
+              <Link
+                key={m.name}
+                href={m.path}
+                className="group rounded-xl bg-surface p-7 transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface/70"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background">
+                    <Icon className="h-5 w-5 text-accent" />
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-textSecondary">
+                    {m.metric}
+                  </span>
+                </div>
+
+                <h3 className="mt-6 text-lg font-semibold tracking-tight">{m.name}</h3>
+                <p className="mt-1 font-mono text-xs uppercase tracking-wider text-accent">
+                  {m.tag}
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-textSecondary">{m.desc}</p>
+
+                <div className="mt-6 flex items-center space-x-1 text-xs font-medium text-textSecondary transition-colors group-hover:text-text">
+                  <span>打開</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── 能力條 ── */}
+      <section className="space-y-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
+          平台能力
+        </h2>
+        <div className="grid grid-cols-1 gap-px md:grid-cols-3">
+          {capabilities.map((c) => {
+            const Icon = c.icon;
+            return (
+              <div key={c.label} className="rounded-xl bg-surface p-7">
+                <Icon className="h-5 w-5 text-accent" />
+                <h3 className="mt-5 text-base font-medium tracking-tight">{c.label}</h3>
+                <p className="mt-2 font-mono text-xs text-textSecondary">{c.detail}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── CTA 帶 ── */}
+      <section className="relative overflow-hidden rounded-2xl bg-surface px-8 py-14 text-center md:py-20">
+        <div className="pointer-events-none absolute -bottom-20 left-1/2 -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-accent/5 blur-3xl" />
+        <h2 className="mx-auto max-w-2xl text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
+          紀律就是利潤，情緒就是成本。
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-sm text-textSecondary">
+          從第一筆回測開始，建立你的系統化交易優勢。
+        </p>
+        <Link
+          href="/backtest"
+          className="group mt-8 inline-flex items-center space-x-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+        >
+          <span>開始回測</span>
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </section>
+    </div>
+  );
 }
