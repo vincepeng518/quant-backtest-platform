@@ -37,12 +37,21 @@ class DataService:
         if cached is not None:
             return pd.DataFrame(cached)
 
+        data: pd.DataFrame | None = None
         if source == "csv":
             data = self.csv_loader.load(symbol)
         else:
-            data = await self.binance.fetch_ohlcv(symbol, timeframe, start_date, end_date)
+            try:
+                data = await self.binance.fetch_ohlcv(symbol, timeframe, start_date, end_date)
+            except Exception as e:  # network/geo-block etc.
+                logger.warning("Binance fetch failed for %s: %s", symbol, e)
+                data = None
+            # Fallback to bundled CSV if live data unavailable
+            if data is None or len(data) == 0:
+                logger.info("Falling back to CSV for %s", symbol)
+                data = self.csv_loader.load(symbol)
 
-        if data is not None:
+        if data is not None and len(data):
             cache.set(cache_key, data.to_dict(orient="records"))
         return data if data is not None else pd.DataFrame()
 
