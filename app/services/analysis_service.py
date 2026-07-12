@@ -3,13 +3,15 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from app.services.data_service import _analysis_tasks, create_task_id
+from app.services.data_service import DataService, _analysis_tasks, create_task_id
 from app.services.strategy_service import get_strategy
 from engine.analyzer import WalkForwardAnalyzer, MonteCarloSimulator
 from engine.backtester import Backtester
 
 
 class AnalysisService:
+    def __init__(self) -> None:
+        self.data_service = DataService()
     async def run_walk_forward(self, config: dict[str, Any]) -> dict:
         task_id = create_task_id()
         _analysis_tasks[task_id] = {"status": "running"}
@@ -25,13 +27,17 @@ class AnalysisService:
     async def _execute_wf(self, task_id: str, config: dict) -> None:
         try:
             bt = Backtester()
-            from data.providers.binance import BinanceProvider
-            provider = BinanceProvider()
-            data = await provider.fetch_ohlcv(config.get("symbol", "BTC/USDT"), config.get("timeframe", "1h"))
             cls = get_strategy(config.get("strategy_id", "ma_cross"))
             param_space = {}
             for p in config.get("param_space", []):
                 param_space[p["name"]] = {"type": "range", "min": p["min_val"], "max": p["max_val"], "step": p["step"]}
+
+            data = await self.data_service.get_ohlcv(
+                config.get("symbol", "BTC/USDT"), config.get("timeframe", "1h")
+            )
+            if data is None or len(data) == 0:
+                _analysis_tasks[task_id] = {"status": "error", "error": "No data available"}
+                return
 
             wf = WalkForwardAnalyzer(bt)
             result = wf.analyze(
