@@ -2,6 +2,8 @@
 data/
 !data/providers/
 !data/providers/**
+!data/csv/
+!data/csv/**
 *.db
 *.sqlite
 __pycache__/
