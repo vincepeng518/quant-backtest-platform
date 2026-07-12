@@ -134,6 +134,8 @@ class Backtester:
                 position.current_price = bar.close
                 position.pnl = position.size * (bar.close - position.entry_price)
                 position.pnl_pct = position.pnl / capital * 100
+            # Sync position back to strategy so strategies can read their own book
+            self.strategy.position = position
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
@@ -166,7 +168,7 @@ class Backtester:
             max_drawdown_pct=max(dd),
             sharpe_ratio=self._sharpe(returns),
             sortino_ratio=self._sortino(returns),
-            profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else float("inf"),
+            profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,
             avg_trade=total_pnl / len(trades) if trades else 0,
             avg_winner=sum(t.pnl for t in winners) / len(winners) if winners else 0,
             avg_loser=sum(t.pnl for t in losers) / len(losers) if losers else 0,

@@ -5,14 +5,13 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from app.api.routes import backtest, data, strategy, optimize, analysis
 from app.config import settings
 from app.core.exceptions import AppException
 from app.core.middleware import TimingMiddleware
 
-logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=settings.log_level.upper())
 
 app = FastAPI(title="Quant Backtest Platform API", version="1.0.0", docs_url="/docs")
 
