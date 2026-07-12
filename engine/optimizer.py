@@ -75,8 +75,25 @@ class Optimizer:
     def bayesian_optimization(
         self, param_space: dict[str, Any], n_iterations: int = 30, n_initial: int = 10
     ) -> list[dict]:
-        from sklearn.gaussian_process import GaussianProcessRegressor
-        from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+        # Lightweight pure-numpy Gaussian Process (no sklearn dependency)
+        import numpy as _np
+
+        def _rbf(x1, x2, length=1.0, sigma=1.0):
+            d = _np.sum((_np.array(x1) - _np.array(x2)) ** 2)
+            return sigma * _np.exp(-0.5 * d / (length ** 2))
+
+        def _gp_predict(X, y, x_new, noise=1e-6):
+            if len(X) == 0:
+                return 0.0, 1.0
+            K = _np.array([[_rbf(a, b) for b in X] for a in X]) + noise * _np.eye(len(X))
+            k_star = _np.array([_rbf(x_new, b) for b in X])
+            try:
+                K_inv = _np.linalg.inv(K)
+                mean = k_star @ K_inv @ _np.array(y)
+                var = _rbf(x_new, x_new) - k_star @ K_inv @ k_star
+                return float(mean), float(max(var, 1e-6))
+            except Exception:
+                return float(_np.mean(y)) if len(y) else 0.0, 1.0
 
         X, y = [], []
         for _ in range(n_initial):
@@ -86,20 +103,29 @@ class Optimizer:
             X.append(self._params_to_vector(params, param_space))
             y.append(getattr(r, self.metric, 0))
 
-        kernel = ConstantKernel(1.0) * RBF(length_scale=1.0)
-        gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10)
-        gp.fit(X, y)
         results: list[dict] = []
+        y_mean = _np.mean(y) if y else 0.0
+        y_std = _np.std(y) if y else 1.0
+        y_scaled = [(v - y_mean) / (y_std + 1e-9) for v in y]
 
         for _ in range(n_iterations):
-            best_x = self._acquisition(gp, X, y, param_space)
+            best_x, best_ucb = None, -_np.inf
+            for _ in range(20):
+                cand = _np.random.uniform(0, 1, len(param_space))
+                mu, var = _gp_predict(X, y_scaled, cand)
+                ucb = mu + 1.5 * _np.sqrt(var)
+                if ucb > best_ucb:
+                    best_ucb = ucb
+                    best_x = cand
+            if best_x is None:
+                best_x = _np.random.uniform(0, 1, len(param_space))
             params = self._vector_to_params(best_x, param_space)
             self.backtester.strategy.init(params)
             r = self.backtester.run()
             score = getattr(r, self.metric, 0)
             X.append(best_x)
             y.append(score)
-            gp.fit(X, y)
+            y_scaled.append((score - y_mean) / (y_std + 1e-9))
             results.append({"params": params, "score": score})
 
         results.sort(key=lambda x: x["score"], reverse=self.maximize)
@@ -169,20 +195,3 @@ class Optimizer:
                 params[k] = p["values"][max(0, min(i, len(p["values"]) - 1))]
             idx += 1
         return params
-
-    def _acquisition(self, gp, X, y, space) -> list:
-        from scipy.optimize import minimize
-
-        best = None
-        best_val = np.inf
-        bounds = [(0, 1)] * len(space)
-        for _ in range(5):
-            x0 = np.random.uniform(0, 1, len(space))
-            try:
-                res = minimize(lambda x: -gp.predict([x])[0], x0, bounds=bounds, method="L-BFGS-B")
-                if best is None or res.fun < best_val:
-                    best_val = res.fun
-                    best = res.x.copy()
-            except Exception:
-                continue
-        return best.tolist() if best is not None else np.random.uniform(0, 1, len(space)).tolist()
