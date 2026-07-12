@@ -41,10 +41,10 @@ export default function Home() {
   return (
     <div className="space-y-24 pb-12">
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden min-h-[420px] flex items-center">
         {/* 抽象權益曲線視覺 */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]">
-          <svg className="h-full w-full" viewBox="0 0 1200 400" preserveAspectRatio="none" fill="none">
+          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice" fill="none">
             <path
               d="M0 320 L120 300 L240 330 L360 250 L480 270 L600 180 L720 210 L840 120 L960 150 L1080 70 L1200 90"
               stroke="var(--accent)"
@@ -60,7 +60,7 @@ export default function Home() {
         </div>
         <div className="pointer-events-none absolute -top-24 right-0 -z-10 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
 
-        <div className="max-w-3xl pt-16 md:pt-24">
+        <div className="w-full max-w-3xl pt-16 md:pt-24">
           <div className="mb-6 flex items-center space-x-2 font-mono text-xs uppercase tracking-[0.2em] text-textSecondary">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             <span>Quantitative Trading Infrastructure</span>
