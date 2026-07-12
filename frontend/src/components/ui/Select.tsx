@@ -17,13 +17,12 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             {label}
           </label>
         )}
-        <div className="relative w-full">
+        <div className="relative w-full overflow-hidden">
           <select
             ref={ref}
             className={twMerge(
               clsx(
-                // Impeccable: underline select, no native arrow, room for custom chevron
-                'w-full cursor-pointer appearance-none border-b border-border/60 bg-transparent py-1.5 pr-7 text-sm text-text duration-150 ease-out focus:border-accent focus:outline-none'
+                'w-full cursor-pointer appearance-none border-b border-border/60 bg-transparent py-1.5 pr-8 text-sm text-text duration-150 ease-out focus:border-accent focus:outline-none'
               ),
               className
             )}
@@ -35,29 +34,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             ))}
           </select>
-
-          {/* fixed 16px chevron — never inherit layout size */}
+          {/* Pure CSS chevron — no SVG that can scale with parent */}
           <span
             aria-hidden
-            className="pointer-events-none absolute right-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-textSecondary"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              className="block h-4 w-4 shrink-0"
-              style={{ width: 16, height: 16, maxWidth: 16, maxHeight: 16 }}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </span>
+            className="pointer-events-none absolute right-1 top-1/2 block h-2 w-2 -translate-y-[35%] rotate-45 border-b border-r border-textSecondary"
+          />
         </div>
         {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}
       </div>
