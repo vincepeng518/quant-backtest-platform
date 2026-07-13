@@ -1,226 +1,159 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import api from '@/lib/api';
-import { UserStrategy, StrategyPayload } from '@/types/api';
-import { Card } from '@/components/ui/Card';
-import { PageShell } from '@/components/layout/PageShell';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import React, { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { Spinner } from '@/components/ui/Spinner';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useToastStore } from '@/stores/useToastStore';
 
-const EMPTY_FORM: StrategyPayload = {
-  name: '',
-  description: '',
-  category: '',
-  code: '',
-};
+interface UserMeta {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  filename?: string;
+  created_at?: string;
+  status?: string;
+  error?: string | null;
+  params_space?: Record<string, unknown>;
+}
+
+const SAMPLE = `from app.engine.strategy_base import StrategyBase
+
+class MyStrategy(StrategyBase):
+    description = "My custom strategy"
+    category = "custom"
+
+    def get_params_space(self):
+        return {"fast": (5, 50, 1), "slow": (20, 200, 1)}
+
+    def generate_signals(self, df):
+        fast = df["close"].rolling(int(self.params["fast"])).mean()
+        slow = df["close"].rolling(int(self.params["slow"])).mean()
+        return (fast > slow).astype(int).diff().fillna(0)
+`;
 
 export default function StrategiesPage() {
-  const [strategies, setStrategies] = useState<UserStrategy[]>([]);
-  const [form, setForm] = useState<StrategyPayload>(EMPTY_FORM);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [user, setUser] = useState<UserMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '', code: SAMPLE });
+  const push = useToastStore((s) => s.push);
 
-  const loadStrategies = useCallback(async () => {
-    try {
-      const data = await api.listUserStrategies();
-      setStrategies(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load strategies');
-    }
-  }, []);
-
-  useEffect(() => {
-    loadStrategies();
-  }, [loadStrategies]);
-
-  const handleChange = (
-    field: keyof StrategyPayload,
-    value: string
-  ) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const resetForm = () => {
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-    setError(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      if (editingId) {
-        await api.updateStrategy(editingId, form);
-      } else {
-        await api.uploadStrategy(form);
-      }
-      resetForm();
-      await loadStrategies();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save strategy');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = async (id: string) => {
-    setError(null);
-    try {
-      const strategy = await api.getUserStrategy(id);
-      setForm({
-        name: strategy.name,
-        description: strategy.description,
-        category: strategy.category,
-        code: strategy.code,
+  const load = () => {
+    Promise.all([api.getTemplates(), api.listUserStrategies()])
+      .then(([t, u]) => {
+        setTemplates(t as any[]);
+        setUser(u as unknown as UserMeta[]);
+        setLoading(false);
+      })
+      .catch((e) => {
+        push({ kind: 'danger', title: '載入失敗', message: String(e?.message ?? e) });
+        setLoading(false);
       });
-      setEditingId(id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load strategy');
+  };
+
+  useEffect(load, []);
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.code.trim()) {
+      push({ kind: 'danger', title: '請填寫名稱與代碼' });
+      return;
+    }
+    try {
+      await api.uploadStrategy({ name: form.name, description: form.description, category: 'custom', code: form.code });
+      push({ kind: 'success', title: '策略已上傳', message: form.name });
+      setShowUpload(false);
+      setForm({ name: '', description: '', code: SAMPLE });
+      load();
+    } catch (e: any) {
+      push({ kind: 'danger', title: '上傳失敗', message: e?.message ?? String(e) });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    setError(null);
+  const remove = async (id: string) => {
     try {
       await api.deleteStrategy(id);
-      if (editingId === id) {
-        resetForm();
-      }
-      await loadStrategies();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete strategy');
+      push({ kind: 'success', title: '已刪除策略' });
+      load();
+    } catch (e: any) {
+      push({ kind: 'danger', title: '刪除失敗', message: e?.message ?? String(e) });
     }
   };
 
+  if (loading) return <Spinner />;
+
   return (
-    <PageShell
-      eyebrow="Strategies / library"
-      title="策略庫"
-      subtitle="上傳、編輯並管理你的自定義 Python 策略。持久化進版本庫，跨裝置與重啟皆存活。"
-    >
-      {/* Form */}
-      <Card>
-        <h2 className="mb-6 text-sm font-semibold uppercase tracking-wider text-textSecondary">
-          {editingId ? 'Edit Strategy' : 'New Strategy'}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Input
-              label="Name"
-              value={form.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="My Strategy"
-            />
-            <Input
-              label="Category"
-              value={form.category}
-              onChange={(e) => handleChange('category', e.target.value)}
-              placeholder="Momentum"
-            />
-          </div>
-
-          <Input
-            label="Description"
-            value={form.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-            placeholder="Short description of the strategy"
-          />
-
-          <div className="w-full">
-            <label className="block text-xs font-medium text-textSecondary uppercase tracking-wider mb-2">
-              Code
-            </label>
-            <textarea
-              value={form.code}
-              onChange={(e) => handleChange('code', e.target.value)}
-              rows={10}
-              placeholder="def signal(df): ..."
-              className="w-full resize-y rounded-lg bg-transparent border border-border/10 p-3 font-mono text-sm text-text focus:border-accent focus:outline-none duration-150 ease-out"
-            />
-          </div>
-
-          {error && <p className="text-sm font-mono text-danger">{error}</p>}
-
-          <div className="flex items-center gap-3 border-t border-border/10 pt-4">
-            <Button type="submit" variant="primary" disabled={loading}>
-              {loading
-                ? 'Saving...'
-                : editingId
-                ? 'Update Strategy'
-                : 'Upload Strategy'}
-            </Button>
-            {editingId && (
-              <Button type="button" variant="ghost" onClick={resetForm}>
-                Cancel
-              </Button>
-            )}
-          </div>
-        </form>
-      </Card>
-
-      {/* Library list */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
-          Your Strategies
-        </h2>
-
-        {strategies.length === 0 ? (
-          <Card>
-            <p className="text-sm text-textSecondary">
-              No strategies yet. Upload your first one above.
-            </p>
-          </Card>
-        ) : (
-          strategies.map((s) => (
-            <Card key={s.id} hoverEffect>
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate font-medium text-text">{s.name}</h3>
-                    {s.category && (
-                      <span className="rounded bg-surface px-2 py-0.5 font-mono text-xs text-textSecondary">
-                        {s.category}
-                      </span>
-                    )}
-                  </div>
-                  {s.description && (
-                    <p className="mt-1 truncate text-sm text-textSecondary">
-                      {s.description}
-                    </p>
-                  )}
-                  <p className="mt-2 font-mono text-xs text-textSecondary">
-                    Updated {new Date(s.updated_at * 1000).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleEdit(s.id)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(s.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
+    <div className="space-y-12 pb-12">
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text">內建策略模板</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {templates.map((t) => (
+            <div key={t.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text">{t.name}</span>
+                <span className="text-xs text-textSecondary uppercase">{t.category}</span>
               </div>
-            </Card>
-          ))
-        )}
-      </div>
-    </PageShell>
+              <p className="text-sm text-textSecondary">{t.description}</p>
+              <span className="text-xs font-mono text-accent">{t.params?.length ?? 0} params</span>
+            </div>
+          ))}
+          {templates.length === 0 && <EmptyState title="無內建模板" />}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text">我的策略</h2>
+          <button onClick={() => setShowUpload(true)} className="text-sm text-accent hover:underline">+ 上傳策略</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {user.map((s) => (
+            <div key={s.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-text">{s.name}</span>
+                <span className={`text-xs ${s.status === 'error' ? 'text-danger' : 'text-success'}`}>{s.status ?? 'registered'}</span>
+              </div>
+              <p className="text-sm text-textSecondary">{s.description || s.filename}</p>
+              {s.error && <p className="text-xs text-danger font-mono">{s.error}</p>}
+              <button onClick={() => remove(s.id)} className="text-xs text-textSecondary hover:text-danger transition-colors">刪除</button>
+            </div>
+          ))}
+          {user.length === 0 && <EmptyState title="尚無上傳策略" description="點擊右上角上傳你的 Python 策略" />}
+        </div>
+      </section>
+
+      {showUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowUpload(false)}>
+          <div className="w-full max-w-2xl bg-surface border border-border/10 rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-text">上傳策略</h3>
+            <input
+              className="w-full bg-background border border-border/10 rounded-md px-3 py-2 text-sm text-text"
+              placeholder="策略名稱"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <input
+              className="w-full bg-background border border-border/10 rounded-md px-3 py-2 text-sm text-text"
+              placeholder="描述（選填）"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+            <textarea
+              className="w-full h-72 bg-background border border-border/10 rounded-md px-3 py-2 text-xs font-mono text-text"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowUpload(false)} className="text-sm text-textSecondary px-4 py-2">取消</button>
+              <button onClick={submit} className="text-sm text-accent border border-accent/30 rounded-md px-4 py-2 hover:bg-accent/10 transition-colors">上傳</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-};
+}
