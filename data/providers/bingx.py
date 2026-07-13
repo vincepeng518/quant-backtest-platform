@@ -23,9 +23,16 @@ class BingXProvider:
     """OHLCV provider backed by ccxt (BingX). Async wrapper around the sync client."""
 
     def __init__(self, symbol_default: str = "BTC/USDT") -> None:
-        self._exchange = ccxt.bingx()
-        self._exchange.timeout = 20_000
+        self._exchange = None
         self.symbol_default = symbol_default
+
+    def _get_exchange(self):
+        if self._exchange is None:
+            import ccxt
+
+            self._exchange = ccxt.bingx()
+            self._exchange.timeout = 20_000
+        return self._exchange
 
     async def fetch_ohlcv(
         self,
@@ -44,15 +51,16 @@ class BingXProvider:
         try:
             import ccxt
 
+            ex = self._get_exchange()
             tf_ms = TF_MS.get(timeframe, 3_600_000)
             end_ms = None
             if end_date:
-                end_ms = self._exchange.parse8601(
+                end_ms = ex.parse8601(
                     f"{end_date}Z" if len(end_date) == 10 else end_date
                 )
             start_ms = None
             if start_date:
-                start_ms = self._exchange.parse8601(
+                start_ms = ex.parse8601(
                     f"{start_date}Z" if len(start_date) == 10 else start_date
                 )
 
@@ -61,7 +69,7 @@ class BingXProvider:
             max_pages = 12  # cap total pull (~12k bars) to bound latency
             for _ in range(max_pages):
                 raw = await asyncio.to_thread(
-                    self._exchange.fetch_ohlcv,
+                    ex.fetch_ohlcv,
                     symbol,
                     timeframe,
                     cursor,
