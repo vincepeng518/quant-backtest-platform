@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import api from '@/lib/api';
 
-interface ParameterRange {
+export interface ParamRangeUI {
+  id: string;
   name: string;
   min: number;
   max: number;
@@ -10,46 +12,81 @@ interface ParameterRange {
 interface OptimizeStore {
   status: 'idle' | 'running' | 'completed' | 'error';
   progress: number;
+  error: string | null;
   bestParams: Record<string, any> | null;
   bestScore: number | null;
-  runOptimization: (strategyId: string, space: ParameterRange[]) => Promise<void>;
+  grid: any | null;
+  trials: { params: Record<string, any>; score: number }[];
+  strategyId: string;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  paramSpace: ParamRangeUI[];
+  setStrategy: (id: string) => void;
+  setMarket: (m: { symbol: string; timeframe: string; source: string }) => void;
+  addParam: (name: string) => void;
+  updateParam: (id: string, patch: Partial<ParamRangeUI>) => void;
+  removeParam: (id: string) => void;
+  runOptimization: () => Promise<void>;
   reset: () => void;
 }
 
-export const useOptimizeStore = create<OptimizeStore>((set) => ({
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   status: 'idle',
   progress: 0,
+  error: null,
   bestParams: null,
   bestScore: null,
-  runOptimization: async (strategyId, space) => {
-    set({ status: 'running', progress: 0 });
+  grid: null,
+  trials: [],
+  strategyId: 'ma_cross',
+  symbol: 'BTC/USDT',
+  timeframe: '1h',
+  source: 'test',
+  paramSpace: [
+    { id: uid(), name: 'fast_period', min: 5, max: 20, step: 1 },
+    { id: uid(), name: 'slow_period', min: 21, max: 60, step: 1 },
+  ],
+  setStrategy: (id) => set({ strategyId: id }),
+  setMarket: (m) => set(m),
+  addParam: (name) =>
+    set((s) => ({ paramSpace: [...s.paramSpace, { id: uid(), name, min: 1, max: 10, step: 1 }] })),
+  updateParam: (id, patch) =>
+    set((s) => ({ paramSpace: s.paramSpace.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+  removeParam: (id) =>
+    set((s) => ({ paramSpace: s.paramSpace.filter((p) => p.id !== id) })),
+  runOptimization: async () => {
+    const { strategyId, symbol, timeframe, source, paramSpace } = get();
+    set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] });
     try {
-      const response = await fetch('/api/optimize/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ strategy_id: strategyId, param_space: space }),
+      const { task_id } = await api.runOptimize({
+        strategy_id: strategyId,
+        symbol,
+        timeframe,
+        source,
+        param_space: paramSpace.map((p) => ({ name: p.name, min: p.min, max: p.max, step: p.step })),
       });
-      if (!response.ok) throw new Error('Optimization failed to start');
-      const { task_id } = await response.json();
-
       const poll = setInterval(async () => {
-        const res = await fetch(`/api/optimize/results/${task_id}`);
-        if (res.ok) {
-          const data = await res.json();
-          set({ progress: data.progress });
-          if (data.status === 'done') {
+        try {
+          const data = await api.getOptimizeResults(task_id);
+          set({ progress: data.status === 'completed' ? 100 : 50 });
+          if (data.status === 'completed') {
             clearInterval(poll);
-            set({
-              status: 'completed',
-              bestParams: data.best_params,
-              bestScore: data.best_score,
-            });
+            set({ status: 'completed', bestParams: data.best_params, bestScore: data.best_score, grid: data.grid, trials: data.trials });
+          } else if (data.status === 'error') {
+            clearInterval(poll);
+            set({ status: 'error', error: (data as any).error ?? 'optimization failed' });
           }
+        } catch (e) {
+          clearInterval(poll);
+          set({ status: 'error', error: 'polling failed' });
         }
-      }, 1000);
-    } catch {
-      set({ status: 'error' });
+      }, 1500);
+    } catch (e: any) {
+      set({ status: 'error', error: e?.message ?? 'failed to start' });
     }
   },
-  reset: () => set({ status: 'idle', progress: 0, bestParams: null, bestScore: null }),
+  reset: () => set({ status: 'idle', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] }),
 }));

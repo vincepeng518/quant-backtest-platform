@@ -117,3 +117,20 @@ export interface AnalysisResult {
     max_drawdowns?: number[];
   };
 }
+
+export interface OptimizeGrid {
+  param_x: string;
+  param_y: string;
+  x_values: number[];
+  y_values: number[];
+  scores: (number | null)[][];
+}
+
+export interface OptimizeResult {
+  task_id: string;
+  status: string;
+  best_params: Record<string, any>;
+  best_score: number;
+  trials: { params: Record<string, any>; score: number }[];
+  grid: OptimizeGrid | null;
+}
