@@ -73,6 +73,24 @@ class UserStrategyMeta(BaseModel):
     error: str | None = None
 
 
+class FundingConfig(BaseModel):
+    enabled: bool = False
+    interval_hours: int = 8
+    default_rate: float = 0.0001
+
+class PerpetualConfig(BaseModel):
+    enabled: bool = False
+    leverage: float = 1.0
+    maintenance_margin_rate: float = 0.005
+
+class ExchangeConfig(BaseModel):
+    enabled: bool = False
+    maker_fee: float = 0.0002
+    taker_fee: float = 0.0005
+    latency_bars: int = 0
+    book_base_slippage: float = 0.0005
+
+
 class BacktestConfig(BaseModel):
     strategy: StrategyConfig
     symbol: str
@@ -82,6 +100,9 @@ class BacktestConfig(BaseModel):
     initial_capital: float = 100_000.0
     commission: float = 0.001
     slippage: float = 0.0005
+    funding: FundingConfig = Field(default_factory=FundingConfig)
+    perpetual: PerpetualConfig = Field(default_factory=PerpetualConfig)
+    exchange: ExchangeConfig = Field(default_factory=ExchangeConfig)
 
 
 # ── Results ──
@@ -94,6 +115,8 @@ class TradeRecord(BaseModel):
     size: float
     pnl: float | None = None
     pnl_pct: float | None = None
+    funding_paid: float | None = None
+    liquidated: bool = False
 
 
 class MetricsOut(BaseModel):
