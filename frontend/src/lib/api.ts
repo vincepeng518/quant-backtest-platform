@@ -4,6 +4,7 @@ import {
   StrategyPayload,
   StrategyTemplate,
   UserStrategy,
+  AnalysisResult,
 } from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -62,5 +63,18 @@ export const api = {
       method: 'DELETE',
     }),
   getTemplates: () => request<StrategyTemplate[]>('/strategy/templates'),
+
+  runWalkForward: (config: any) =>
+    request<{ task_id: string }>('/analysis/walk-forward', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  runMonteCarlo: (config: any) =>
+    request<{ task_id: string }>('/analysis/monte-carlo', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  getAnalysisResults: (taskId: string) =>
+    request<AnalysisResult>(`/analysis/results/${taskId}`),
 };
 export default api;

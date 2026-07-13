@@ -41,6 +41,9 @@ class WalkForwardAnalyzer:
 
             best_params = opt_results[0]["params"]
             is_result = opt_results[0]["result"]
+            if is_result is None:
+                # all candidate param sets failed to backtest; skip this window
+                continue
 
             self.backtester.set_data(oos_data)
             oos_strat = strategy_cls()
@@ -62,6 +65,15 @@ class WalkForwardAnalyzer:
                 }
             )
 
+        if not results:
+            return {
+                "windows": [],
+                "avg_oos_sharpe": 0.0,
+                "avg_oos_return": 0.0,
+                "sharpe_std": 0.0,
+                "return_std": 0.0,
+                "consistency": 0.0,
+            }
         return self._aggregate(results)
 
     @staticmethod

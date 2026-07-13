@@ -30,7 +30,12 @@ class AnalysisService:
             cls = get_strategy(config.get("strategy_id", "ma_cross"))
             param_space = {}
             for p in config.get("param_space", []):
-                param_space[p["name"]] = {"type": "range", "min": p["min_val"], "max": p["max_val"], "step": p["step"]}
+                param_space[p["name"]] = {
+                    "type": "range",
+                    "min": p["min"],
+                    "max": p["max"],
+                    "step": p.get("step", 1),
+                }
 
             data = await self.data_service.get_ohlcv(
                 config.get("symbol", "BTC/USDT"), config.get("timeframe", "1h")
@@ -49,7 +54,23 @@ class AnalysisService:
 
     async def _execute_mc(self, task_id: str, config: dict) -> None:
         try:
-            eq = config.get("equity_curve", [1000])
+            eq = config.get("equity_curve")
+            if not eq:
+                # derive equity curve from a backtest of the chosen strategy
+                bt = Backtester()
+                cls = get_strategy(config.get("strategy_id", "ma_cross"))
+                strat = cls()
+                strat.init({})
+                bt.set_strategy(strat)
+                data = await self.data_service.get_ohlcv(
+                    config.get("symbol", "BTC/USDT"), config.get("timeframe", "1h")
+                )
+                if data is None or len(data) == 0:
+                    _analysis_tasks[task_id] = {"status": "error", "error": "No data available"}
+                    return
+                bt.set_data(data)
+                res = bt.run()
+                eq = res.equity_curve
             mc = MonteCarloSimulator(eq, n_simulations=config.get("n_simulations", 500))
             result = mc.simulate(initial_capital=config.get("initial_capital", 100_000))
             _analysis_tasks[task_id] = {"status": "completed", "result": result}

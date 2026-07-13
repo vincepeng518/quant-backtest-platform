@@ -46,8 +46,9 @@ class Optimizer:
                 result = self.backtester.run()
                 metric_val = getattr(result, self.metric, 0)
             except Exception:
+                result = None
                 metric_val = 0.0
-            results.append({"params": params, "score": metric_val, "result": None})
+            results.append({"params": params, "score": metric_val, "result": result})
 
         results.sort(key=lambda x: x["score"], reverse=self.maximize)
         return results

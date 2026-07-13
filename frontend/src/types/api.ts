@@ -94,3 +94,25 @@ export interface StrategyPayload {
   category: string;
   code: string;
 }
+
+export interface AnalysisResult {
+  task_id: string;
+  status: string;
+  type: string;
+  summary: {
+    // walk-forward
+    avg_oos_sharpe?: number;
+    avg_oos_return?: number;
+    sharpe_std?: number;
+    return_std?: number;
+    consistency?: number;
+    windows?: Array<Record<string, any>>;
+    // monte-carlo
+    bankruptcy_prob?: number;
+    expected_return?: number;
+    var_95?: number;
+    cvar_95?: number;
+    percentiles?: Record<string, number>;
+    max_drawdowns?: number[];
+  };
+}
