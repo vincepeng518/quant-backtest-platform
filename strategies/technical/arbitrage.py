@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Optional
 
+import ccxt
 import numpy as np
 
 from strategies.base import Bar, Signal, StrategyBase
 
 
 class StatisticalArbitrageStrategy(StrategyBase):
-    """統計套利：使用 OU 過程建模價差均值回歸。"""
+    """統計套利：使用 OU 過程建模雙標的價差均值回歸。
+
+    在 init 時透過 BingX 預載第二標的（symbol_b）全程收盤價，
+    next 中以 log 價差擬合 OU 過程並產生 Z-Score 進出場訊號。
+    """
 
     name = "stat_arb"
     description = "統計套利策略"
@@ -19,10 +25,30 @@ class StatisticalArbitrageStrategy(StrategyBase):
         self.lookback = int(params.get("lookback", 200))
         self.entry_z = float(params.get("entry_z", 1.5))
         self.exit_z = float(params.get("exit_z", 0.3))
-        self.prices: list[float] = []
+        self.symbol_b = params.get("symbol_b", "ETH/USDT")
+        self.spread: list[float] = []
+        self.leg2: list[float] = []
+        self._load_leg2()
+
+    @lru_cache(maxsize=8)
+    def _fetch_close(self, symbol: str, timeframe: str = "1h") -> tuple:
+        try:
+            ex = ccxt.bingx()
+            ex.timeout = 20000
+            raw = ex.fetch_ohlcv(symbol, timeframe, limit=1500)
+            return tuple(r[4] for r in raw)
+        except Exception:
+            return tuple()
+
+    def _load_leg2(self) -> None:
+        try:
+            closes = self._fetch_close(self.symbol_b)
+            self.leg2 = list(closes)
+        except Exception:
+            self.leg2 = []
 
     def _fit_ou(self) -> tuple[float, float]:
-        arr = np.array(self.prices)
+        arr = np.array(self.spread)
         spread = arr - np.mean(arr)
         ds = np.diff(spread)
         s_lag = spread[:-1]
@@ -33,19 +59,25 @@ class StatisticalArbitrageStrategy(StrategyBase):
         return kappa, mu
 
     def next(self, bar: Bar) -> Optional[Signal]:
-        self.prices.append(bar.close)
-        if len(self.prices) < self.lookback:
+        idx = len(self.spread)
+        if idx < len(self.leg2) and self.leg2[idx] > 0:
+            spread_val = float(np.log(bar.close) - np.log(self.leg2[idx]))
+        else:
+            spread_val = bar.close
+        self.spread.append(spread_val)
+
+        if len(self.spread) < self.lookback:
             return None
 
-        arr = np.array(self.prices)
+        arr = np.array(self.spread)
         mean = np.mean(arr)
-        spread = arr - mean
+        spread_arr = arr - mean
         kappa, mu = self._fit_ou()
-        std = np.std(spread)
+        std = np.std(spread_arr)
         if std == 0:
             return None
 
-        z = (bar.close - mean - mu) / std
+        z = (self.spread[-1] - mean - mu) / std
 
         if z > self.entry_z and (self.position is None or self.position.size == 0):
             return Signal(action="sell", price=bar.close, metadata={"z": z, "kappa": kappa})
@@ -59,4 +91,16 @@ class StatisticalArbitrageStrategy(StrategyBase):
         return self.lookback
 
     def get_params(self) -> dict[str, Any]:
-        return {"lookback": self.lookback, "entry_z": self.entry_z, "exit_z": self.exit_z}
+        return {
+            "lookback": self.lookback,
+            "entry_z": self.entry_z,
+            "exit_z": self.exit_z,
+            "symbol_b": self.symbol_b,
+        }
+
+    def get_params_space(self) -> dict[str, Any]:
+        return {
+            "lookback": {"type": "range", "min": 50, "max": 400, "step": 10},
+            "entry_z": {"type": "range", "min": 1.0, "max": 3.0, "step": 0.1},
+            "exit_z": {"type": "range", "min": 0.1, "max": 1.0, "step": 0.1},
+        }

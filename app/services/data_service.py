@@ -9,6 +9,7 @@ import pandas as pd
 
 from app.utils.cache import cache
 from data.providers.binance import BinanceProvider
+from data.providers.bingx import BingXProvider
 from data.providers.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ _analysis_tasks: dict[str, dict] = {}
 class DataService:
     def __init__(self) -> None:
         self.binance = BinanceProvider()
+        self.bingx = BingXProvider()
         self.csv_loader = CSVLoader()
 
     async def get_ohlcv(
@@ -30,9 +32,9 @@ class DataService:
         timeframe: str = "1h",
         start_date: str = "",
         end_date: str = "",
-        source: str = "api",
+        source: str = "bingx",
     ) -> pd.DataFrame:
-        cache_key = f"ohlcv:{symbol}:{timeframe}:{start_date}:{end_date}"
+        cache_key = f"ohlcv:{symbol}:{timeframe}:{start_date}:{end_date}:{source}"
         cached = cache.get(cache_key)
         if cached is not None:
             return pd.DataFrame(cached)
@@ -40,13 +42,13 @@ class DataService:
         data: pd.DataFrame | None = None
         if source == "csv":
             data = self.csv_loader.load(symbol)
-        else:
-            try:
-                data = await self.binance.fetch_ohlcv(symbol, timeframe, start_date, end_date)
-            except Exception as e:  # network/geo-block etc.
-                logger.warning("Binance fetch failed for %s: %s", symbol, e)
-                data = None
-            # Fallback to bundled CSV if live data unavailable
+        elif source == "binance":
+            data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
+        else:  # default: bingx
+            data = await self._try_fetch(self.bingx, symbol, timeframe, start_date, end_date)
+            # Fallback chain: bingx -> binance -> csv
+            if data is None or len(data) == 0:
+                data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
             if data is None or len(data) == 0:
                 logger.info("Falling back to CSV for %s", symbol)
                 data = self.csv_loader.load(symbol)
@@ -55,12 +57,19 @@ class DataService:
             cache.set(cache_key, data.to_dict(orient="records"))
         return data if data is not None else pd.DataFrame()
 
+    async def _try_fetch(self, provider, symbol, timeframe, start_date, end_date) -> pd.DataFrame | None:
+        try:
+            return await provider.fetch_ohlcv(symbol, timeframe, start_date, end_date)
+        except Exception as e:
+            logger.warning("%s fetch failed for %s: %s", type(provider).__name__, symbol, e)
+            return None
+
     async def get_symbols(self) -> list[dict]:
-        # ponytail: static list for now
+        # ponytail: static list, sourced live via BingX
         return [
-            {"symbol": "BTC/USDT", "market": "crypto", "exchange": "binance"},
-            {"symbol": "ETH/USDT", "market": "crypto", "exchange": "binance"},
-            {"symbol": "SOL/USDT", "market": "crypto", "exchange": "binance"},
+            {"symbol": "BTC/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "ETH/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "SOL/USDT", "market": "crypto", "exchange": "bingx"},
         ]
 
 
