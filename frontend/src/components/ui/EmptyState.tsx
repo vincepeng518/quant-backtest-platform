@@ -1,31 +1,30 @@
+'use client';
+
 import React from 'react';
-import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
 interface EmptyStateProps {
   title: string;
   description?: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
   className?: string;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
-  className,
+  icon,
+  action,
+  className = '',
 }) => {
   return (
-    <div
-      className={twMerge(
-        clsx(
-          'flex flex-col items-center justify-center gap-2 py-12 text-center'
-        ),
-        className
+    <div className={`flex flex-col items-center justify-center text-center py-16 px-6 ${className}`}>
+      {icon && <div className="mb-4 text-textSecondary/60">{icon}</div>}
+      <p className="text-base font-medium text-text">{title}</p>
+      {description && (
+        <p className="mt-2 text-sm text-textSecondary max-w-sm">{description}</p>
       )}
-    >
-      <p className="text-sm font-medium text-text">{title}</p>
-      {description ? (
-        <p className="text-xs text-textSecondary font-mono">{description}</p>
-      ) : null}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   );
 };
