@@ -75,6 +75,22 @@ function BacktestView() {
     api.listUserStrategies().then(setUserStrategies);
   }, []);
 
+  // P7: preselect strategy from ?strategy= (e.g. user_xxxx) coming from /strategies
+  useEffect(() => {
+    const pref = searchParams.get('strategy');
+    if (!pref) return;
+    const isBuiltin = templates.some((t) => t.id === pref);
+    const isUser = userStrategies.some((s) => `user_${s.id}` === pref);
+    if (isBuiltin || isUser) {
+      setSelectedStrategy(pref);
+      if (isBuiltin && Object.keys(paramValues).length === 0) {
+        const t = templates.find((x) => x.id === pref);
+        if (t) setParamValues(buildDefaults(t));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates, userStrategies]);
+
   const buildDefaults = (t?: StrategyTemplate): Record<string, any> => {
     const d: Record<string, any> = {};
     const params = (t?.params as unknown as ParamSpec[]) || [];
