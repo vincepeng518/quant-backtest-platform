@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { api } from '@/lib/api';
+import { Spinner } from '@/components/ui/Spinner';
 import type { StrategyTemplate, AnalysisResult } from '@/types/api';
 
 export default function AnalysisPage() {
@@ -106,8 +107,8 @@ export default function AnalysisPage() {
       </div>
 
       <div className="flex justify-between items-center bg-surface p-4 border-t border-border/10 select-none">
-        <div className="text-sm font-mono text-textSecondary">
-          {running ? 'Simulating pathways...' : error ? `Error: ${error}` : 'Ready'}
+        <div className="flex items-center gap-2 text-sm font-mono text-textSecondary">
+          {running ? (<><Spinner size="sm" /><span>Simulating pathways...</span></>) : error ? <span className="text-danger">Error: {error}</span> : <span>Ready</span>}
         </div>
         <Button onClick={handleAnalyze} disabled={running} variant="primary">
           {running ? 'Analyzing...' : 'Run Robustness Simulation'}
