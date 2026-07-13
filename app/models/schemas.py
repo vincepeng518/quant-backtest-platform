@@ -96,6 +96,7 @@ class BacktestConfig(BaseModel):
     strategy: StrategyConfig
     symbol: str
     timeframe: str = "1h"
+    source: str = "binance"  # data source: binance | bingx | csv | test
     start_date: str = ""
     end_date: str = ""
     initial_capital: float = 100_000.0
