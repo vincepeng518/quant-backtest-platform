@@ -3,6 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge } from 'lucide-react';
+import { MetricsCard } from '@/components/ui/MetricsCard';
+import { Spinner } from '@/components/ui/Spinner';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useDashboard } from '@/lib/dashboard';
 
 const modules = [
   {
@@ -36,6 +40,58 @@ const capabilities = [
   { icon: Cpu, label: '向量化引擎', detail: 'pandas / numpy 高速計算' },
   { icon: Gauge, label: 'ML 接口預留', detail: 'StrategyBase 抽象層可擴充' },
 ];
+
+function StatsStrip() {
+  const { loading, error, stats } = useDashboard();
+  if (loading) return <Spinner />;
+  if (error) return <EmptyState title="無法載入統計" description={error} />;
+  const items: { label: string; value: string | number; accent?: 'success' | 'danger' | 'neutral' | 'accent' }[] = [
+    { label: '總回測數', value: stats.total },
+    { label: '平均 Sharpe', value: stats.avgSharpe ?? '—', accent: (stats.avgSharpe ?? 0) >= 0 ? 'success' : 'danger' },
+    { label: '最佳 Sharpe', value: stats.bestRun ? Number(stats.bestRun.sharpe).toFixed(2) : '—', accent: 'success' },
+    { label: '最差 Sharpe', value: stats.worstRun ? Number(stats.worstRun.sharpe).toFixed(2) : '—', accent: 'danger' },
+  ];
+  return <MetricsCard items={items} />;
+}
+
+function RecentRuns() {
+  const { rows, loading, error } = useDashboard();
+  if (loading) return <Spinner />;
+  if (error) return <EmptyState title="無法載入紀錄" description={error} />;
+  if (rows.length === 0) {
+    return <EmptyState title="尚無回測紀錄" description="前往 Backtest 執行第一筆回測" />;
+  }
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">近期回測</h3>
+      <div className="divide-y divide-border/10">
+        {rows.slice(0, 8).map((r) => (
+          <Link
+            key={r.task_id}
+            href={`/backtest?task=${r.task_id}`}
+            className="flex items-center justify-between py-3 group hover:bg-surface/50 transition-colors rounded px-2 -mx-2"
+          >
+            <div className="flex flex-col">
+              <span className="font-medium text-text group-hover:text-accent transition-colors">
+                {r.symbol ?? '—'} · {r.timeframe ?? ''}
+              </span>
+              <span className="text-xs text-textSecondary">
+                {r.strategy ?? 'strategy'} · {r.created_at?.slice(0, 10)}
+              </span>
+            </div>
+            <div className="flex items-center gap-6 font-mono text-sm">
+              <span className="text-textSecondary">{r.total_trades ?? 0} trades</span>
+              <span className={(r.sharpe ?? 0) >= 0 ? 'text-success' : 'text-danger'}>
+                SR {Number(r.sharpe ?? 0).toFixed(2)}
+              </span>
+              <ArrowRight className="w-4 h-4 text-textSecondary group-hover:text-accent transition-colors" />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -93,6 +149,12 @@ export default function Home() {
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* ── 即時儀表板 ── */}
+      <section className="space-y-6">
+        <StatsStrip />
+        <RecentRuns />
       </section>
 
       {/* ── 三大模塊 ── */}
