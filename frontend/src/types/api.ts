@@ -1,4 +1,4 @@
-import { StrategyConfig, RiskParams } from './strategy';
+import { StrategyConfig, RiskParams, FundingConfig, PerpetualConfig, ExchangeConfig } from './strategy';
 
 export interface BacktestConfig {
   strategy: StrategyConfig;
@@ -7,7 +7,15 @@ export interface BacktestConfig {
   source?: string;
   start_date?: string;
   end_date?: string;
-  risk: RiskParams;
+  // Capital / cost (top-level — backend BacktestConfig shape)
+  initial_capital: number;
+  commission: number;
+  slippage: number;
+  max_position_pct?: number;
+  // Engine realism (opt-in; disabled = identical to legacy 1x spot)
+  funding?: FundingConfig;
+  perpetual?: PerpetualConfig;
+  exchange?: ExchangeConfig;
 }
 
 export interface TradeRecord {
