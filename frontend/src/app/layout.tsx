@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
 import { Header } from '@/components/layout/Header';
+import { ToastViewport } from '@/components/ui/Toast';
 import '@/styles/globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -24,6 +25,7 @@ export default function RootLayout({
           <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
             {children}
           </main>
+          <ToastViewport />
         </ThemeProvider>
       </body>
     </html>
