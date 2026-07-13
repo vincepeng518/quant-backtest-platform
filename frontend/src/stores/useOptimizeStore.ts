@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '@/lib/api';
+import { useToastStore } from '@/stores/useToastStore';
 
 export interface ParamRangeUI {
   id: string;
@@ -75,17 +76,21 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
           if (data.status === 'completed') {
             clearInterval(poll);
             set({ status: 'completed', bestParams: data.best_params, bestScore: data.best_score, grid: data.grid, trials: data.trials });
+            useToastStore.getState().push({ kind: 'success', title: '優化完成', message: data.best_score != null ? `最佳 Sharpe ${Number(data.best_score).toFixed(2)}` : undefined });
           } else if (data.status === 'error') {
             clearInterval(poll);
             set({ status: 'error', error: (data as any).error ?? 'optimization failed' });
+            useToastStore.getState().push({ kind: 'danger', title: '優化失敗', message: (data as any).error ?? 'optimization failed' });
           }
         } catch (e) {
           clearInterval(poll);
           set({ status: 'error', error: 'polling failed' });
+          useToastStore.getState().push({ kind: 'danger', title: '優化失敗', message: 'polling failed' });
         }
       }, 1500);
     } catch (e: any) {
       set({ status: 'error', error: e?.message ?? 'failed to start' });
+      useToastStore.getState().push({ kind: 'danger', title: '優化失敗', message: e?.message ?? 'failed to start' });
     }
   },
   reset: () => set({ status: 'idle', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] }),
