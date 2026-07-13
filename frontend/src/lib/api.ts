@@ -45,6 +45,7 @@ export const api = {
   getBacktestStatus: (taskId: string) =>
     request<{ status: string; progress: number; error?: string }>(`/backtest/status/${taskId}`),
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
+  getBacktestHistory: () => request<any[]>('/backtest/history'),
 
   uploadStrategy: (payload: StrategyPayload) =>
     request<UserStrategy>('/strategy/upload', {
