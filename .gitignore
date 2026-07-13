@@ -1,26 +1,22 @@
 .env
-data/
-!data/providers/
-!data/providers/**
-!data/csv/
-!data/csv/**
-*.db
+.env*
+.venv/
+venv/
+
 # Python
 __pycache__/
 *.py[cod]
-.venv/
-venv/
+*.egg-info/
+*.db
+dist/
+build/
 
 # TypeScript build artifacts
 *.tsbuildinfo
 frontend/tsconfig.tsbuildinfo
-*.egg-info/
-dist/
-build/
-.streamlit/secrets.toml
 node_modules/
 .next/
 next-env.d.ts
 frontend/package-lock.json
-.env*
 .vercel
+.streamlit/secrets.toml
