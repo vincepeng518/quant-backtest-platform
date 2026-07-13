@@ -40,11 +40,13 @@ def _ensure_registered() -> None:
         from strategies.technical.breakout import BreakoutStrategy
         from strategies.technical.pairs import PairsTradingStrategy
         from strategies.technical.arbitrage import StatisticalArbitrageStrategy
+        from strategies.statistical.chainlink_updown import ChainlinkUpDownStrategy
 
         register_strategy(MovingAverageCrossStrategy)
         register_strategy(BreakoutStrategy)
         register_strategy(PairsTradingStrategy)
         register_strategy(StatisticalArbitrageStrategy)
+        register_strategy(ChainlinkUpDownStrategy)
         load_user_strategies()
 
 

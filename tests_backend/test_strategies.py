@@ -8,6 +8,7 @@ from strategies.technical.moving_average import MovingAverageCrossStrategy
 from strategies.technical.breakout import BreakoutStrategy
 from strategies.technical.pairs import PairsTradingStrategy
 from strategies.technical.arbitrage import StatisticalArbitrageStrategy
+from strategies.statistical.chainlink_updown import ChainlinkUpDownStrategy
 from tests_backend.conftest import make_bars
 
 
@@ -111,3 +112,44 @@ class TestStatisticalArbitrage:
         close_signals = [s for s in signals if s.action == "close"]
         sell_signals = [s for s in signals if s.action == "sell"]
         assert len(sell_signals) > 0 or len(close_signals) > 0
+
+
+class TestChainlinkUpDown:
+    def test_momentum_uptrend_buys_up(self):
+        s = ChainlinkUpDownStrategy()
+        s.init({"mode": "momentum", "lookback": 10, "threshold": 0.002})
+        # strong sustained uptrend => expect a buy (UP) signal
+        prices = [100] * 10 + list(range(100, 130))
+        signals = [sig for b in make_bars(prices) if (sig := s.next(b))]
+        up = [x for x in signals if x.metadata.get("side") == "UP"]
+        assert len(up) > 0
+
+    def test_momentum_downtrend_sells_down(self):
+        s = ChainlinkUpDownStrategy()
+        s.init({"mode": "momentum", "lookback": 10, "threshold": 0.002})
+        prices = [100] * 10 + list(range(100, 70, -1))
+        signals = [sig for b in make_bars(prices) if (sig := s.next(b))]
+        down = [x for x in signals if x.metadata.get("side") == "DOWN"]
+        assert len(down) > 0
+
+    def test_reversion_oversold_buys(self):
+        s = ChainlinkUpDownStrategy()
+        s.init({"mode": "reversion", "rsi_period": 7, "rsi_oversold": 30, "rsi_overbought": 70})
+        # sharp drop => RSI oversold => buy (UP)
+        prices = [100] * 8 + list(range(100, 80, -2))
+        signals = [sig for b in make_bars(prices) if (sig := s.next(b))]
+        up = [x for x in signals if x.metadata.get("side") == "UP"]
+        assert len(up) > 0
+
+    def test_no_signal_before_warmup(self):
+        s = ChainlinkUpDownStrategy()
+        s.init({"mode": "momentum", "lookback": 20, "threshold": 0.002})
+        bars = make_bars([100] * 15)
+        signals = [sig for b in bars if (sig := s.next(b))]
+        assert len(signals) == 0
+
+    def test_params_space(self):
+        s = ChainlinkUpDownStrategy()
+        space = s.get_params_space()
+        assert "mode" in space
+        assert space["mode"]["type"] == "choice"
