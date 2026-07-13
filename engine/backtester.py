@@ -183,6 +183,7 @@ class Backtester:
                 low=row["low"],
                 close=row["close"],
                 volume=row["volume"],
+                metadata=dict(row["metadata"]) if "metadata" in row and isinstance(row.get("metadata"), dict) else None,
             )
 
             signal = self.strategy.next(bar)

@@ -157,25 +157,33 @@ class TestChainlinkUpDown:
 
 
 class TestPolymarketBtc:
-    def test_drop_near_low_buys_up(self):
+    def test_panic_drop_buys_up_in_window(self):
         from strategies.base import Bar
         import pandas as pd
-        s2 = PolymarketBtcStrategy()
-        s2.init({"move_points": 40, "require_window": False})
+        s = PolymarketBtcStrategy()
+        s.init({"drop_pct": 1.5, "rsi_max": 30, "require_window": True})
         for _ in range(25):
-            s2.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
-        bar = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=1000)
-        out = s2.next(bar)
+            s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        # panic: round_open=100, close=97 (drop 3% >= 1.5), rsi<=30, stc=180 in window
+        bar = Bar(pd.Timestamp("2024-01-01"), open=98, high=98.5, low=96.5, close=97, volume=1000,
+                  metadata={"round_open": 100.0, "seconds_to_close": 180,
+                            "drop_from_open_pct": 3.0, "rsi": 22.0})
+        out = s.next(bar)
         assert out is not None
         assert out.metadata["side"] == "UP"
+        # next bar should settle
+        settle = Bar(pd.Timestamp("2024-01-01"), open=97, high=98, low=96.5, close=98, volume=1000,
+                     metadata={"round_open": 100.0, "seconds_to_close": 120, "drop_from_open_pct": 2.0, "rsi": 25.0})
+        assert s.next(settle).action == "close"
 
     def test_window_filter(self):
         from strategies.base import Bar
         import pandas as pd
-        bar = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=1000,
-                  metadata={"seconds_to_close": 50})  # outside 150-200
+        bar = Bar(pd.Timestamp("2024-01-01"), open=98, high=98.5, low=96.5, close=97, volume=1000,
+                  metadata={"round_open": 100.0, "seconds_to_close": 50,  # outside 150-200
+                            "drop_from_open_pct": 3.0, "rsi": 22.0})
         s = PolymarketBtcStrategy()
-        s.init({"move_points": 40, "require_window": True})
+        s.init({"drop_pct": 1.5, "rsi_max": 30, "require_window": True})
         for _ in range(25):
             s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
         assert s.next(bar) is None
@@ -184,11 +192,10 @@ class TestPolymarketBtc:
         from strategies.base import Bar
         import pandas as pd
         s = PolymarketBtcStrategy()
-        s.init({"move_points": 40, "anomaly_atr_mult": 3.0, "require_window": False})
-        # warm up with small ranges
+        s.init({"drop_pct": 1.5, "anomaly_atr_mult": 3.0, "require_window": False})
         for _ in range(25):
             s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
-        # bilateral blowout: open 100, high 200, low 20 (both wicks >=40) => abnormal
+        # bilateral blowout: open 100, high 200, low 20 (both wicks big) => abnormal
         spike = Bar(pd.Timestamp("2024-01-01"), open=100, high=200, low=20, close=100, volume=1000)
         out = s.next(spike)
         assert out is None
@@ -199,10 +206,27 @@ class TestPolymarketBtc:
         from strategies.base import Bar
         import pandas as pd
         s = PolymarketBtcStrategy()
-        s.init({"move_points": 40, "min_volume": 500, "require_window": False})
+        s.init({"drop_pct": 1.5, "min_volume": 500, "require_window": False})
         for _ in range(25):
             s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
-        thin = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=10)
+        thin = Bar(pd.Timestamp("2024-01-01"), open=98, high=98.5, low=96.5, close=97, volume=10,
+                   metadata={"round_open": 100.0, "seconds_to_close": 180,
+                             "drop_from_open_pct": 3.0, "rsi": 22.0})
         out = s.next(thin)
         assert out is None
         assert s.shadow_log[-1]["reason"] == "simulated_failure"
+
+    def test_euphoria_rises_sells_down(self):
+        from strategies.base import Bar
+        import pandas as pd
+        s = PolymarketBtcStrategy()
+        s.init({"drop_pct": 1.5, "rsi_max": 30, "require_window": False})
+        for _ in range(25):
+            s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        # euphoria: round_open=100, close=103.5 (rise 3.5% >= 1.5), rsi>=70
+        bar = Bar(pd.Timestamp("2024-01-01"), open=102, high=104, low=101.5, close=103.5, volume=1000,
+                  metadata={"round_open": 100.0, "seconds_to_close": 180,
+                            "drop_from_open_pct": -3.5, "rsi": 78.0})
+        out = s.next(bar)
+        assert out is not None
+        assert out.metadata["side"] == "DOWN"
