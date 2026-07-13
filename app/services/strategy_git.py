@@ -21,7 +21,8 @@ def git_persist(files: list[str], message: str) -> tuple[bool, str]:
         # 若無變更，視為成功
         cp = _git(["commit", "-m", message])
         if cp.returncode != 0:
-            if "nothing to commit" in cp.stdout + cp.stderr:
+            msg = cp.stdout + cp.stderr
+            if "nothing to commit" in msg or "no changes added to commit" in msg:
                 return True, "no changes"
             return False, cp.stderr[:300]
         push = _git(["push", "origin", "master"])
