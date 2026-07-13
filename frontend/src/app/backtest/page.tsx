@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useDataStore } from '@/stores/useDataStore';
 import { useBacktestStore } from '@/stores/useBacktestStore';
+import api from '@/lib/api';
+import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -12,14 +14,29 @@ import { PriceChart } from '@/components/charts/PriceChart';
 import { EquityCurve } from '@/components/charts/EquityCurve';
 import { DrawdownChart } from '@/components/charts/DrawdownChart';
 
+// Local view of the backend param spec (backend sends {type, min, max, step}
+// for ranges and {type, values} for choices). The shared StrategyParam type
+// doesn't carry these fields, so we model them here.
+interface ParamSpec {
+  name: string;
+  type: 'range' | 'choice' | string;
+  min?: number;
+  max?: number;
+  step?: number;
+  values?: string[];
+}
+
 export default function BacktestPage() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
   const { runBacktest, results, status, progress, error } = useBacktestStore();
 
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
-  const [fastPeriod, setFastPeriod] = useState(20);
-  const [slowPeriod, setSlowPeriod] = useState(50);
+
+  const [templates, setTemplates] = useState<StrategyTemplate[]>([]);
+  const [userStrategies, setUserStrategies] = useState<UserStrategy[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState('ma_cross');
+  const [paramValues, setParamValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
     loadSymbols();
@@ -33,11 +50,53 @@ export default function BacktestPage() {
     }
   }, [symbols, timeframe, loadOHLCV]);
 
+  useEffect(() => {
+    api.getTemplates().then(setTemplates);
+    api.listUserStrategies().then(setUserStrategies);
+  }, []);
+
+  const buildDefaults = (t?: StrategyTemplate): Record<string, any> => {
+    const d: Record<string, any> = {};
+    const params = (t?.params as unknown as ParamSpec[]) || [];
+    params.forEach((p) => {
+      if (p.type === 'choice' || p.values) {
+        d[p.name] = p.values?.[0] ?? '';
+      } else {
+        d[p.name] = p.min ?? 0;
+      }
+    });
+    return d;
+  };
+
+  // Seed defaults for the initial strategy once templates arrive.
+  useEffect(() => {
+    if (templates.length > 0 && Object.keys(paramValues).length === 0) {
+      const t = templates.find((x) => x.id === selectedStrategy);
+      if (t) setParamValues(buildDefaults(t));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates]);
+
+  const handleStrategyChange = (value: string) => {
+    setSelectedStrategy(value);
+    const t = templates.find((x) => x.id === value);
+    setParamValues(buildDefaults(t));
+  };
+
+  const selectedTemplate = templates.find((t) => t.id === selectedStrategy);
+  const params = (selectedTemplate?.params as unknown as ParamSpec[]) || [];
+
   const handleRun = () => {
+    const paramsConfig: Record<string, any> = {};
+    params.forEach((p) => {
+      const raw = paramValues[p.name];
+      paramsConfig[p.name] = p.type === 'choice' || p.values ? raw : Number(raw);
+    });
+
     runBacktest({
       strategy: {
-        template_id: 'ma_cross',
-        params: { fast_period: Number(fastPeriod), slow_period: Number(slowPeriod) },
+        template_id: selectedStrategy,
+        params: paramsConfig,
       },
       symbol,
       timeframe,
@@ -52,6 +111,15 @@ export default function BacktestPage() {
     });
   };
 
+  const builtinOptions = templates
+    .filter((t) => !t.id.startsWith('user_'))
+    .map((t) => ({ label: t.name, value: t.id }));
+  const userOptions = userStrategies.map((s) => ({
+    label: `我的：${s.name}`,
+    value: `user_${s.id}`,
+  }));
+  const strategyOptions = [...builtinOptions, ...userOptions];
+
   return (
     <div className="space-y-6">
       {/* Configuration Card */}
@@ -60,7 +128,9 @@ export default function BacktestPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
             策略配置
           </h2>
-          <span className="font-mono text-xs text-textSecondary">MA Cross</span>
+          <span className="font-mono text-xs text-textSecondary">
+            {selectedTemplate?.name || selectedStrategy}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -89,18 +159,39 @@ export default function BacktestPage() {
               { label: '1 Day', value: '1d' },
             ]}
           />
-          <Input
-            label="Fast MA Period"
-            type="number"
-            value={fastPeriod}
-            onChange={(e) => setFastPeriod(Number(e.target.value))}
+          <Select
+            label="Strategy"
+            value={selectedStrategy}
+            onChange={(e) => handleStrategyChange(e.target.value)}
+            options={strategyOptions}
           />
-          <Input
-            label="Slow MA Period"
-            type="number"
-            value={slowPeriod}
-            onChange={(e) => setSlowPeriod(Number(e.target.value))}
-          />
+
+          {params.map((p) =>
+            p.type === 'choice' || p.values ? (
+              <Select
+                key={p.name}
+                label={p.name}
+                value={paramValues[p.name] ?? ''}
+                onChange={(e) =>
+                  setParamValues({ ...paramValues, [p.name]: e.target.value })
+                }
+                options={(p.values || []).map((v) => ({ label: v, value: v }))}
+              />
+            ) : (
+              <Input
+                key={p.name}
+                label={p.name}
+                type="number"
+                value={paramValues[p.name] ?? ''}
+                min={p.min}
+                max={p.max}
+                step={p.step}
+                onChange={(e) =>
+                  setParamValues({ ...paramValues, [p.name]: e.target.value })
+                }
+              />
+            )
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/10 pt-4">
