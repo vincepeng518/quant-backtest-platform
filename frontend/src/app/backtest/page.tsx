@@ -33,6 +33,12 @@ export default function BacktestPage() {
 
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
+  const [startDate, setStartDate] = useState(
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([]);
   const [userStrategies, setUserStrategies] = useState<UserStrategy[]>([]);
@@ -101,8 +107,8 @@ export default function BacktestPage() {
       },
       symbol,
       timeframe,
-      from: Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60,
-      to: Math.floor(Date.now() / 1000),
+      start_date: startDate,
+      end_date: endDate,
       risk: {
         initial_capital: 10000.0,
         commission: 0.001,
@@ -169,6 +175,18 @@ export default function BacktestPage() {
             value={selectedStrategy}
             onChange={(e) => handleStrategyChange(e.target.value)}
             options={strategyOptions}
+          />
+          <Input
+            label="Start Date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <Input
+            label="End Date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
           />
 
           {params.map((p) =>
@@ -266,6 +284,69 @@ export default function BacktestPage() {
               <DrawdownChart data={results.equity_curve} />
             </Card>
           </div>
+
+          {/* Trade blotter */}
+          {results.trades && results.trades.length > 0 && (
+            <Card className="p-0 overflow-hidden">
+              <div className="flex items-center justify-between p-6 pb-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                  Trade Blotter
+                </h3>
+                <span className="text-xs font-mono text-textSecondary">
+                  {results.trades.length} fills
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm font-mono">
+                  <thead>
+                    <tr className="text-left text-xs uppercase text-textSecondary border-t border-border/10">
+                      <th className="px-6 py-3">#</th>
+                      <th className="px-6 py-3">Entry Time</th>
+                      <th className="px-6 py-3 text-right">Entry</th>
+                      <th className="px-6 py-3 text-right">Exit</th>
+                      <th className="px-6 py-3 text-right">Size</th>
+                      <th className="px-6 py-3 text-right">PnL</th>
+                      <th className="px-6 py-3 text-right">PnL %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.trades.map((t: any, i: number) => (
+                      <tr
+                        key={i}
+                        className="border-t border-border/10 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="px-6 py-3 text-textSecondary">{i + 1}</td>
+                        <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>
+                        <td className="px-6 py-3 text-right text-text">
+                          {Number(t.entry_price).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-3 text-right text-text">
+                          {t.exit_price != null ? Number(t.exit_price).toFixed(2) : '—'}
+                        </td>
+                        <td className="px-6 py-3 text-right text-textSecondary">
+                          {Number(t.size).toFixed(4)}
+                        </td>
+                        <td
+                          className={`px-6 py-3 text-right font-semibold ${
+                            Number(t.pnl) >= 0 ? 'text-success' : 'text-danger'
+                          }`}
+                        >
+                          {Number(t.pnl).toFixed(2)}
+                        </td>
+                        <td
+                          className={`px-6 py-3 text-right ${
+                            Number(t.pnl_pct) >= 0 ? 'text-success' : 'text-danger'
+                          }`}
+                        >
+                          {t.pnl_pct != null ? `${(Number(t.pnl_pct) * 100).toFixed(2)}%` : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </PageShell>
