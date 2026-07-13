@@ -55,6 +55,24 @@ class StrategyTemplate(BaseModel):
     params: list[dict] = []
 
 
+class UserStrategyUpload(BaseModel):
+    name: str
+    description: str = ""
+    category: str = "custom"
+    code: str
+
+class UserStrategyMeta(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    category: str = "custom"
+    filename: str = ""
+    created_at: str = ""
+    status: str = "registered"
+    params_space: dict[str, Any] = {}
+    error: str | None = None
+
+
 class BacktestConfig(BaseModel):
     strategy: StrategyConfig
     symbol: str
