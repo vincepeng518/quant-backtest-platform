@@ -36,11 +36,14 @@ async def list_history():
             continue
         m = d.get("metrics", {}) or {}
         cfg = d.get("config", {}) or {}
+        strat = cfg.get("strategy_id")
+        if not strat and isinstance(cfg.get("strategy"), dict):
+            strat = cfg["strategy"].get("template_id")
         items.append({
             "task_id": d.get("task_id"),
             "status": d.get("status"),
             "created_at": d.get("created_at"),
-            "strategy": cfg.get("strategy_id") or cfg.get("template_id"),
+            "strategy": strat,
             "symbol": cfg.get("symbol"),
             "timeframe": cfg.get("timeframe"),
             "sharpe": m.get("sharpe_ratio"),
