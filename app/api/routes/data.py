@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pandas as pd
 from fastapi import APIRouter
 
 from app.models.schemas import OHLCVPoint, SymbolInfo
@@ -7,6 +8,10 @@ from app.services.data_service import DataService
 
 router = APIRouter(prefix="/api/data", tags=["data"])
 ds = DataService()
+
+
+def _to_unix_ms(ts) -> "pd.Series":
+    return ts.astype("int64") // 10**6  # nanoseconds -> milliseconds
 
 
 @router.post("/import")
@@ -24,8 +29,8 @@ async def get_ohlcv(symbol: str, timeframe: str = "1h"):
     df = await ds.get_ohlcv(symbol, timeframe)
     if df is None or df.empty:
         return []
-    # coerce timestamp to unix seconds (int) so it matches OHLCVPoint + PriceChart
+    # coerce timestamp to unix milliseconds (int) so it preserves sub-second precision
     out = df.copy()
     if str(out["timestamp"].dtype).startswith("datetime"):
-        out["timestamp"] = out["timestamp"].astype("int64") // 10**9
+        out["timestamp"] = _to_unix_ms(out["timestamp"])
     return out.to_dict(orient="records")
