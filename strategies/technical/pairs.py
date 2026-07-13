@@ -4,7 +4,6 @@ import asyncio
 from functools import lru_cache
 from typing import Any, Optional
 
-import ccxt
 import numpy as np
 
 from strategies.base import Bar, Signal, StrategyBase
@@ -34,6 +33,8 @@ class PairsTradingStrategy(StrategyBase):
     @lru_cache(maxsize=8)
     def _fetch_close(self, symbol: str, timeframe: str = "1h") -> tuple:
         try:
+            import ccxt
+
             ex = ccxt.bingx()
             ex.timeout = 20000
             raw = ex.fetch_ohlcv(symbol, timeframe, limit=1500)
