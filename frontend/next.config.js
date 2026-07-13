@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://quant-backed.onrender.com";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://affectionate-alignment-production-6d7e.up.railway.app";
 
 const nextConfig = {
   reactStrictMode: true,
