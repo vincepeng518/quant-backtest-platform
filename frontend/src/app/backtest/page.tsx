@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useDataStore } from '@/stores/useDataStore';
 import { useBacktestStore } from '@/stores/useBacktestStore';
@@ -29,7 +29,7 @@ interface ParamSpec {
   values?: string[];
 }
 
-export default function BacktestPage() {
+function BacktestView() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
   const { runBacktest, results, status, progress, error } = useBacktestStore();
 
@@ -403,4 +403,12 @@ export default function BacktestPage() {
       ) : null}
     </PageShell>
   );
-};
+}
+
+export default function BacktestPage() {
+  return (
+    <Suspense fallback={null}>
+      <BacktestView />
+    </Suspense>
+  );
+}
