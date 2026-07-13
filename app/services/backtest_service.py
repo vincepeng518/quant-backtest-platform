@@ -9,6 +9,19 @@ from app.services.data_service import DataService, _backtest_tasks, _execute_bac
 from app.services.strategy_service import get_strategy
 from engine.backtester import Backtester
 
+try:
+    from engine.funding import FundingModel, FundingSchedule
+except Exception:
+    FundingModel = FundingSchedule = None
+try:
+    from engine.perpetual import PerpSimulator
+except Exception:
+    PerpSimulator = None
+try:
+    from engine.exchange import ExchangeModel
+except Exception:
+    ExchangeModel = None
+
 
 class BacktestService:
     def __init__(self) -> None:
@@ -16,10 +29,32 @@ class BacktestService:
 
     async def run(self, config: dict[str, Any]) -> dict:
         task_id = create_task_id()
+
+        funding_cfg = config.get("funding") or {}
+        perp_cfg = config.get("perpetual") or {}
+        exch_cfg = config.get("exchange") or {}
+
+        kwargs = {}
+        if funding_cfg.get("enabled") and FundingModel is not None:
+            kwargs["funding"] = FundingModel(
+                schedule=FundingSchedule(interval_hours=funding_cfg.get("interval_hours", 8)),
+                default_rate=funding_cfg.get("default_rate", 0.0001),
+            )
+        if perp_cfg.get("enabled") and PerpSimulator is not None:
+            kwargs["perp"] = PerpSimulator(maintenance_margin_rate=perp_cfg.get("maintenance_margin_rate", 0.005))
+            kwargs["leverage"] = float(perp_cfg.get("leverage", 1.0))
+        if exch_cfg.get("enabled") and ExchangeModel is not None:
+            kwargs["exchange"] = ExchangeModel(
+                maker_fee=exch_cfg.get("maker_fee", 0.0002),
+                taker_fee=exch_cfg.get("taker_fee", 0.0005),
+                latency_bars=int(exch_cfg.get("latency_bars", 0)),
+                book_base_slippage=exch_cfg.get("book_base_slippage", 0.0005),
+            )
         bt = Backtester(
             initial_capital=config.get("initial_capital", 100_000),
             commission=config.get("commission", 0.001),
             slippage=config.get("slippage", 0.0005),
+            **kwargs,
         )
 
         # Load data
@@ -83,6 +118,8 @@ class BacktestService:
                     "size": t.size,
                     "pnl": t.pnl,
                     "pnl_pct": t.pnl_pct,
+                    "funding_paid": t.funding_paid,
+                    "liquidated": t.liquidated,
                 }
                 for t in r.trades
             ],
