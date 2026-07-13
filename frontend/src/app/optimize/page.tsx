@@ -9,23 +9,30 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 
 export default function OptimizePage() {
-  const { status, progress, bestParams, bestScore, runOptimization } = useOptimizeStore();
+  const {
+    status,
+    progress,
+    bestParams,
+    bestScore,
+    paramSpace,
+    setStrategy,
+    updateParam,
+    runOptimization,
+  } = useOptimizeStore();
 
-  const [strategy, setStrategy] = useState('ma_cross');
+  const [strategy, setStrategyLocal] = useState('ma_cross');
   const [paramName, setParamName] = useState('fast_period');
   const [minVal, setMinVal] = useState(10);
   const [maxVal, setMaxVal] = useState(50);
   const [stepVal, setStepVal] = useState(2);
 
   const handleOptimize = () => {
-    runOptimization(strategy, [
-      {
-        name: paramName,
-        min: Number(minVal),
-        max: Number(maxVal),
-        step: Number(stepVal),
-      },
-    ]);
+    setStrategy(strategy);
+    const target = paramSpace.find((p) => p.name === paramName);
+    if (target) {
+      updateParam(target.id, { min: Number(minVal), max: Number(maxVal), step: Number(stepVal) });
+    }
+    runOptimization();
   };
 
   return (
