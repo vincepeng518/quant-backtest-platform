@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useOptimizeStore } from '@/stores/useOptimizeStore';
 import { Card } from '@/components/ui/Card';
 import { PageShell } from '@/components/layout/PageShell';
@@ -59,6 +59,8 @@ function OptimizeView() {
     runOptimization,
     reset,
   } = useOptimizeStore();
+
+  const router = useRouter();
 
   const searchParams = useSearchParams();
   const [strategyOptions, setStrategyOptions] = useState<{ label: string; value: string }[]>(FALLBACK_STRATEGIES);
@@ -159,7 +161,12 @@ function OptimizeView() {
           </Card>
 
           <div className="flex justify-end">
-            <Button variant="primary" onClick={() => api.applyBestParams()}>Apply Best Params to Backtest</Button>
+            <Button
+              variant="primary"
+              onClick={() => router.push(`/backtest?strategy=${encodeURIComponent(strategyId)}&params=${encodeURIComponent(JSON.stringify(bestParams))}`)}
+            >
+              Apply Best Params to Backtest
+            </Button>
           </div>
         </div>
       )}

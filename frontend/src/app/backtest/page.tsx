@@ -75,7 +75,7 @@ function BacktestView() {
     api.listUserStrategies().then(setUserStrategies);
   }, []);
 
-  // P7: preselect strategy from ?strategy= (e.g. user_xxxx) coming from /strategies
+  // P7/P9: preselect strategy (and params) from ?strategy= / ?params= coming from /strategies or /optimize
   useEffect(() => {
     const pref = searchParams.get('strategy');
     if (!pref) return;
@@ -83,7 +83,21 @@ function BacktestView() {
     const isUser = userStrategies.some((s) => `user_${s.id}` === pref);
     if (isBuiltin || isUser) {
       setSelectedStrategy(pref);
-      if (isBuiltin && Object.keys(paramValues).length === 0) {
+      const incoming = searchParams.get('params');
+      if (incoming) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(incoming)) as Record<string, any>;
+          setParamValues((prev) => {
+            const merged = { ...prev };
+            Object.entries(parsed).forEach(([k, v]) => {
+              merged[k] = typeof v === 'number' ? v : Number(v);
+            });
+            return merged;
+          });
+        } catch {
+          /* ignore malformed params */
+        }
+      } else if (isBuiltin && Object.keys(paramValues).length === 0) {
         const t = templates.find((x) => x.id === pref);
         if (t) setParamValues(buildDefaults(t));
       }
