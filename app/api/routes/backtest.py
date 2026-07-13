@@ -9,6 +9,11 @@ from app.models.schemas import BacktestConfig, BacktestResultOut, TaskStatus
 from app.services.backtest_service import BacktestService
 from app.services.data_service import _backtest_tasks
 
+# Backtests are written by app/services/data_service.py to <repo>/backtests,
+# i.e. parents[2] of that module — anchor here so both reader routes agree.
+_DATA_SERVICE = __import__("app.services.data_service", fromlist=["__file__"]).__file__
+BACKTESTS_DIR = Path(_DATA_SERVICE).resolve().parents[2] / "backtests"
+
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
 svc = BacktestService()
 
@@ -20,7 +25,7 @@ async def run_backtest(config: BacktestConfig):
 
 @router.get("/history")
 async def list_history():
-    bd = Path(__file__).resolve().parents[2] / "backtests"
+    bd = BACKTESTS_DIR
     if not bd.exists():
         return []
     items = []
@@ -55,7 +60,7 @@ async def get_results(task_id: str):
     task = _backtest_tasks.get(task_id)
     if task and task.get("result") is not None:
         return task["result"]
-    bd = Path(__file__).resolve().parents[2] / "backtests"
+    bd = BACKTESTS_DIR
     fp = bd / f"{task_id}.json"
     if fp.exists():
         d = json.loads(fp.read_text())
