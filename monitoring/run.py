@@ -1,79 +1,127 @@
-"""Phase 1-4 監聽 + 影子交易系統入口。
+"""Phase 1-4 監聽 + 影子交易系統入口 (穩健版)。
 
 用法:
-  # 即時監聽 (Binance WS -> 引擎 -> SQLite)
-  python3 -m monitoring.run --live --db shadow.db
+  # 即時監聽 (Binance WS -> 引擎 -> SQLite, 自動結算, 無人值守)
+  python3 -m monitoring.run --live
 
-  # 歷史回放驗證 (用 Binance 1m 數據餵引擎, 驗證影子記錄/結算)
-  python3 -m monitoring.run --replay BTC/USDT --db shadow.db
+  # 歷史回放驗證 (Binance 1m 數據餵引擎)
+  python3 -m monitoring.run --replay BTC/USDT
 
-註: 訂單簿源目前接 Polymarket CLOB (深度代理)。
-     TODO: 替換為 predict.fun BNB Chain CLOB endpoint (主戰場)。
+  # 自檢 (跑單元邏輯確認管線通)
+  python3 -m monitoring.run --selftest
+
+註: 訂單簿源預設 polymarket CLOB (深度代理)。
+     predict.fun BNB Chain CLOB 需 auth, 配置 orderbook.source=polygon 以外時需另行授權。
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
+import logging
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from monitoring.shadow_engine import ShadowEngine, PhaseConfig
+
+from monitoring.config import MonitorConfig
+from monitoring.shadow_engine import ShadowEngine
 from monitoring.feed_binance import BinanceWsFeed
 from monitoring.orderbook import PolymarketClobSource
 
 
-# TODO: 替換為你的 predict.fun 目標市場 token id (或從 config 讀)
-POLY_TOKEN_ID = "98022490269692409998126496127597032490334070080325855126491859374983463996227"
+def setup_logging(log_path: str) -> None:
+    os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[logging.FileHandler(log_path), logging.StreamHandler()],
+    )
 
 
-def build_engine(db: str, live_book: bool) -> ShadowEngine:
-    book = PolymarketClobSource(POLY_TOKEN_ID) if live_book else None
-    return ShadowEngine(db, cfg=PhaseConfig(), book_source=book)
+def build_book(cfg: MonitorConfig):
+    if cfg.ob_source == "polymarket" and cfg.ob_token_id:
+        return PolymarketClobSource(cfg.ob_token_id)
+    return None
 
 
-async def run_live(db: str) -> None:
-    eng = build_engine(db, live_book=True)
-    feed = BinanceWsFeed("btcusdt@trade")
+async def run_live(cfg: MonitorConfig) -> None:
+    setup_logging(cfg.log)
+    eng = ShadowEngine(cfg, book_source=build_book(cfg))
+    feed = BinanceWsFeed(cfg.binance_symbol)
     feed.on_tick(lambda price, ts: eng.on_spot(price, ts, market="BTC-5m"))
-    print("[LIVE] Binance WS -> ShadowEngine started. db=", db)
+    logging.info("[LIVE] start. db=%s book=%s", cfg.db, cfg.ob_source)
     try:
         await feed.run()
     except KeyboardInterrupt:
-        pass
+        logging.info("[LIVE] stopped by user")
     finally:
         eng.close()
 
 
-async def run_replay(symbol: str, db: str) -> None:
-    """用 Binance 1m 歷史數據按秒展開餵引擎 (近似監聽), 驗證 4 階段邏輯。"""
+async def run_replay(cfg: MonitorConfig, symbol: str) -> None:
+    setup_logging(cfg.log)
     from data.providers.binance import BinanceProvider
-    eng = build_engine(db, live_book=False)
+    eng = ShadowEngine(cfg, book_source=None)
     p = BinanceProvider()
     df = await p.fetch_ohlcv(symbol, "1m", limit=300)
     await p.close()
-    print(f"[REPLAY] feeding {len(df)} 1m bars -> engine")
+    if df is None:
+        logging.error("fetch failed")
+        return
+    logging.info("[REPLAY] feeding %d bars", len(df))
     for _, r in df.iterrows():
-        # 用收盤價當作該分鐘的現價快照, ts 用 timestamp + 隨機秒偏移模擬
-        import time
         ts = r["timestamp"].timestamp()
         eng.on_spot(float(r["close"]), ts, market="BTC-5m")
-    # 結算: 用下一根收盤當作輪次結算價 (近似)
-    print("[REPLAY] done. shadow_trades recorded:",
-          eng.conn.execute("SELECT COUNT(*) FROM shadow_trades").fetchone()[0])
+    logging.info("[REPLAY] done. stats=%s", eng.stats())
     eng.close()
+
+
+def run_selftest(cfg: MonitorConfig) -> None:
+    """不依賴網路: 用合成 tick 驗證 4 階段管線。"""
+    setup_logging(cfg.log)
+    tmp_db = cfg.db + ".selftest"
+    if os.path.exists(tmp_db):
+        os.remove(tmp_db)
+    if os.path.exists(tmp_db + "-wal"):
+        os.remove(tmp_db + "-wal")
+    if os.path.exists(tmp_db + "-shm"):
+        os.remove(tmp_db + "-shm")
+    cfg.db = tmp_db
+    cfg.settle_on_close = False  # 手動結算驗證
+    eng = ShadowEngine(cfg, book_source=None)
+    base = 64000.0
+    # 平穩基線
+    for i in range(60):
+        eng.on_spot(base, 300 + i, market="T")
+    # 窗口內砸盤 -> 應觸發 UP 信號
+    eng.on_spot(base - 30, 420, market="T")
+    # 尾盤窗口
+    for i in range(80):
+        eng.on_spot(base, 520 + i, market="T")
+    # 結算
+    eng.settle_round("T:1", base + 5)
+    s = eng.stats()
+    logging.info("[SELFTEST] %s", s)
+    eng.close()
+    assert s["shadow_trades"] >= 1, "selftest: no signal"
+    assert s["tail_snapshots"] >= 1, "selftest: no tail"
+    print("SELFTEST OK:", s)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--live", action="store_true", help="即時監聽模式")
-    ap.add_argument("--replay", metavar="SYMBOL", help="歷史回放 (e.g. BTC/USDT)")
-    ap.add_argument("--db", default="shadow.db")
+    ap.add_argument("--live", action="store_true")
+    ap.add_argument("--replay", metavar="SYMBOL")
+    ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--config", default="monitoring/config.yaml")
     args = ap.parse_args()
+    cfg = MonitorConfig.load(args.config)
     if args.live:
-        asyncio.run(run_live(args.db))
+        asyncio.run(run_live(cfg))
     elif args.replay:
-        asyncio.run(run_replay(args.replay, args.db))
+        asyncio.run(run_replay(cfg, args.replay))
+    elif args.selftest:
+        run_selftest(cfg)
     else:
         ap.print_help()
 

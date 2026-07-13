@@ -8,8 +8,9 @@ from typing import Optional
 
 import pytest
 
-from monitoring.shadow_engine import ShadowEngine, PhaseConfig
+from monitoring.shadow_engine import ShadowEngine
 from monitoring.orderbook import BookSnapshot, OrderBookSource
+from monitoring.config import MonitorConfig
 
 
 class FakeBook(OrderBookSource):
@@ -22,9 +23,24 @@ class FakeBook(OrderBookSource):
                             ask_size=5000, spread=0.01, depth_at_60_75=self.depth)
 
 
-def _make_engine(book: Optional[OrderBookSource], tmp: str, cfg: PhaseConfig | None = None):
-    eng = ShadowEngine(tmp, cfg=cfg or PhaseConfig(dev_base_points=5.0), book_source=book)
-    return eng
+def _cfg(**over):
+    c = MonitorConfig()
+    c.dev_base_points = 5.0
+    c.min_secs_to_close = 150
+    c.max_secs_to_close = 200
+    c.odds_min = 0.60
+    c.odds_max = 0.75
+    c.min_depth_shares = 1000
+    c.settle_on_close = False  # 測試手動結算
+    for k, v in over.items():
+        setattr(c, k, v)
+    return c
+
+
+def _make_engine(book: Optional[OrderBookSource], tmp: str, cfg: MonitorConfig | None = None):
+    c = cfg or _cfg()
+    c.db = tmp
+    return ShadowEngine(c, book_source=book)
 
 
 def test_deviation_trigger_and_shadow_record():
@@ -32,9 +48,7 @@ def test_deviation_trigger_and_shadow_record():
     tmp = tempfile.mktemp(suffix=".db")
     # 流動性充足 -> 非影子 (若 odds_ok)
     book = FakeBook(depth=5000, ask=0.65)
-    cfg = PhaseConfig(min_secs_to_close=150, max_secs_to_close=200,
-                      odds_min=0.60, odds_max=0.75, min_depth_shares=1000,
-                      dev_base_points=5.0)
+    cfg = _cfg(min_secs_to_close=150, max_secs_to_close=200, odds_min=0.60, odds_max=0.75, min_depth_shares=1000, dev_base_points=5.0)
     eng = _make_engine(book, tmp, cfg)
     # 時間軸: round 起點 t0=300 (close_ts=600), 窗口 150-200s => t in [400,450]
     # 先餵平穩價建立基線
@@ -62,9 +76,7 @@ def test_deviation_trigger_and_shadow_record():
 def test_low_depth_goes_shadow():
     tmp = tempfile.mktemp(suffix=".db")
     book = FakeBook(depth=10, ask=0.65)  # 深度不足
-    cfg = PhaseConfig(min_secs_to_close=150, max_secs_to_close=200,
-                      odds_min=0.60, odds_max=0.75, min_depth_shares=1000,
-                      dev_base_points=5.0)
+    cfg = _cfg(min_secs_to_close=150, max_secs_to_close=200, odds_min=0.60, odds_max=0.75, min_depth_shares=1000, dev_base_points=5.0)
     eng = _make_engine(book, tmp, cfg)
     base = 64000.0
     for i in range(60):
@@ -80,9 +92,7 @@ def test_low_depth_goes_shadow():
 def test_out_of_window_no_signal():
     tmp = tempfile.mktemp(suffix=".db")
     book = FakeBook(depth=5000, ask=0.65)
-    cfg = PhaseConfig(min_secs_to_close=150, max_secs_to_close=200,
-                      odds_min=0.60, odds_max=0.75, min_depth_shares=1000,
-                      dev_base_points=5.0)
+    cfg = _cfg(min_secs_to_close=150, max_secs_to_close=200, odds_min=0.60, odds_max=0.75, min_depth_shares=1000, dev_base_points=5.0)
     eng = _make_engine(book, tmp, cfg)
     base = 64000.0
     for i in range(60):
@@ -97,9 +107,7 @@ def test_out_of_window_no_signal():
 def test_tail_snapshot_recorded():
     tmp = tempfile.mktemp(suffix=".db")
     book = FakeBook(depth=5000, ask=0.65)
-    cfg = PhaseConfig(min_secs_to_close=150, max_secs_to_close=200,
-                      odds_min=0.60, odds_max=0.75, min_depth_shares=1000,
-                      dev_base_points=5.0)
+    cfg = _cfg(min_secs_to_close=150, max_secs_to_close=200, odds_min=0.60, odds_max=0.75, min_depth_shares=1000, dev_base_points=5.0)
     eng = _make_engine(book, tmp, cfg)
     base = 64000.0
     for i in range(80):

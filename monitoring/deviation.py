@@ -42,19 +42,28 @@ class DeviationCalculator:
         return min(self.max_points, max(self.min_points, thr))
 
     def evaluate(self, spot: float, target: Optional[float] = None) -> dict:
-        self._push(spot)
         if target is not None:
             dev = spot - target
+            self._push(spot)
+            self._devs.append(dev)
+            if len(self._devs) > self.window:
+                self._devs.pop(0)
+            thr = self.dynamic_threshold()
         else:
             if len(self._prices) < 5:
+                # 基線尚未建立：先記錄價格，不觸發
+                self._push(spot)
                 return {"deviation": 0.0, "threshold": self.base_points,
                         "triggered": False, "direction": None}
-            mean = sum(self._prices) / len(self._prices)
-            dev = spot - mean
-        self._devs.append(dev)
-        if len(self._devs) > self.window:
-            self._devs.pop(0)
-        thr = self.dynamic_threshold()
+            # 基線 = 當前價之前的移動均值 (不含本筆)
+            baseline = sum(self._prices) / len(self._prices)
+            dev = spot - baseline
+            # 先算閾值 (用歷史偏離, 不含當前筆, 避免當前暴跌自己拉高閾值)
+            thr = self.dynamic_threshold()
+            self._push(spot)
+            self._devs.append(dev)
+            if len(self._devs) > self.window:
+                self._devs.pop(0)
         triggered = abs(dev) >= thr
         # 描述性方向：價格相對基線偏低/偏高（非下注方向）
         direction = "BELOW" if dev < 0 else "ABOVE"

@@ -1,0 +1,52 @@
+# 監聽+影子交易系統配置 (monitoring/config.yaml)
+# 所有閾值可在此調，不需改代碼。
+
+# Phase 1: 雙端報價
+feed:
+  binance_symbol: "btcusdt@trade"     # 秒級現貨 trade stream
+  target_source: "none"               # none=移動均值基線 | chainlink=接 Data Streams(待接)
+
+# Phase 1: 偏離計算 (現價 vs 基線)
+deviation:
+  base_points: 25.0        # 基礎觸發閾值 (美元)
+  min_points: 15.0
+  max_points: 80.0
+  vol_mult: 1.5            # 動態閾值 = base + vol_mult * 近期波動std
+  window: 60
+
+# Phase 2: 時間鎖定
+timing:
+  min_secs_to_close: 150
+  max_secs_to_close: 200
+
+# Phase 2: 賠率/成本控制 (訂單簿源提供)
+odds:
+  min: 0.60
+  max: 0.75
+
+# Phase 2: 深度檢測
+depth:
+  min_shares: 1000.0       # 目標價位區間需有的掛單量 (支撐單次資金)
+
+# Phase 3: 異常行情 (價格跳變幅度爆發)
+anomaly:
+  vol_mult: 4.0
+  lookback: 30
+
+# 訂單簿源 (Phase 2 深度/賠率)
+# 目前: polymarket (公開 CLOB, 深度代理)
+# TODO: predict.fun BNB Chain CLOB (需 auth, 待用戶授權後接)
+orderbook:
+  source: "polymarket"
+  polymarket_token_id: "98022490269692409998126496127597032490334070080325855126491859374983463996227"
+  book_refresh_sec: 2       # 訂單簿輪詢間隔 (避免每 tick 打 API)
+
+# 儲存
+storage:
+  db: "monitoring/shadow.db"
+  log: "monitoring/monitor.log"
+
+# 運行
+run:
+  settle_on_close: true     # 輪次到期自動結算 (無人值守)
+  tail_snapshot_secs: [10, 20]   # 尾盤快照窗口
