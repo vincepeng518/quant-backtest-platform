@@ -61,3 +61,36 @@ export interface BacktestResult {
   buy_hold_equity: EquityPoint[];
   monthly_returns: Record<string, number>;
 }
+
+export interface StrategyParam {
+  name: string;
+  type: 'number' | 'string' | 'boolean';
+  default: number | string | boolean;
+  description?: string;
+}
+
+export interface StrategyTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  code: string;
+  params: StrategyParam[];
+}
+
+export interface UserStrategy {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  code: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface StrategyPayload {
+  name: string;
+  description: string;
+  category: string;
+  code: string;
+}
