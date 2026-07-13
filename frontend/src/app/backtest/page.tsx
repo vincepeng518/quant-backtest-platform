@@ -33,6 +33,7 @@ export default function BacktestPage() {
 
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
+  const [dataSource, setDataSource] = useState('test');
   const [startDate, setStartDate] = useState(
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
@@ -107,6 +108,7 @@ export default function BacktestPage() {
       },
       symbol,
       timeframe,
+      source: dataSource,
       start_date: startDate,
       end_date: endDate,
       risk: {
@@ -168,6 +170,15 @@ export default function BacktestPage() {
               { label: '1 Hour', value: '1h' },
               { label: '4 Hours', value: '4h' },
               { label: '1 Day', value: '1d' },
+            ]}
+          />
+          <Select
+            label="Data Source"
+            value={dataSource}
+            onChange={(e) => setDataSource(e.target.value)}
+            options={[
+              { label: 'Test (local, instant)', value: 'test' },
+              { label: 'Live (BingX)', value: 'bingx' },
             ]}
           />
           <Select

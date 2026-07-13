@@ -28,6 +28,7 @@ class BacktestService:
             timeframe=config.get("timeframe", "1h"),
             start_date=config.get("start_date", ""),
             end_date=config.get("end_date", ""),
+            source=config.get("source", "bingx"),
         )
         if data.empty:
             return {"task_id": task_id, "status": "error", "error": "No data"}
