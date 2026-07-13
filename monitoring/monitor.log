@@ -110,3 +110,4 @@
 2026-07-13 20:20:06,831 INFO [SIGNAL] BTC-5m:5946555 UP @61910.49 secs_left=180 type=LIVE reason=ok
 2026-07-13 20:20:06,833 INFO [SETTLE] BTC-5m:5946555 side=UP settle=61848.01 win=False pnl=-62.48
 2026-07-13 20:20:06,834 INFO [REPLAY] done. stats={'shadow_trades': 48, 'live': 48, 'tail_snapshots': 0, 'resolved': 48, 'wins': 23, 'win_rate': 47.9}
+2026-07-13 20:20:24,591 INFO [LIVE] start. db=monitoring/shadow.db book=polymarket

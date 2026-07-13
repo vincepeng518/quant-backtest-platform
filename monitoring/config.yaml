@@ -8,11 +8,11 @@ feed:
 
 # Phase 1: 偏離計算 (現價 vs 基線)
 deviation:
-  base_points: 25.0        # 基礎觸發閾值 (美元)
+  base_points: 25.0        # 基礎觸發閾值 (美元) — BTC 秒級, "幾十點" 級
   min_points: 15.0
   max_points: 80.0
   vol_mult: 1.5            # 動態閾值 = base + vol_mult * 近期波動std
-  window: 60
+  window: 300              # 基線回看筆數 (秒級 ~8s)
 
 # Phase 2: 時間鎖定
 timing:
