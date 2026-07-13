@@ -5,6 +5,7 @@ import {
   StrategyTemplate,
   UserStrategy,
   AnalysisResult,
+  OptimizeResult,
 } from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -76,5 +77,16 @@ export const api = {
     }),
   getAnalysisResults: (taskId: string) =>
     request<AnalysisResult>(`/analysis/results/${taskId}`),
+  runOptimize: (config: any) =>
+    request<{ task_id: string }>('/optimize/run', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  getOptimizeResults: (taskId: string) =>
+    request<OptimizeResult>(`/optimize/results/${taskId}`),
+  applyBestParams: () =>
+    request<{ applied: boolean }>('/optimize/best-params', {
+      method: 'POST',
+    }),
 };
 export default api;
