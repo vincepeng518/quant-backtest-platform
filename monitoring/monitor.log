@@ -1,0 +1,112 @@
+2026-07-13 20:14:28,172 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:15:18,208 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:15:43,836 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:16:05,013 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:16:27,395 INFO [SELFTEST] drop eval={'deviation': -29.5, 'threshold': 30.81, 'triggered': False, 'direction': None}
+2026-07-13 20:16:27,416 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:18:22,043 INFO [SELFTEST] cfg dev_base=25.0 dev_min=15.0 dev_window=60 vol_mult=1.5
+2026-07-13 20:18:22,060 INFO [SELFTEST] drop eval={'deviation': -29.5, 'threshold': 30.81, 'triggered': False, 'direction': None}
+2026-07-13 20:18:22,078 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:18:52,842 INFO [SELFTEST] {'shadow_trades': 0, 'live': 0, 'tail_snapshots': 11, 'resolved': 0, 'wins': 0, 'win_rate': 0.0}
+2026-07-13 20:19:51,911 INFO [SIGNAL] T:1 UP @63970.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:19:51,939 INFO [SETTLE] T:1 side=UP settle=64005.00 win=True pnl=35.00
+2026-07-13 20:19:51,939 INFO [SELFTEST] {'shadow_trades': 1, 'live': 1, 'tail_snapshots': 11, 'resolved': 1, 'wins': 1, 'win_rate': 100.0}
+2026-07-13 20:20:06,512 INFO HTTP Request: GET https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=300 "HTTP/1.1 200 OK"
+2026-07-13 20:20:06,520 INFO [REPLAY] feeding 300 bars
+2026-07-13 20:20:06,524 INFO [SIGNAL] BTC-5m:5946497 DOWN @62552.02 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,526 INFO [SETTLE] BTC-5m:5946497 side=DOWN settle=62607.86 win=False pnl=-55.84
+2026-07-13 20:20:06,529 INFO [SIGNAL] BTC-5m:5946498 DOWN @62693.11 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,531 INFO [SETTLE] BTC-5m:5946498 side=DOWN settle=62740.01 win=False pnl=-46.90
+2026-07-13 20:20:06,535 INFO [SIGNAL] BTC-5m:5946500 UP @62305.29 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,538 INFO [SETTLE] BTC-5m:5946500 side=UP settle=62359.57 win=True pnl=54.28
+2026-07-13 20:20:06,542 INFO [SIGNAL] BTC-5m:5946501 UP @62308.03 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,545 INFO [SETTLE] BTC-5m:5946501 side=UP settle=62306.03 win=False pnl=-2.00
+2026-07-13 20:20:06,549 INFO [SIGNAL] BTC-5m:5946502 UP @62227.20 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,552 INFO [SETTLE] BTC-5m:5946502 side=UP settle=62256.02 win=True pnl=28.82
+2026-07-13 20:20:06,555 INFO [SIGNAL] BTC-5m:5946503 UP @62314.89 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,559 INFO [SETTLE] BTC-5m:5946503 side=UP settle=62345.49 win=True pnl=30.60
+2026-07-13 20:20:06,563 INFO [SIGNAL] BTC-5m:5946504 UP @62319.99 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,565 INFO [SETTLE] BTC-5m:5946504 side=UP settle=62299.48 win=False pnl=-20.51
+2026-07-13 20:20:06,569 INFO [SIGNAL] BTC-5m:5946505 UP @62302.83 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,573 INFO [SETTLE] BTC-5m:5946505 side=UP settle=62317.99 win=True pnl=15.16
+2026-07-13 20:20:06,579 INFO [SIGNAL] BTC-5m:5946509 DOWN @62594.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,587 INFO [SETTLE] BTC-5m:5946509 side=DOWN settle=62580.01 win=True pnl=13.99
+2026-07-13 20:20:06,591 INFO [SIGNAL] BTC-5m:5946510 DOWN @62664.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,595 INFO [SETTLE] BTC-5m:5946510 side=DOWN settle=62532.01 win=True pnl=132.00
+2026-07-13 20:20:06,598 INFO [SIGNAL] BTC-5m:5946511 DOWN @62480.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,600 INFO [SETTLE] BTC-5m:5946511 side=DOWN settle=62629.29 win=False pnl=-149.29
+2026-07-13 20:20:06,603 INFO [SIGNAL] BTC-5m:5946512 DOWN @62573.18 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,606 INFO [SETTLE] BTC-5m:5946512 side=DOWN settle=62649.99 win=False pnl=-76.81
+2026-07-13 20:20:06,610 INFO [SIGNAL] BTC-5m:5946513 DOWN @62668.32 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,614 INFO [SETTLE] BTC-5m:5946513 side=DOWN settle=62661.68 win=True pnl=6.64
+2026-07-13 20:20:06,618 INFO [SIGNAL] BTC-5m:5946514 DOWN @62651.11 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,621 INFO [SETTLE] BTC-5m:5946514 side=DOWN settle=62711.99 win=False pnl=-60.88
+2026-07-13 20:20:06,624 INFO [SIGNAL] BTC-5m:5946515 DOWN @62755.72 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,628 INFO [SETTLE] BTC-5m:5946515 side=DOWN settle=62803.88 win=False pnl=-48.16
+2026-07-13 20:20:06,631 INFO [SIGNAL] BTC-5m:5946516 DOWN @62740.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,634 INFO [SETTLE] BTC-5m:5946516 side=DOWN settle=62733.99 win=True pnl=6.01
+2026-07-13 20:20:06,638 INFO [SIGNAL] BTC-5m:5946517 DOWN @62758.11 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,641 INFO [SETTLE] BTC-5m:5946517 side=DOWN settle=62820.01 win=False pnl=-61.90
+2026-07-13 20:20:06,645 INFO [SIGNAL] BTC-5m:5946518 DOWN @62782.36 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,648 INFO [SETTLE] BTC-5m:5946518 side=DOWN settle=62796.73 win=False pnl=-14.37
+2026-07-13 20:20:06,652 INFO [SIGNAL] BTC-5m:5946519 DOWN @62950.62 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,655 INFO [SETTLE] BTC-5m:5946519 side=DOWN settle=62871.57 win=True pnl=79.05
+2026-07-13 20:20:06,659 INFO [SIGNAL] BTC-5m:5946520 DOWN @62852.63 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,662 INFO [SETTLE] BTC-5m:5946520 side=DOWN settle=62816.01 win=True pnl=36.62
+2026-07-13 20:20:06,666 INFO [SIGNAL] BTC-5m:5946521 DOWN @62798.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,669 INFO [SETTLE] BTC-5m:5946521 side=DOWN settle=62829.68 win=False pnl=-31.68
+2026-07-13 20:20:06,675 INFO [SIGNAL] BTC-5m:5946524 UP @62575.05 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,678 INFO [SETTLE] BTC-5m:5946524 side=UP settle=62618.07 win=True pnl=43.02
+2026-07-13 20:20:06,683 INFO [SIGNAL] BTC-5m:5946525 UP @62640.10 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,687 INFO [SETTLE] BTC-5m:5946525 side=UP settle=62673.82 win=True pnl=33.72
+2026-07-13 20:20:06,691 INFO [SIGNAL] BTC-5m:5946526 UP @62612.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,695 INFO [SETTLE] BTC-5m:5946526 side=UP settle=62590.00 win=False pnl=-22.01
+2026-07-13 20:20:06,698 INFO [SIGNAL] BTC-5m:5946527 UP @62580.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,702 INFO [SETTLE] BTC-5m:5946527 side=UP settle=62565.02 win=False pnl=-14.98
+2026-07-13 20:20:06,705 INFO [SIGNAL] BTC-5m:5946528 UP @62565.85 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,709 INFO [SETTLE] BTC-5m:5946528 side=UP settle=62572.01 win=True pnl=6.16
+2026-07-13 20:20:06,712 INFO [SIGNAL] BTC-5m:5946529 UP @62549.98 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,716 INFO [SETTLE] BTC-5m:5946529 side=UP settle=62591.77 win=True pnl=41.79
+2026-07-13 20:20:06,720 INFO [SIGNAL] BTC-5m:5946530 UP @62570.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,723 INFO [SETTLE] BTC-5m:5946530 side=UP settle=62492.14 win=False pnl=-77.87
+2026-07-13 20:20:06,726 INFO [SIGNAL] BTC-5m:5946531 UP @62445.99 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,728 INFO [SETTLE] BTC-5m:5946531 side=UP settle=62318.19 win=False pnl=-127.80
+2026-07-13 20:20:06,731 INFO [SIGNAL] BTC-5m:5946532 UP @62327.99 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,734 INFO [SETTLE] BTC-5m:5946532 side=UP settle=62312.94 win=False pnl=-15.05
+2026-07-13 20:20:06,736 INFO [SIGNAL] BTC-5m:5946533 UP @62321.05 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,739 INFO [SETTLE] BTC-5m:5946533 side=UP settle=62265.06 win=False pnl=-55.99
+2026-07-13 20:20:06,741 INFO [SIGNAL] BTC-5m:5946534 UP @62321.98 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,744 INFO [SETTLE] BTC-5m:5946534 side=UP settle=62234.01 win=False pnl=-87.97
+2026-07-13 20:20:06,746 INFO [SIGNAL] BTC-5m:5946535 UP @62214.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,749 INFO [SETTLE] BTC-5m:5946535 side=UP settle=62302.08 win=True pnl=88.07
+2026-07-13 20:20:06,751 INFO [SIGNAL] BTC-5m:5946536 UP @62366.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,753 INFO [SETTLE] BTC-5m:5946536 side=UP settle=62394.01 win=True pnl=28.01
+2026-07-13 20:20:06,757 INFO [SIGNAL] BTC-5m:5946538 UP @62318.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,760 INFO [SETTLE] BTC-5m:5946538 side=UP settle=62272.88 win=False pnl=-45.12
+2026-07-13 20:20:06,763 INFO [SIGNAL] BTC-5m:5946539 UP @62267.99 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,765 INFO [SETTLE] BTC-5m:5946539 side=UP settle=62288.00 win=True pnl=20.01
+2026-07-13 20:20:06,768 INFO [SIGNAL] BTC-5m:5946540 UP @62295.21 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,770 INFO [SETTLE] BTC-5m:5946540 side=UP settle=62262.01 win=False pnl=-33.20
+2026-07-13 20:20:06,778 INFO [SIGNAL] BTC-5m:5946545 UP @62188.61 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,780 INFO [SETTLE] BTC-5m:5946545 side=UP settle=62224.00 win=True pnl=35.39
+2026-07-13 20:20:06,783 INFO [SIGNAL] BTC-5m:5946546 UP @62156.77 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,786 INFO [SETTLE] BTC-5m:5946546 side=UP settle=62167.99 win=True pnl=11.22
+2026-07-13 20:20:06,788 INFO [SIGNAL] BTC-5m:5946547 UP @62044.73 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,791 INFO [SETTLE] BTC-5m:5946547 side=UP settle=62056.19 win=True pnl=11.46
+2026-07-13 20:20:06,794 INFO [SIGNAL] BTC-5m:5946548 UP @62048.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,797 INFO [SETTLE] BTC-5m:5946548 side=UP settle=62172.85 win=True pnl=124.84
+2026-07-13 20:20:06,800 INFO [SIGNAL] BTC-5m:5946549 UP @62092.38 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,803 INFO [SETTLE] BTC-5m:5946549 side=UP settle=62047.07 win=False pnl=-45.31
+2026-07-13 20:20:06,806 INFO [SIGNAL] BTC-5m:5946550 UP @62026.48 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,808 INFO [SETTLE] BTC-5m:5946550 side=UP settle=62022.01 win=False pnl=-4.47
+2026-07-13 20:20:06,811 INFO [SIGNAL] BTC-5m:5946551 UP @61985.01 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,813 INFO [SETTLE] BTC-5m:5946551 side=UP settle=61958.40 win=False pnl=-26.61
+2026-07-13 20:20:06,816 INFO [SIGNAL] BTC-5m:5946552 UP @61962.00 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,819 INFO [SETTLE] BTC-5m:5946552 side=UP settle=62043.39 win=True pnl=81.39
+2026-07-13 20:20:06,822 INFO [SIGNAL] BTC-5m:5946553 UP @62031.98 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,824 INFO [SETTLE] BTC-5m:5946553 side=UP settle=61935.99 win=False pnl=-95.99
+2026-07-13 20:20:06,826 INFO [SIGNAL] BTC-5m:5946554 UP @61890.33 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,828 INFO [SETTLE] BTC-5m:5946554 side=UP settle=61932.00 win=True pnl=41.67
+2026-07-13 20:20:06,831 INFO [SIGNAL] BTC-5m:5946555 UP @61910.49 secs_left=180 type=LIVE reason=ok
+2026-07-13 20:20:06,833 INFO [SETTLE] BTC-5m:5946555 side=UP settle=61848.01 win=False pnl=-62.48
+2026-07-13 20:20:06,834 INFO [REPLAY] done. stats={'shadow_trades': 48, 'live': 48, 'tail_snapshots': 0, 'resolved': 48, 'wins': 23, 'win_rate': 47.9}
