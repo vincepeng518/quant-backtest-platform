@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -64,6 +65,7 @@ export default function StrategiesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', code: SAMPLE });
   const push = useToastStore((s) => s.push);
+  const router = useRouter();
 
   const load = () => {
     Promise.all([api.getTemplates(), api.listUserStrategies()])
@@ -143,7 +145,10 @@ export default function StrategiesPage() {
               </div>
               <p className="text-sm text-textSecondary">{s.description || s.filename}</p>
               {s.error && <p className="text-xs text-danger font-mono">{s.error}</p>}
-              <button onClick={() => remove(s.id)} className="text-xs text-textSecondary hover:text-danger transition-colors">刪除</button>
+              <div className="flex items-center gap-3 pt-1">
+                <button onClick={() => router.push(`/backtest?strategy=user_${s.id}`)} className="text-xs text-accent hover:underline transition-colors">跑回測</button>
+                <button onClick={() => remove(s.id)} className="text-xs text-textSecondary hover:text-danger transition-colors">刪除</button>
+              </div>
             </div>
           ))}
           {user.length === 0 && <EmptyState title="尚無上傳策略" description="點擊右上角上傳你的 Python 策略" />}
