@@ -5,11 +5,15 @@ data/
 !data/csv/
 !data/csv/**
 *.db
-*.sqlite
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
 venv/
+
+# TypeScript build artifacts
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
 *.egg-info/
 dist/
 build/

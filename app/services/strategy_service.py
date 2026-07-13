@@ -77,7 +77,7 @@ def _load_one(path: Path, sid: str) -> None:
     spec.loader.exec_module(mod)
     for attr in vars(mod).values():
         if isinstance(attr, type) and issubclass(attr, StrategyBase) and attr is not StrategyBase:
-            attr.name = attr.name or f"user_{sid}"
+            attr.name = f"user_{sid}"
             register_strategy(attr)
             return
     raise ValueError("No StrategyBase subclass found")
