@@ -43,6 +43,14 @@ class DataService:
         if source == "csv" or source == "test":
             # local CSV only — no network (for fast testing / offline)
             data = self.csv_loader.load(symbol)
+            # If disk CSV is missing or too short (e.g. stale deploy cache),
+            # generate fresh in-memory test data so offline mode always works.
+            if data is None or len(data) < 5000:
+                from data.providers.test_data import generate_test_data
+
+                gen = generate_test_data(symbol.replace("/", "_"))
+                if gen is not None and len(gen) > 0:
+                    data = gen
         elif source == "binance":
             data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
         else:  # default: bingx
