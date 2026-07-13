@@ -41,7 +41,7 @@ class BacktestService:
         strategy.init(strategy_cfg.get("params", {}))
         bt.set_strategy(strategy)
 
-        _backtest_tasks[task_id] = {"status": "running", "backtester": bt}
+        _backtest_tasks[task_id] = {"status": "running", "backtester": bt, "config": config}
         asyncio.create_task(_execute_backtest(task_id, bt, _backtest_tasks))
         return {"task_id": task_id, "status": "running"}
 
