@@ -53,6 +53,10 @@ class MovingAverageCrossStrategy(StrategyBase):
             if self._pos < 0 and self.direction in ("short", "both"):
                 self._pos = 0
                 return Signal(action="close", price=bar.close)
+            # Flat + bearish cross → open short (death cross is a sell signal)
+            if self._pos == 0 and self.direction in ("short", "both"):
+                self._pos = -1
+                return Signal(action="sell", price=bar.close)
         return None
 
     def get_params_space(self) -> dict[str, Any]:

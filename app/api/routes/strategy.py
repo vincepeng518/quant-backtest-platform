@@ -1,11 +1,26 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.schemas import StrategyTemplate, UserStrategyUpload, UserStrategyMeta
 from app.services import strategy_service as ss
 
 router = APIRouter(prefix="/api/strategy", tags=["strategy"])
+
+
+class StrategyValidateRequest(BaseModel):
+    template_id: str | None = None
+
+
+@router.post("/validate")
+async def validate_strategy(payload: StrategyValidateRequest = StrategyValidateRequest()):
+    """Lightweight check that a strategy template exists. Empty body => 200 (alive)."""
+    if payload.template_id is None:
+        return {"valid": True, "strategies": list(ss._registry.keys())}
+    if payload.template_id not in ss._registry:
+        raise HTTPException(status_code=404, detail=f"Strategy '{payload.template_id}' not found")
+    return {"valid": True, "template_id": payload.template_id}
 
 
 @router.get("/templates", response_model=list[StrategyTemplate])

@@ -89,6 +89,7 @@ class ExchangeConfig(BaseModel):
     taker_fee: float = 0.0005
     latency_bars: int = 0
     book_base_slippage: float = 0.0005
+    maker_probability: float = 0.0  # fraction of limit orders that fill as maker (0=all maker, 1=all taker)
 
 
 class BacktestConfig(BaseModel):

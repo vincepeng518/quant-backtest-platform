@@ -15,6 +15,8 @@ export interface RealismState {
   takerFee: number;
   latencyBars: number;
   bookSlippage: number;
+  makerProbability: number;
+  forceLimit: boolean;
 }
 
 export interface RealismHandlers {
@@ -29,6 +31,8 @@ export interface RealismHandlers {
   setTakerFee: (v: number) => void;
   setLatencyBars: (v: number) => void;
   setBookSlippage: (v: number) => void;
+  setMakerProbability: (v: number) => void;
+  setForceLimit: (v: boolean) => void;
 }
 
 interface Props {
@@ -119,6 +123,13 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
                   onChange={(e) => handlers.setLatencyBars(Number(e.target.value))} />
                 <Input label="Book Slippage" type="number" step={0.0001} value={s.bookSlippage}
                   onChange={(e) => handlers.setBookSlippage(Number(e.target.value))} />
+                <Input label="Maker Prob" type="number" step={0.05} value={s.makerProbability}
+                  onChange={(e) => handlers.setMakerProbability(Number(e.target.value))} />
+                <label className="flex items-end gap-2 text-sm">
+                  <input type="checkbox" checked={s.forceLimit}
+                    onChange={(e) => handlers.setForceLimit(e.target.checked)} />
+                  Force Limit (maker)
+                </label>
               </div>
             )}
           </div>

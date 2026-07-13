@@ -74,6 +74,9 @@ function BacktestView() {
   const [latencyBars, setLatencyBars] = useState(0);
   const [bookSlippage, setBookSlippage] = useState(0.0005);
 
+  const [makerProbability, setMakerProbability] = useState(0);
+  const [forceLimit, setForceLimit] = useState(false);
+
   useEffect(() => {
     loadSymbols();
   }, [loadSymbols]);
@@ -196,6 +199,8 @@ function BacktestView() {
         taker_fee: Number(takerFee),
         latency_bars: Number(latencyBars),
         book_base_slippage: Number(bookSlippage),
+        maker_probability: Number(makerProbability),
+        force_limit: forceLimit,
       };
     }
 
@@ -337,11 +342,13 @@ function BacktestView() {
             enableFunding, fundingInterval, fundingRate,
             enablePerp, leverage, maintMargin,
             enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+            makerProbability, forceLimit,
           }}
           handlers={{
             setEnableFunding, setFundingInterval, setFundingRate,
             setEnablePerp, setLeverage, setMaintMargin,
             setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
+            setMakerProbability, setForceLimit,
           }}
         />
 

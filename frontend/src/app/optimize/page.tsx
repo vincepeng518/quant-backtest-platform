@@ -45,6 +45,7 @@ function OptimizeView() {
     enableFunding, fundingInterval, fundingRate,
     enablePerp, leverage, maintMargin,
     enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+    makerProbability, forceLimit,
     setStrategy, setMarket, addParam, updateParam, removeParam, runOptimization, reset,
   } = useOptimizeStore();
 
@@ -114,6 +115,7 @@ function OptimizeView() {
             enableFunding, fundingInterval, fundingRate,
             enablePerp, leverage, maintMargin,
             enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+            makerProbability, forceLimit,
           }}
           handlers={{
             setEnableFunding: (v) => useOptimizeStore.setState({ enableFunding: v }),
@@ -127,6 +129,8 @@ function OptimizeView() {
             setTakerFee: (v) => useOptimizeStore.setState({ takerFee: v }),
             setLatencyBars: (v) => useOptimizeStore.setState({ latencyBars: v }),
             setBookSlippage: (v) => useOptimizeStore.setState({ bookSlippage: v }),
+            setMakerProbability: (v) => useOptimizeStore.setState({ makerProbability: v }),
+            setForceLimit: (v) => useOptimizeStore.setState({ forceLimit: v }),
           }}
         />
       </Card>

@@ -35,6 +35,8 @@ interface OptimizeStore {
   takerFee: number;
   latencyBars: number;
   bookSlippage: number;
+  makerProbability: number;
+  forceLimit: boolean;
   setStrategy: (id: string) => void;
   setMarket: (m: { symbol: string; timeframe: string; source: string }) => void;
   addParam: (name: string) => void;
@@ -73,6 +75,8 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   takerFee: 0.0005,
   latencyBars: 0,
   bookSlippage: 0.0005,
+  makerProbability: 0,
+  forceLimit: false,
   setStrategy: (id) => set({ strategyId: id }),
   setMarket: (m) => set(m),
   addParam: (name) =>
@@ -87,6 +91,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
       enableFunding, fundingInterval, fundingRate,
       enablePerp, leverage, maintMargin,
       enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+      makerProbability, forceLimit,
     } = get();
     set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] });
     try {
@@ -110,6 +115,8 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
           taker_fee: Number(takerFee),
           latency_bars: Number(latencyBars),
           book_base_slippage: Number(bookSlippage),
+          maker_probability: Number(makerProbability),
+          force_limit: forceLimit,
         };
       }
       const { task_id } = await api.runOptimize(payload);

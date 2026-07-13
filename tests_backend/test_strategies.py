@@ -61,10 +61,8 @@ class TestBreakout:
         """向下突破 → close（當 position 非空時）"""
         s = BreakoutStrategy()
         s.init({"lookback_period": 5, "risk_percent": 2.0})
-        # Manually set position to simulate being long
-        s.position = __import__("strategies.base", fromlist=["Position"]).Position(
-            size=1000, entry_price=115, current_price=115
-        )
+        # Simulate being long via the strategy's real internal state
+        s._pos = 1
         bars = make_bars([100, 101, 102, 103, 104, 80])
         sig = None
         for b in bars:
