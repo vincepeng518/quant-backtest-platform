@@ -16,6 +16,7 @@ import { MetricsCard } from '@/components/backtest/MetricsCard';
 import { PriceChart } from '@/components/charts/PriceChart';
 import { EquityCurve } from '@/components/charts/EquityCurve';
 import { DrawdownChart } from '@/components/charts/DrawdownChart';
+import { RealismPanel } from '@/components/realism/RealismPanel';
 
 // Local view of the backend param spec (backend sends {type, min, max, step}
 // for ranges and {type, values} for choices). The shared StrategyParam type
@@ -72,8 +73,6 @@ function BacktestView() {
   const [takerFee, setTakerFee] = useState(0.0005);
   const [latencyBars, setLatencyBars] = useState(0);
   const [bookSlippage, setBookSlippage] = useState(0.0005);
-
-  const [showRealism, setShowRealism] = useState(false);
 
   useEffect(() => {
     loadSymbols();
@@ -333,92 +332,18 @@ function BacktestView() {
           )}
         </div>
 
-        {/* Engine realism (opt-in) */}
-        <div className="mt-6 border-t border-border/10 pt-4">
-          <button
-            type="button"
-            onClick={() => setShowRealism((v) => !v)}
-            className="flex w-full items-center justify-between text-left"
-          >
-            <span className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
-              合約仿真 / Realism
-            </span>
-            <span className="font-mono text-xs text-textSecondary">
-              {showRealism ? '收起 ▲' : '展開 ▼'}
-            </span>
-          </button>
-          <p className="mt-1 text-xs text-textSecondary">
-            資金費率 / 槓桿強平 / maker-taker 費率與交易所延遲。全部關閉 = 舊版 1x spot。
-          </p>
-
-          {showRealism && (
-            <div className="mt-4 space-y-5">
-              {/* Funding */}
-              <div className="rounded-lg border border-border/10 p-4">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={enableFunding}
-                    onChange={(e) => setEnableFunding(e.target.checked)}
-                  />
-                  資金費率 (Funding Rate)
-                </label>
-                {enableFunding && (
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <Input label="Interval (h)" type="number" value={fundingInterval}
-                      onChange={(e) => setFundingInterval(Number(e.target.value))} />
-                    <Input label="Default Rate" type="number" step={0.00001} value={fundingRate}
-                      onChange={(e) => setFundingRate(Number(e.target.value))} />
-                  </div>
-                )}
-              </div>
-
-              {/* Perpetual */}
-              <div className="rounded-lg border border-border/10 p-4">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={enablePerp}
-                    onChange={(e) => setEnablePerp(e.target.checked)}
-                  />
-                  永續合約 / 槓桿強平 (Perpetual)
-                </label>
-                {enablePerp && (
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <Input label="Leverage" type="number" value={leverage}
-                      onChange={(e) => setLeverage(Number(e.target.value))} />
-                    <Input label="Maint. Margin" type="number" step={0.0005} value={maintMargin}
-                      onChange={(e) => setMaintMargin(Number(e.target.value))} />
-                  </div>
-                )}
-              </div>
-
-              {/* Exchange */}
-              <div className="rounded-lg border border-border/10 p-4">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    checked={enableExchange}
-                    onChange={(e) => setEnableExchange(e.target.checked)}
-                  />
-                  交易所環境 (Maker/Taker + 滑價 + 延遲)
-                </label>
-                {enableExchange && (
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <Input label="Maker Fee" type="number" step={0.0001} value={makerFee}
-                      onChange={(e) => setMakerFee(Number(e.target.value))} />
-                    <Input label="Taker Fee" type="number" step={0.0001} value={takerFee}
-                      onChange={(e) => setTakerFee(Number(e.target.value))} />
-                    <Input label="Latency (bars)" type="number" value={latencyBars}
-                      onChange={(e) => setLatencyBars(Number(e.target.value))} />
-                    <Input label="Book Slippage" type="number" step={0.0001} value={bookSlippage}
-                      onChange={(e) => setBookSlippage(Number(e.target.value))} />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <RealismPanel
+          state={{
+            enableFunding, fundingInterval, fundingRate,
+            enablePerp, leverage, maintMargin,
+            enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+          }}
+          handlers={{
+            setEnableFunding, setFundingInterval, setFundingRate,
+            setEnablePerp, setLeverage, setMaintMargin,
+            setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
+          }}
+        />
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/10 pt-4">
           <div className="text-sm font-mono text-textSecondary">

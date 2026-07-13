@@ -13,6 +13,7 @@ import { Heatmap } from '@/components/charts/Heatmap';
 import { ParamImportanceBar } from '@/components/charts/ParamImportanceBar';
 import { ConvergenceChart } from '@/components/charts/ConvergenceChart';
 import api from '@/lib/api';
+import { RealismPanel } from '@/components/realism/RealismPanel';
 
 const FALLBACK_STRATEGIES = [
   { label: 'Moving Average Cross', value: 'ma_cross' },
@@ -39,25 +40,12 @@ export default function OptimizePage() {
 
 function OptimizeView() {
   const {
-    status,
-    progress,
-    error,
-    bestParams,
-    bestScore,
-    grid,
-    trials,
-    strategyId,
-    symbol,
-    timeframe,
-    source,
-    paramSpace,
-    setStrategy,
-    setMarket,
-    addParam,
-    updateParam,
-    removeParam,
-    runOptimization,
-    reset,
+    status, progress, error, bestParams, bestScore, grid, trials,
+    strategyId, symbol, timeframe, source, paramSpace,
+    enableFunding, fundingInterval, fundingRate,
+    enablePerp, leverage, maintMargin,
+    enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+    setStrategy, setMarket, addParam, updateParam, removeParam, runOptimization, reset,
   } = useOptimizeStore();
 
   const router = useRouter();
@@ -117,6 +105,30 @@ function OptimizeView() {
             </div>
           ))}
         </div>
+      </Card>
+
+      {/* Engine realism (opt-in) */}
+      <Card className="space-y-4">
+        <RealismPanel
+          state={{
+            enableFunding, fundingInterval, fundingRate,
+            enablePerp, leverage, maintMargin,
+            enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+          }}
+          handlers={{
+            setEnableFunding: (v) => useOptimizeStore.setState({ enableFunding: v }),
+            setFundingInterval: (v) => useOptimizeStore.setState({ fundingInterval: v }),
+            setFundingRate: (v) => useOptimizeStore.setState({ fundingRate: v }),
+            setEnablePerp: (v) => useOptimizeStore.setState({ enablePerp: v }),
+            setLeverage: (v) => useOptimizeStore.setState({ leverage: v }),
+            setMaintMargin: (v) => useOptimizeStore.setState({ maintMargin: v }),
+            setEnableExchange: (v) => useOptimizeStore.setState({ enableExchange: v }),
+            setMakerFee: (v) => useOptimizeStore.setState({ makerFee: v }),
+            setTakerFee: (v) => useOptimizeStore.setState({ takerFee: v }),
+            setLatencyBars: (v) => useOptimizeStore.setState({ latencyBars: v }),
+            setBookSlippage: (v) => useOptimizeStore.setState({ bookSlippage: v }),
+          }}
+        />
       </Card>
 
       {/* Run bar */}

@@ -5,6 +5,7 @@ import pytest
 from engine.backtester import Backtester
 from engine.optimizer import Optimizer
 from strategies.technical.moving_average import MovingAverageCrossStrategy
+from app.services.optimize_service import OptimizeService
 from tests_backend.conftest import make_ohlcv
 
 PARAM_SPACE = {
@@ -76,3 +77,49 @@ class TestBayesianOptimization:
         assert len(results) == 5
         assert "params" in results[0]
         assert "score" in results[0]
+
+
+class TestOptimizeServiceRealism:
+    """T10+ : optimizer must thread opt-in realism into the sub-backtests."""
+
+    def test_realism_disabled_is_legacy(self, monkeypatch):
+        captured = {}
+
+        class _SpyBT(Backtester):
+            def __init__(self, **kw):
+                captured.update(kw)
+                super().__init__(**kw)
+
+        monkeypatch.setattr("app.services.optimize_service.Backtester", _SpyBT)
+        svc = OptimizeService()
+        config = {"strategy_id": "ma_cross", "param_space": [], "funding": {"enabled": False}}
+        import asyncio
+        asyncio.run(svc._execute("t1", config))
+        assert "funding" not in captured
+        assert "perp" not in captured
+        assert "exchange" not in captured
+
+    def test_realism_enabled_threads_kwargs(self, monkeypatch):
+        captured = {}
+
+        class _SpyBT(Backtester):
+            def __init__(self, **kw):
+                captured.update(kw)
+                super().__init__(**kw)
+
+        monkeypatch.setattr("app.services.optimize_service.Backtester", _SpyBT)
+        svc = OptimizeService()
+        config = {
+            "strategy_id": "ma_cross",
+            "param_space": [],
+            "funding": {"enabled": True, "interval_hours": 8, "default_rate": 0.0001},
+            "perpetual": {"enabled": True, "leverage": 10, "maintenance_margin_rate": 0.005},
+            "exchange": {"enabled": True, "maker_fee": 0.0002, "taker_fee": 0.0005,
+                         "latency_bars": 1, "book_base_slippage": 0.0005},
+        }
+        import asyncio
+        asyncio.run(svc._execute("t2", config))
+        assert captured.get("funding") == config["funding"]
+        assert captured.get("perp") == config["perpetual"]
+        assert captured.get("leverage") == 10.0
+        assert captured.get("exchange") == config["exchange"]
