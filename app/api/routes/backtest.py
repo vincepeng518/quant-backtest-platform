@@ -55,11 +55,56 @@ async def get_status(task_id: str):
     return TaskStatus(**s)
 
 
+def _result_to_out(task_id: str, result) -> BacktestResultOut:
+    """Convert an in-memory BacktestResult dataclass to BacktestResultOut.
+
+    The dataclass stores Trade.entry_time/exit_time as pd.Timestamp, which
+    pydantic v2 will not auto-coerce to str -> we stringify explicitly.
+    Metrics live as flat fields on the dataclass (not a nested dict).
+    """
+    from dataclasses import asdict as _asdict
+
+    def _ts(v):
+        return str(v) if v is not None else None
+
+    r = result
+    trades = [
+        {
+            "entry_time": _ts(t.entry_time),
+            "entry_price": t.entry_price,
+            "exit_time": _ts(t.exit_time),
+            "exit_price": t.exit_price,
+            "size": t.size,
+            "pnl": t.pnl,
+            "pnl_pct": t.pnl_pct,
+        }
+        for t in r.trades
+    ]
+    return BacktestResultOut(
+        task_id=task_id,
+        status="completed",
+        metrics={
+            "total_trades": r.total_trades,
+            "win_rate": r.win_rate,
+            "total_return_pct": r.total_return_pct,
+            "max_drawdown": r.max_drawdown,
+            "sharpe_ratio": r.sharpe_ratio,
+            "sortino_ratio": r.sortino_ratio,
+            "profit_factor": r.profit_factor,
+            "avg_trade": r.avg_trade,
+            "avg_winner": r.avg_winner,
+            "avg_loser": r.avg_loser,
+        },
+        equity_curve=list(r.equity_curve),
+        trades=trades,
+    )
+
+
 @router.get("/results/{task_id}", response_model=BacktestResultOut)
 async def get_results(task_id: str):
     task = _backtest_tasks.get(task_id)
     if task and task.get("result") is not None:
-        return task["result"]
+        return _result_to_out(task_id, task["result"])
     bd = BACKTESTS_DIR
     fp = bd / f"{task_id}.json"
     if fp.exists():
