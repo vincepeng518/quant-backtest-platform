@@ -9,6 +9,11 @@ import pandas as pd
 from engine.events import EventEmitter
 from strategies.base import Bar, Position, Signal, StrategyBase
 
+try:
+    from engine.funding import FundingModel
+except Exception:  # pragma: no cover - keep default path working if model missing
+    FundingModel = None  # type: ignore[assignment]
+
 
 @dataclass
 class Trade:
@@ -19,6 +24,7 @@ class Trade:
     exit_price: Optional[float] = None
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
+    funding_paid: float = 0.0
 
 
 @dataclass
@@ -51,10 +57,12 @@ class Backtester:
         initial_capital: float = 100_000,
         commission: float = 0.001,
         slippage: float = 0.0005,
+        funding: "Optional[FundingModel]" = None,
     ) -> None:
         self.initial_capital = initial_capital
         self.commission = commission
         self.slippage = slippage
+        self.funding = funding
         self.strategy: Optional[StrategyBase] = None
         self.data: Optional[pd.DataFrame] = None
         self.events = EventEmitter()
@@ -115,6 +123,13 @@ class Backtester:
                     )
                     pnl = position.size * (exit_price - position.entry_price)
                     pnl -= capital * self.commission
+                    funding_paid = 0.0
+                    if self.funding is not None:
+                        notional = abs(position.size) * position.entry_price
+                        side = 1 if position.size > 0 else -1
+                        funding_frac = self.funding.accrued(entry_bar, bar.timestamp, side)
+                        funding_paid = notional * funding_frac  # long positive => cost
+                        pnl -= funding_paid
                     trade = Trade(
                         entry_time=entry_bar or bar.timestamp,
                         entry_price=position.entry_price,
@@ -123,6 +138,7 @@ class Backtester:
                         exit_price=exit_price,
                         pnl=pnl,
                         pnl_pct=pnl / capital * 100,
+                        funding_paid=funding_paid,
                     )
                     trades.append(trade)
                     capital += pnl
