@@ -17,6 +17,7 @@ class Bar:
     close: float
     volume: float
     mark_price: Optional[float] = None
+    metadata: Optional[dict] = None
 
 
 @dataclass

@@ -9,6 +9,7 @@ from strategies.technical.breakout import BreakoutStrategy
 from strategies.technical.pairs import PairsTradingStrategy
 from strategies.technical.arbitrage import StatisticalArbitrageStrategy
 from strategies.statistical.chainlink_updown import ChainlinkUpDownStrategy
+from strategies.statistical.polymarket_btc import PolymarketBtcStrategy
 from tests_backend.conftest import make_bars
 
 
@@ -153,3 +154,55 @@ class TestChainlinkUpDown:
         space = s.get_params_space()
         assert "mode" in space
         assert space["mode"]["type"] == "choice"
+
+
+class TestPolymarketBtc:
+    def test_drop_near_low_buys_up(self):
+        from strategies.base import Bar
+        import pandas as pd
+        s2 = PolymarketBtcStrategy()
+        s2.init({"move_points": 40, "require_window": False})
+        for _ in range(25):
+            s2.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        bar = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=1000)
+        out = s2.next(bar)
+        assert out is not None
+        assert out.metadata["side"] == "UP"
+
+    def test_window_filter(self):
+        from strategies.base import Bar
+        import pandas as pd
+        bar = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=1000,
+                  metadata={"seconds_to_close": 50})  # outside 150-200
+        s = PolymarketBtcStrategy()
+        s.init({"move_points": 40, "require_window": True})
+        for _ in range(25):
+            s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        assert s.next(bar) is None
+
+    def test_anomaly_goes_shadow(self):
+        from strategies.base import Bar
+        import pandas as pd
+        s = PolymarketBtcStrategy()
+        s.init({"move_points": 40, "anomaly_atr_mult": 3.0, "require_window": False})
+        # warm up with small ranges
+        for _ in range(25):
+            s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        # bilateral blowout: open 100, high 200, low 20 (both wicks >=40) => abnormal
+        spike = Bar(pd.Timestamp("2024-01-01"), open=100, high=200, low=20, close=100, volume=1000)
+        out = s.next(spike)
+        assert out is None
+        assert len(s.shadow_log) == 1
+        assert s.shadow_log[0]["reason"] == "bilateral_blowout"
+
+    def test_low_depth_shadow_failure(self):
+        from strategies.base import Bar
+        import pandas as pd
+        s = PolymarketBtcStrategy()
+        s.init({"move_points": 40, "min_volume": 500, "require_window": False})
+        for _ in range(25):
+            s.next(Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=99, close=100, volume=1000))
+        thin = Bar(pd.Timestamp("2024-01-01"), open=100, high=101, low=50, close=55, volume=10)
+        out = s.next(thin)
+        assert out is None
+        assert s.shadow_log[-1]["reason"] == "simulated_failure"
