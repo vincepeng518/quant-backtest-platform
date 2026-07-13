@@ -1,4 +1,10 @@
-import { BacktestConfig, BacktestResult } from '@/types/api';
+import {
+  BacktestConfig,
+  BacktestResult,
+  StrategyPayload,
+  StrategyTemplate,
+  UserStrategy,
+} from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -38,5 +44,23 @@ export const api = {
   getBacktestStatus: (taskId: string) =>
     request<{ status: string; progress: number; error?: string }>(`/backtest/status/${taskId}`),
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
+
+  uploadStrategy: (payload: StrategyPayload) =>
+    request<UserStrategy>('/strategy/upload', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  listUserStrategies: () => request<UserStrategy[]>('/strategy/user'),
+  getUserStrategy: (id: string) => request<UserStrategy>(`/strategy/user/${id}`),
+  updateStrategy: (id: string, payload: StrategyPayload) =>
+    request<UserStrategy>(`/strategy/user/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteStrategy: (id: string) =>
+    request<{ status: string }>(`/strategy/user/${id}`, {
+      method: 'DELETE',
+    }),
+  getTemplates: () => request<StrategyTemplate[]>('/strategy/templates'),
 };
 export default api;
