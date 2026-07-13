@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
@@ -91,6 +95,29 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
         result = backtester.run()
         store[task_id]["status"] = "completed"
         store[task_id]["result"] = result
+
+        # P3: persist result to git for history (survives restart)
+        try:
+            from app.services.strategy_git import git_persist
+            bd = Path(__file__).resolve().parents[2] / "backtests"
+            bd.mkdir(parents=True, exist_ok=True)
+            cfg = store[task_id].get("config", {})
+            payload = {
+                "task_id": task_id,
+                "status": "completed",
+                "created_at": datetime.utcnow().isoformat(),
+                "config": cfg,
+                "metrics": asdict(result),
+                "equity_curve": result.equity_curve,
+                "trades": [asdict(t) for t in result.trades],
+            }
+            fp = bd / f"{task_id}.json"
+            fp.write_text(json.dumps(payload, default=str, indent=2))
+            ok, detail = git_persist([str(fp)], f"feat(backtest): save {task_id}")
+            if not ok:
+                logger.warning("backtest persist skipped: %s", detail)
+        except Exception as _e:
+            logger.warning("backtest persist failed: %s", _e)
     except Exception as e:
         logger.exception("Backtest failed")
         store[task_id]["status"] = "error"
