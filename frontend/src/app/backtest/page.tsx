@@ -6,6 +6,7 @@ import { useBacktestStore } from '@/stores/useBacktestStore';
 import api from '@/lib/api';
 import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -255,7 +256,7 @@ export default function BacktestPage() {
       )}
 
       {/* Results */}
-      {results && (
+      {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <MetricsCard
@@ -359,7 +360,9 @@ export default function BacktestPage() {
             </Card>
           )}
         </div>
-      )}
+      ) : status === 'completed' ? (
+        <Card><EmptyState title="No trades generated" description="The strategy produced no entries for this configuration. Try widening parameter bounds or a different symbol." /></Card>
+      ) : null}
     </PageShell>
   );
 };
