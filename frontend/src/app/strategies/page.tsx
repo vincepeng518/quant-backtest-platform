@@ -147,6 +147,7 @@ export default function StrategiesPage() {
               {s.error && <p className="text-xs text-danger font-mono">{s.error}</p>}
               <div className="flex items-center gap-3 pt-1">
                 <button onClick={() => router.push(`/backtest?strategy=user_${s.id}`)} className="text-xs text-accent hover:underline transition-colors">跑回測</button>
+                <button onClick={() => router.push(`/optimize?strategy=user_${s.id}`)} className="text-xs text-accent hover:underline transition-colors">跑優化</button>
                 <button onClick={() => remove(s.id)} className="text-xs text-textSecondary hover:text-danger transition-colors">刪除</button>
               </div>
             </div>

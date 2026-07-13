@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useOptimizeStore } from '@/stores/useOptimizeStore';
 import { Card } from '@/components/ui/Card';
 import { PageShell } from '@/components/layout/PageShell';
@@ -13,7 +14,7 @@ import { ParamImportanceBar } from '@/components/charts/ParamImportanceBar';
 import { ConvergenceChart } from '@/components/charts/ConvergenceChart';
 import api from '@/lib/api';
 
-const STRATEGIES = [
+const FALLBACK_STRATEGIES = [
   { label: 'Moving Average Cross', value: 'ma_cross' },
   { label: 'RSI Reversion', value: 'rsi_reversion' },
   { label: 'Breakout', value: 'breakout' },
@@ -29,6 +30,14 @@ const SOURCES = [
 ];
 
 export default function OptimizePage() {
+  return (
+    <Suspense fallback={null}>
+      <OptimizeView />
+    </Suspense>
+  );
+}
+
+function OptimizeView() {
   const {
     status,
     progress,
@@ -51,6 +60,30 @@ export default function OptimizePage() {
     reset,
   } = useOptimizeStore();
 
+  const searchParams = useSearchParams();
+  const [strategyOptions, setStrategyOptions] = useState<{ label: string; value: string }[]>(FALLBACK_STRATEGIES);
+
+  // P8: dynamically list builtin templates + user-uploaded strategies
+  useEffect(() => {
+    Promise.all([api.getTemplates(), api.listUserStrategies()])
+      .then(([t, u]) => {
+        const builtin = (t as any[]).map((x) => ({ label: x.name, value: x.id }));
+        const user = (u as any[]).map((s) => ({ label: `我的：${s.name}`, value: `user_${s.id}` }));
+        const merged = [...user, ...builtin.filter((b) => !user.some((x) => x.value === b.value))];
+        setStrategyOptions(merged);
+      })
+      .catch(() => {/* keep fallback */});
+  }, []);
+
+  // P8: preselect from ?strategy= (e.g. user_xxxx) coming from /strategies
+  useEffect(() => {
+    const pref = searchParams.get('strategy');
+    if (pref && strategyOptions.some((o) => o.value === pref)) {
+      setStrategy(pref);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strategyOptions]);
+
   return (
     <PageShell
       eyebrow="Optimize / search"
@@ -59,7 +92,7 @@ export default function OptimizePage() {
     >
       {/* Config: strategy + market */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value)} options={STRATEGIES} />
+        <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value)} options={strategyOptions} />
         <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={SYMBOLS.map((s) => ({ label: s, value: s }))} />
         <Select label="Timeframe" value={timeframe} onChange={(e) => setMarket({ symbol, timeframe: e.target.value, source })} options={TIMEFRAMES.map((t) => ({ label: t, value: t }))} />
         <Select label="Data Source" value={source} onChange={(e) => setMarket({ symbol, timeframe, source: e.target.value })} options={SOURCES} />
