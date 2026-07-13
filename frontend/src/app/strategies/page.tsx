@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/api';
 import { UserStrategy, StrategyPayload } from '@/types/api';
 import { Card } from '@/components/ui/Card';
+import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
@@ -96,16 +97,11 @@ export default function StrategiesPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-8 space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-text">
-          Strategy Library
-        </h1>
-        <p className="mt-1 text-sm text-textSecondary">
-          Upload, edit, and manage your custom trading strategies.
-        </p>
-      </div>
-
+    <PageShell
+      eyebrow="Strategies / library"
+      title="策略庫"
+      subtitle="上傳、編輯並管理你的自定義 Python 策略。持久化進版本庫，跨裝置與重啟皆存活。"
+    >
       {/* Form */}
       <Card>
         <h2 className="mb-6 text-sm font-semibold uppercase tracking-wider text-textSecondary">
@@ -225,6 +221,6 @@ export default function StrategiesPage() {
           ))
         )}
       </div>
-    </div>
+    </PageShell>
   );
-}
+};

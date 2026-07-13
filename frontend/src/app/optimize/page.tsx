@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useOptimizeStore } from '@/stores/useOptimizeStore';
 import { Card } from '@/components/ui/Card';
+import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -28,7 +29,11 @@ export default function OptimizePage() {
   };
 
   return (
-    <div className="space-y-8">
+    <PageShell
+      eyebrow="Optimize / search"
+      title="參數優化"
+      subtitle="網格搜索並行掃參，自動收斂到最佳風險調整後的參數組合與夏普比率峰值。"
+    >
       {/* Parameters configuration */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Select
@@ -94,6 +99,6 @@ export default function OptimizePage() {
           </div>
         </Card>
       )}
-    </div>
+    </PageShell>
   );
-}
+};
