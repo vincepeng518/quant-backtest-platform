@@ -22,6 +22,10 @@ async def get_symbols():
 @router.get("/ohlcv", response_model=list[OHLCVPoint])
 async def get_ohlcv(symbol: str, timeframe: str = "1h"):
     df = await ds.get_ohlcv(symbol, timeframe)
-    if df.empty:
+    if df is None or df.empty:
         return []
-    return df.to_dict(orient="records")
+    # coerce timestamp to unix seconds (int) so it matches OHLCVPoint + PriceChart
+    out = df.copy()
+    if str(out["timestamp"].dtype).startswith("datetime"):
+        out["timestamp"] = out["timestamp"].astype("int64") // 10**9
+    return out.to_dict(orient="records")
