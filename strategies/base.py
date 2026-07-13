@@ -16,6 +16,7 @@ class Bar:
     low: float
     close: float
     volume: float
+    mark_price: Optional[float] = None
 
 
 @dataclass
@@ -26,6 +27,7 @@ class Signal:
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
     metadata: Optional[dict] = None
+    order_type: str = "market"
 
 
 @dataclass
