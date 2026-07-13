@@ -46,6 +46,7 @@ class OptimizeService:
             bt.set_data(data)
 
             param_space = {}
+            raw_ranges = []
             for p in config.get("param_space", []):
                 param_space[p["name"]] = {
                     "type": "range",
@@ -53,6 +54,7 @@ class OptimizeService:
                     "max": p["max"],
                     "step": p.get("step", 1),
                 }
+                raw_ranges.append(p)
 
             opt = Optimizer(bt, metric="sharpe_ratio")
             if config.get("algorithm") == "bayesian":
@@ -62,11 +64,36 @@ class OptimizeService:
             else:
                 results = opt.grid_search(param_space)
 
+            # Build 2D grid matrix only when exactly 2 range params
+            grid = None
+            if len(raw_ranges) == 2:
+                px, py = raw_ranges[0]["name"], raw_ranges[1]["name"]
+                import numpy as np
+                x_vals = list(np.arange(raw_ranges[0]["min"], raw_ranges[0]["max"] + raw_ranges[0]["step"], raw_ranges[0]["step"]))
+                y_vals = list(np.arange(raw_ranges[1]["min"], raw_ranges[1]["max"] + raw_ranges[1]["step"], raw_ranges[1]["step"]))
+                score_map = {}
+                for r in results:
+                    score_map[(r["params"].get(px), r["params"].get(py))] = r["score"]
+                matrix = []
+                for yv in y_vals:
+                    row = []
+                    for xv in x_vals:
+                        row.append(score_map.get((xv, yv), None))
+                    matrix.append(row)
+                grid = {
+                    "param_x": px,
+                    "param_y": py,
+                    "x_values": [float(v) for v in x_vals],
+                    "y_values": [float(v) for v in y_vals],
+                    "scores": matrix,
+                }
+
             _optimize_tasks[task_id] = {
                 "status": "completed",
                 "best_params": results[0]["params"] if results else {},
                 "best_score": results[0]["score"] if results else 0.0,
                 "trials": [{"params": r["params"], "score": r["score"]} for r in results[:10]],
+                "grid": grid,
             }
         except Exception as e:
             _optimize_tasks[task_id] = {"status": "error", "error": str(e)}

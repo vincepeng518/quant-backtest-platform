@@ -155,3 +155,4 @@ class OptimizeResultOut(BaseModel):
     best_params: dict[str, Any] = {}
     best_score: float = 0.0
     trials: list[dict] = []
+    grid: dict | None = None  # 2D grid matrix, populated only when param_space has exactly 2 range params
