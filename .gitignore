@@ -1,0 +1,22 @@
+.env
+.env*
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.db
+dist/
+build/
+
+# TypeScript build artifacts
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+node_modules/
+.next/
+next-env.d.ts
+frontend/package-lock.json
+.vercel
+.streamlit/secrets.toml
