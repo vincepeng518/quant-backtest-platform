@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, IChartApi, LineSeries, UTCTimestamp } from 'lightweight-charts';
+import { createChart, IChartApi, UTCTimestamp } from 'lightweight-charts';
 
 interface Trial {
   score: number;
@@ -26,7 +26,7 @@ export const ConvergenceChart: React.FC<Props> = ({ trials }) => {
       height: 220,
     });
     chartRef.current = chart;
-    const series = chart.addSeries(LineSeries, { color: '#5b9dff', lineWidth: 2 });
+    const series = chart.addLineSeries({ color: '#5b9dff', lineWidth: 2 });
     let best = -Infinity;
     const data = trials.map((t, i) => {
       best = Math.max(best, t.score);
