@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useDataStore } from '@/stores/useDataStore';
 import { useBacktestStore } from '@/stores/useBacktestStore';
 import api from '@/lib/api';
@@ -31,6 +32,16 @@ interface ParamSpec {
 export default function BacktestPage() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
   const { runBacktest, results, status, progress, error } = useBacktestStore();
+
+  const searchParams = useSearchParams();
+  const taskParam = searchParams.get('task');
+  useEffect(() => {
+    if (taskParam) {
+      api.getBacktestResults(taskParam)
+        .then((r) => useBacktestStore.setState({ status: 'completed', results: r }))
+        .catch(() => {});
+    }
+  }, [taskParam]);
 
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
@@ -119,6 +130,28 @@ export default function BacktestPage() {
         max_position_pct: 1.0,
       },
     });
+  };
+
+  const exportCsv = () => {
+    if (!results) return;
+    const rows: string[] = [];
+    const tradeCols = ['entry_time', 'exit_time', 'entry_price', 'exit_price', 'pnl', 'pnl_pct', 'size', 'side'];
+    rows.push(['#', ...tradeCols].join(','));
+    (results.trades as any[]).forEach((t, i) => {
+      rows.push([i + 1, ...tradeCols.map((c) => JSON.stringify((t as any)[c] ?? ''))].join(','));
+    });
+    rows.push('');
+    rows.push('equity_curve');
+    (results.equity_curve as any[]).forEach((p, i) =>
+      rows.push(`${i},${JSON.stringify(p.time ?? '')},${JSON.stringify(p.equity ?? '')}`)
+    );
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backtest_${(results as any).task_id ?? 'export'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const builtinOptions = templates
@@ -233,9 +266,14 @@ export default function BacktestPage() {
           <div className="text-sm font-mono text-textSecondary">
             {status === 'running' ? `Backtesting Progress: ${Math.round(progress)}%` : 'Ready'}
           </div>
-          <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
-            {status === 'running' ? 'Running...' : 'Execute Backtest'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
+              {status === 'running' ? 'Running...' : 'Execute Backtest'}
+            </Button>
+            {results && (
+              <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
+            )}
+          </div>
         </div>
 
         {error && (
