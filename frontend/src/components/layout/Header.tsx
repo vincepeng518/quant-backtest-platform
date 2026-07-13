@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Database, Activity, TrendingUp, Sliders, Code2 } from 'lucide-react';
+import { Sun, Moon, Database, Activity, TrendingUp, Sliders, Code2, HardDrive } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -15,6 +15,7 @@ export const Header: React.FC = () => {
     { name: 'Optimize', path: '/optimize', icon: Sliders },
     { name: 'Analysis', path: '/analysis', icon: TrendingUp },
     { name: 'Strategies', path: '/strategies', icon: Code2 },
+    { name: 'Data', path: '/data', icon: HardDrive },
   ];
 
   return (
