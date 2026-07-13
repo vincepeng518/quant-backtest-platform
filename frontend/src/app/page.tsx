@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge } from 'lucide-react';
+import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge, GitCompareArrows } from 'lucide-react';
 import { MetricsCard } from '@/components/ui/MetricsCard';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -26,12 +26,12 @@ const modules = [
     metric: 'SHARPE',
   },
   {
-    name: 'Analysis',
-    path: '/analysis',
-    icon: TrendingUp,
-    tag: '穩健性驗證',
-    desc: 'Walk-Forward 樣本外驗證與蒙地卡羅模擬，量化策略在未知行情下的存活機率。',
-    metric: 'DRAWDOWN',
+    name: 'Arbitrage',
+    path: '/arbitrage',
+    icon: GitCompareArrows,
+    tag: '跨所套利',
+    desc: '雙邊持倉捕捉同一資產在不同交易所的價差與資金費率差，合約級手續費與 funding 實景建模。',
+    metric: 'BASIS',
   },
 ];
 
@@ -166,7 +166,7 @@ export default function Home() {
           <span className="font-mono text-xs text-textSecondary">03 / workflows</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
           {modules.map((m) => {
             const Icon = m.icon;
             return (

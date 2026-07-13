@@ -20,9 +20,19 @@ class FundingModel:
         return float(s.iloc[-1]) if not s.empty else self.default_rate
 
     def accrued(self, entry: pd.Timestamp, exit: pd.Timestamp, side: int) -> float:
-        """Signed funding as fraction of notional. Long(side=1) pays positive rate."""
-        if self.schedule is None or self.schedule.rates.dropna().empty:
-            return 0.0
-        s = self.schedule.rates[(self.schedule.rates.index > entry) & (self.schedule.rates.index <= exit)]
-        total = float(s.sum())
-        return total * side  # long pays positive funding out (negative pnl)
+        """Signed funding as fraction of notional. Long(side=1) pays positive rate.
+
+        Falls back to interval-based accrual (interval_hours + default_rate) when
+        no explicit rate schedule is supplied — matches the perpetual backtester's
+        behaviour so a config without a rates table still captures funding.
+        """
+        if self.schedule is not None and not self.schedule.rates.dropna().empty:
+            s = self.schedule.rates[(self.schedule.rates.index > entry) & (self.schedule.rates.index <= exit)]
+            total = float(s.sum())
+            return total * side  # long pays positive funding out (negative pnl)
+        # Interval-based fallback
+        if self.schedule is not None and self.schedule.interval_hours > 0 and self.default_rate != 0.0:
+            hours = (exit - entry).total_seconds() / 3600.0
+            periods = max(0, int(hours // self.schedule.interval_hours))
+            return self.default_rate * periods * side
+        return 0.0

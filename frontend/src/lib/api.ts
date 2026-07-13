@@ -85,6 +85,11 @@ export const api = {
     }),
   getOptimizeResults: (taskId: string) =>
     request<OptimizeResult>(`/optimize/results/${taskId}`),
+  runArbitrage: (config: any) =>
+    request<any>('/arbitrage/run', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
   applyBestParams: () =>
     request<{ applied: boolean }>('/optimize/best-params', {
       method: 'POST',
