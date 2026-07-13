@@ -35,3 +35,23 @@ export interface RiskParams {
   stop_loss?: number;
   take_profit?: number;
 }
+
+export interface FundingConfig {
+  enabled: boolean;
+  interval_hours: number;
+  default_rate: number;
+}
+
+export interface PerpetualConfig {
+  enabled: boolean;
+  leverage: number;
+  maintenance_margin_rate: number;
+}
+
+export interface ExchangeConfig {
+  enabled: boolean;
+  maker_fee: number;
+  taker_fee: number;
+  latency_bars: number;
+  book_base_slippage: number;
+}
