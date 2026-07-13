@@ -4,6 +4,7 @@ import pytest
 
 from engine.backtester import Backtester
 from engine.optimizer import Optimizer
+from engine.exchange import ExchangeModel
 from strategies.technical.moving_average import MovingAverageCrossStrategy
 from app.services.optimize_service import OptimizeService
 from tests_backend.conftest import make_ohlcv
@@ -122,4 +123,9 @@ class TestOptimizeServiceRealism:
         assert captured.get("funding") == config["funding"]
         assert captured.get("perp") == config["perpetual"]
         assert captured.get("leverage") == 10.0
-        assert captured.get("exchange") == config["exchange"]
+        exch = captured.get("exchange")
+        assert isinstance(exch, ExchangeModel)
+        assert exch.maker_fee == config["exchange"]["maker_fee"]
+        assert exch.taker_fee == config["exchange"]["taker_fee"]
+        assert exch.latency_bars == config["exchange"]["latency_bars"]
+        assert exch.book_base_slippage == config["exchange"]["book_base_slippage"]

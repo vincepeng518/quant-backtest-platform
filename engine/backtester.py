@@ -72,6 +72,7 @@ class Backtester:
         perp: "Optional[PerpSimulator]" = None,
         leverage: float = 1.0,
         exchange: "Optional[ExchangeModel]" = None,
+        force_limit: bool = False,
     ) -> None:
         self.initial_capital = initial_capital
         self.commission = commission
@@ -80,6 +81,7 @@ class Backtester:
         self.perp = perp
         self.leverage = leverage
         self.exchange = exchange
+        self.force_limit = force_limit
         self.strategy: Optional[StrategyBase] = None
         self.data: Optional[pd.DataFrame] = None
         self.events = EventEmitter()
@@ -122,8 +124,10 @@ class Backtester:
 
         def _execute(sig: Any, current_bar: Any) -> None:
             nonlocal capital, position, entry_bar
-            order_type = getattr(sig, "order_type", "market")
-            is_maker = order_type == "limit"
+            order_type = "limit" if self.force_limit else getattr(sig, "order_type", "market")
+            # A limit order rests on the book; whether it fills as maker is decided
+            # by the exchange model (maker_probability). Market orders are taker.
+            is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
             fee = _fee_for(order_type, is_maker)
             slip = _slippage_for(capital, current_bar.close)
 

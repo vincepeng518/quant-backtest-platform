@@ -49,7 +49,10 @@ class BacktestService:
                 taker_fee=exch_cfg.get("taker_fee", 0.0005),
                 latency_bars=int(exch_cfg.get("latency_bars", 0)),
                 book_base_slippage=exch_cfg.get("book_base_slippage", 0.0005),
+                maker_probability=float(exch_cfg.get("maker_probability", 0.0)),
             )
+        if exch_cfg.get("enabled") and exch_cfg.get("force_limit"):
+            kwargs["force_limit"] = True
         bt = Backtester(
             initial_capital=config.get("initial_capital", 100_000),
             commission=config.get("commission", 0.001),

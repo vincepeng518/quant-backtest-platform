@@ -54,4 +54,6 @@ export interface ExchangeConfig {
   taker_fee: number;
   latency_bars: number;
   book_base_slippage: number;
+  maker_probability?: number;
+  force_limit?: boolean;
 }

@@ -40,7 +40,19 @@ class OptimizeService:
                 bt_kwargs["perp"] = perp_cfg
                 bt_kwargs["leverage"] = float(perp_cfg.get("leverage", 1.0))
             if exch_cfg.get("enabled"):
-                bt_kwargs["exchange"] = exch_cfg
+                try:
+                    from engine.exchange import ExchangeModel
+                    bt_kwargs["exchange"] = ExchangeModel(
+                        maker_fee=exch_cfg.get("maker_fee", 0.0002),
+                        taker_fee=exch_cfg.get("taker_fee", 0.0005),
+                        latency_bars=int(exch_cfg.get("latency_bars", 0)),
+                        book_base_slippage=exch_cfg.get("book_base_slippage", 0.0005),
+                        maker_probability=float(exch_cfg.get("maker_probability", 0.0)),
+                    )
+                    if exch_cfg.get("force_limit"):
+                        bt_kwargs["force_limit"] = True
+                except Exception:
+                    pass
 
             bt = Backtester(**bt_kwargs)
             cls = get_strategy(config.get("strategy_id", "ma_cross"))
