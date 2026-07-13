@@ -170,6 +170,10 @@ class OptimizeConfig(BaseModel):
     param_space: list[ParamRange] = []
     algorithm: str = "grid"
     max_trials: int = 100
+    # Engine realism (opt-in; disabled = legacy 1x spot)
+    funding: FundingConfig = Field(default_factory=FundingConfig)
+    perpetual: PerpetualConfig = Field(default_factory=PerpetualConfig)
+    exchange: ExchangeConfig = Field(default_factory=ExchangeConfig)
 
 
 class OptimizeResultOut(BaseModel):

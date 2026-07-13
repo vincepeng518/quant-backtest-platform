@@ -29,7 +29,20 @@ class OptimizeService:
 
     async def _execute(self, task_id: str, config: dict) -> None:
         try:
-            bt = Backtester()
+            # Build opt-in realism kwargs (only when enabled — disabled = legacy 1x spot)
+            bt_kwargs: dict[str, Any] = {}
+            funding_cfg = config.get("funding") or {}
+            perp_cfg = config.get("perpetual") or {}
+            exch_cfg = config.get("exchange") or {}
+            if funding_cfg.get("enabled"):
+                bt_kwargs["funding"] = funding_cfg
+            if perp_cfg.get("enabled"):
+                bt_kwargs["perp"] = perp_cfg
+                bt_kwargs["leverage"] = float(perp_cfg.get("leverage", 1.0))
+            if exch_cfg.get("enabled"):
+                bt_kwargs["exchange"] = exch_cfg
+
+            bt = Backtester(**bt_kwargs)
             cls = get_strategy(config.get("strategy_id", "ma_cross"))
             strategy = cls()
             strategy.init({})

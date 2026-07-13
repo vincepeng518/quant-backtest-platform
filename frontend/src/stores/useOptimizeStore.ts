@@ -23,6 +23,18 @@ interface OptimizeStore {
   timeframe: string;
   source: string;
   paramSpace: ParamRangeUI[];
+  // Engine realism (opt-in)
+  enableFunding: boolean;
+  fundingInterval: number;
+  fundingRate: number;
+  enablePerp: boolean;
+  leverage: number;
+  maintMargin: number;
+  enableExchange: boolean;
+  makerFee: number;
+  takerFee: number;
+  latencyBars: number;
+  bookSlippage: number;
   setStrategy: (id: string) => void;
   setMarket: (m: { symbol: string; timeframe: string; source: string }) => void;
   addParam: (name: string) => void;
@@ -50,6 +62,17 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
     { id: uid(), name: 'fast_period', min: 5, max: 20, step: 1 },
     { id: uid(), name: 'slow_period', min: 21, max: 60, step: 1 },
   ],
+  enableFunding: false,
+  fundingInterval: 8,
+  fundingRate: 0.0001,
+  enablePerp: false,
+  leverage: 10,
+  maintMargin: 0.005,
+  enableExchange: false,
+  makerFee: 0.0002,
+  takerFee: 0.0005,
+  latencyBars: 0,
+  bookSlippage: 0.0005,
   setStrategy: (id) => set({ strategyId: id }),
   setMarket: (m) => set(m),
   addParam: (name) =>
@@ -59,16 +82,37 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   removeParam: (id) =>
     set((s) => ({ paramSpace: s.paramSpace.filter((p) => p.id !== id) })),
   runOptimization: async () => {
-    const { strategyId, symbol, timeframe, source, paramSpace } = get();
+    const {
+      strategyId, symbol, timeframe, source, paramSpace,
+      enableFunding, fundingInterval, fundingRate,
+      enablePerp, leverage, maintMargin,
+      enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+    } = get();
     set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] });
     try {
-      const { task_id } = await api.runOptimize({
+      const payload: Record<string, any> = {
         strategy_id: strategyId,
         symbol,
         timeframe,
         source,
         param_space: paramSpace.map((p) => ({ name: p.name, min: p.min, max: p.max, step: p.step })),
-      });
+      };
+      if (enableFunding) {
+        payload.funding = { enabled: true, interval_hours: Number(fundingInterval), default_rate: Number(fundingRate) };
+      }
+      if (enablePerp) {
+        payload.perpetual = { enabled: true, leverage: Number(leverage), maintenance_margin_rate: Number(maintMargin) };
+      }
+      if (enableExchange) {
+        payload.exchange = {
+          enabled: true,
+          maker_fee: Number(makerFee),
+          taker_fee: Number(takerFee),
+          latency_bars: Number(latencyBars),
+          book_base_slippage: Number(bookSlippage),
+        };
+      }
+      const { task_id } = await api.runOptimize(payload);
       const poll = setInterval(async () => {
         try {
           const data = await api.getOptimizeResults(task_id);
