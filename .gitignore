@@ -20,3 +20,8 @@ next-env.d.ts
 frontend/package-lock.json
 .vercel
 .streamlit/secrets.toml
+
+# runtime backtest result dumps (never commit)
+backtests/*.json
+__pycache__/
+*.pyc
