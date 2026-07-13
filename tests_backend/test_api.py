@@ -97,6 +97,24 @@ class TestBacktestAPI:
         resp = await client.get("/api/backtest/results/nonexistent-id")
         assert resp.status_code in (200, 404)
 
+    @pytest.mark.asyncio
+    async def test_history_list(self, client):
+        resp = await client.get("/api/backtest/history")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        if data:
+            item = data[0]
+            for key in ("task_id", "status", "symbol", "timeframe"):
+                assert key in item
+
+    @pytest.mark.asyncio
+    async def test_results_file_fallback_404(self, client):
+        # Real 404 (no in-memory task, no json file) must be a clean 404.
+        resp = await client.get("/api/backtest/results/definitely-missing-xyz")
+        assert resp.status_code == 404
+        assert resp.json().get("detail") == "task not found"
+
 
 class TestOptimizeAPI:
     @pytest.mark.asyncio
