@@ -5,7 +5,7 @@ import pytest
 from engine.backtester import Backtester
 from engine.optimizer import Optimizer
 from strategies.technical.moving_average import MovingAverageCrossStrategy
-from tests.conftest import make_ohlcv
+from tests_backend.conftest import make_ohlcv
 
 PARAM_SPACE = {
     "fast_period": {"type": "range", "min": 5, "max": 15, "step": 5},

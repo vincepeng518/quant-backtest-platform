@@ -9,7 +9,7 @@ from engine.backtester import Backtester
 from engine.optimizer import Optimizer
 from engine.analyzer import MonteCarloSimulator
 from strategies.technical.moving_average import MovingAverageCrossStrategy
-from tests.conftest import make_ohlcv
+from tests_backend.conftest import make_ohlcv
 
 
 class TestPerformance:

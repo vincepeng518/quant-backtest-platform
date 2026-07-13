@@ -8,7 +8,7 @@ from strategies.technical.moving_average import MovingAverageCrossStrategy
 from strategies.technical.breakout import BreakoutStrategy
 from strategies.technical.pairs import PairsTradingStrategy
 from strategies.technical.arbitrage import StatisticalArbitrageStrategy
-from tests.conftest import make_bars
+from tests_backend.conftest import make_bars
 
 
 class TestMovingAverageCross:
