@@ -14,6 +14,11 @@ try:
 except Exception:  # pragma: no cover - keep default path working if model missing
     FundingModel = None  # type: ignore[assignment]
 
+try:
+    from engine.perpetual import PerpSimulator
+except Exception:  # pragma: no cover - keep default path working if model missing
+    PerpSimulator = None  # type: ignore[assignment]
+
 
 @dataclass
 class Trade:
@@ -25,6 +30,7 @@ class Trade:
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
     funding_paid: float = 0.0
+    liquidated: bool = False
 
 
 @dataclass
@@ -58,11 +64,15 @@ class Backtester:
         commission: float = 0.001,
         slippage: float = 0.0005,
         funding: "Optional[FundingModel]" = None,
+        perp: "Optional[PerpSimulator]" = None,
+        leverage: float = 1.0,
     ) -> None:
         self.initial_capital = initial_capital
         self.commission = commission
         self.slippage = slippage
         self.funding = funding
+        self.perp = perp
+        self.leverage = leverage
         self.strategy: Optional[StrategyBase] = None
         self.data: Optional[pd.DataFrame] = None
         self.events = EventEmitter()
@@ -104,7 +114,7 @@ class Backtester:
                 if signal.action == "buy" and position is None:
                     price = signal.price * (1 + self.slippage) if signal.price else bar.close * (1 + self.slippage)
                     cost = capital * self.commission
-                    size = capital / price
+                    size = (capital * self.leverage) / price if self.perp is not None else capital / price
                     position = Position(size=size, entry_price=price, current_price=price)
                     capital -= cost
                     entry_bar = bar.timestamp
@@ -112,7 +122,7 @@ class Backtester:
                 elif signal.action == "sell" and position is None:
                     price = signal.price * (1 - self.slippage) if signal.price else bar.close * (1 - self.slippage)
                     cost = capital * self.commission
-                    size = -capital / price
+                    size = -(capital * self.leverage) / price if self.perp is not None else -capital / price
                     position = Position(size=size, entry_price=price, current_price=price)
                     capital -= cost
                     entry_bar = bar.timestamp
@@ -152,6 +162,25 @@ class Backtester:
                 position.pnl_pct = position.pnl / capital * 100
             # Sync position back to strategy so strategies can read their own book
             self.strategy.position = position
+
+            # Liquidation check (perp markets only)
+            if self.perp is not None and position is not None:
+                side = 1 if position.size > 0 else -1
+                # worst-case wick against the position
+                mark = bar.low if side > 0 else bar.high
+                if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage):
+                    liq_price = mark
+                    exit_price = liq_price
+                    pnl = position.size * (exit_price - position.entry_price)
+                    pnl -= capital * self.commission
+                    # funding (if T2 wiring present, also accrue on forced close)
+                    trade = Trade(entry_time=entry_bar or bar.timestamp, entry_price=position.entry_price,
+                                  size=abs(position.size), exit_time=bar.timestamp, exit_price=exit_price,
+                                  pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=getattr(self, '_last_funding', 0.0), liquidated=True)
+                    trades.append(trade)
+                    capital += pnl
+                    position = None
+                    entry_bar = None
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
