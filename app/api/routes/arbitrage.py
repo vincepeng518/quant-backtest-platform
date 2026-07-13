@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pandas as pd
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -37,6 +39,9 @@ class ArbRunRequest(BaseModel):
     funding_rate: float = 0.0001
     long_exchange: ArbExchangeConfig = Field(default_factory=ArbExchangeConfig)
     short_exchange: ArbExchangeConfig = Field(default_factory=ArbExchangeConfig)
+    basis_simulation: bool = False
+    basis_amp: float = 0.01
+    basis_window: int = 40
 
 
 def _build_exchange(cfg: ArbExchangeConfig) -> ExchangeModel | None:
@@ -66,6 +71,20 @@ async def run_arbitrage(req: ArbRunRequest):
     )
     if long_data.empty or short_data.empty:
         raise HTTPException(status_code=400, detail="No data for one or both venues")
+
+    if req.basis_simulation:
+        # Inject a transient venue dislocation into the short venue so the arb
+        # engine has a tradable basis to capture (simulates funding/liquidity gaps).
+        n = len(short_data)
+        ramp = pd.Series(0.0, index=short_data.index)
+        w = max(1, min(req.basis_window, n))
+        mid = n // 2
+        start = max(0, mid - w // 2)
+        end = min(n, start + w)
+        ramp.iloc[start:end] = req.basis_amp
+        for col in ("open", "high", "low", "close"):
+            short_data = short_data.copy()
+            short_data[col] = short_data[col] * (1 + ramp)
 
     funding = None
     if req.funding_enabled:
