@@ -19,6 +19,11 @@ try:
 except Exception:  # pragma: no cover - keep default path working if model missing
     PerpSimulator = None  # type: ignore[assignment]
 
+try:
+    from engine.exchange import ExchangeModel
+except Exception:  # pragma: no cover - keep default path working if model missing
+    ExchangeModel = None  # type: ignore[assignment]
+
 
 @dataclass
 class Trade:
@@ -66,6 +71,7 @@ class Backtester:
         funding: "Optional[FundingModel]" = None,
         perp: "Optional[PerpSimulator]" = None,
         leverage: float = 1.0,
+        exchange: "Optional[ExchangeModel]" = None,
     ) -> None:
         self.initial_capital = initial_capital
         self.commission = commission
@@ -73,6 +79,7 @@ class Backtester:
         self.funding = funding
         self.perp = perp
         self.leverage = leverage
+        self.exchange = exchange
         self.strategy: Optional[StrategyBase] = None
         self.data: Optional[pd.DataFrame] = None
         self.events = EventEmitter()
@@ -97,7 +104,74 @@ class Backtester:
         trades: list[Trade] = []
         entry_bar: Optional[pd.Timestamp] = None
 
-        for _, row in self.data.iterrows():
+        # Latency queue: pending (signal_bar_index, bar, signal) entries executed
+        # once the current bar index has advanced fill_delay_bars() past the signal.
+        pending_signals: list[tuple[int, Any, Any]] = []
+        delay = self.exchange.fill_delay_bars() if self.exchange is not None else 0
+
+        def _fee_for(order_type: str, is_maker: bool) -> float:
+            if self.exchange is not None:
+                return self.exchange.fee_for(order_type, is_maker)
+            return self.commission
+
+        def _slippage_for(capital_to_risk: float, price: float) -> float:
+            if self.exchange is not None:
+                qty = abs(capital_to_risk / price) if price else 0.0
+                return self.exchange.slippage_for(depth=1000.0, qty=qty)
+            return self.slippage
+
+        def _execute(sig: Any, current_bar: Any) -> None:
+            nonlocal capital, position, entry_bar
+            order_type = getattr(sig, "order_type", "market")
+            is_maker = order_type == "limit"
+            fee = _fee_for(order_type, is_maker)
+            slip = _slippage_for(capital, current_bar.close)
+
+            if sig.action == "buy" and position is None:
+                price = sig.price * (1 + slip) if sig.price else current_bar.close * (1 + slip)
+                cost = capital * fee
+                size = (capital * self.leverage) / price if self.perp is not None else capital / price
+                position = Position(size=size, entry_price=price, current_price=price)
+                capital -= cost
+                entry_bar = current_bar.timestamp
+
+            elif sig.action == "sell" and position is None:
+                price = sig.price * (1 - slip) if sig.price else current_bar.close * (1 - slip)
+                cost = capital * fee
+                size = -(capital * self.leverage) / price if self.perp is not None else -capital / price
+                position = Position(size=size, entry_price=price, current_price=price)
+                capital -= cost
+                entry_bar = current_bar.timestamp
+
+            elif sig.action in ("close",) and position is not None:
+                exit_price = (
+                    current_bar.close * (1 - slip if position.size > 0 else 1 + slip)
+                )
+                pnl = position.size * (exit_price - position.entry_price)
+                pnl -= capital * fee
+                funding_paid = 0.0
+                if self.funding is not None:
+                    notional = abs(position.size) * position.entry_price
+                    side = 1 if position.size > 0 else -1
+                    funding_frac = self.funding.accrued(entry_bar, current_bar.timestamp, side)
+                    funding_paid = notional * funding_frac  # long positive => cost
+                    pnl -= funding_paid
+                trade = Trade(
+                    entry_time=entry_bar or current_bar.timestamp,
+                    entry_price=position.entry_price,
+                    size=abs(position.size),
+                    exit_time=current_bar.timestamp,
+                    exit_price=exit_price,
+                    pnl=pnl,
+                    pnl_pct=pnl / capital * 100,
+                    funding_paid=funding_paid,
+                )
+                trades.append(trade)
+                capital += pnl
+                position = None
+                entry_bar = None
+
+        for i, (_, row) in enumerate(self.data.iterrows()):
             bar = Bar(
                 timestamp=row["timestamp"],
                 open=row["open"],
@@ -110,50 +184,21 @@ class Backtester:
             signal = self.strategy.next(bar)
             if signal:
                 self.events.emit("signal", signal)
+                if delay > 0:
+                    # Buffer the signal; it executes fill_delay_bars() later.
+                    pending_signals.append((i, bar, signal))
+                else:
+                    _execute(signal, bar)
 
-                if signal.action == "buy" and position is None:
-                    price = signal.price * (1 + self.slippage) if signal.price else bar.close * (1 + self.slippage)
-                    cost = capital * self.commission
-                    size = (capital * self.leverage) / price if self.perp is not None else capital / price
-                    position = Position(size=size, entry_price=price, current_price=price)
-                    capital -= cost
-                    entry_bar = bar.timestamp
-
-                elif signal.action == "sell" and position is None:
-                    price = signal.price * (1 - self.slippage) if signal.price else bar.close * (1 - self.slippage)
-                    cost = capital * self.commission
-                    size = -(capital * self.leverage) / price if self.perp is not None else -capital / price
-                    position = Position(size=size, entry_price=price, current_price=price)
-                    capital -= cost
-                    entry_bar = bar.timestamp
-
-                elif signal.action in ("close",) and position is not None:
-                    exit_price = (
-                        bar.close * (1 - self.slippage if position.size > 0 else 1 + self.slippage)
-                    )
-                    pnl = position.size * (exit_price - position.entry_price)
-                    pnl -= capital * self.commission
-                    funding_paid = 0.0
-                    if self.funding is not None:
-                        notional = abs(position.size) * position.entry_price
-                        side = 1 if position.size > 0 else -1
-                        funding_frac = self.funding.accrued(entry_bar, bar.timestamp, side)
-                        funding_paid = notional * funding_frac  # long positive => cost
-                        pnl -= funding_paid
-                    trade = Trade(
-                        entry_time=entry_bar or bar.timestamp,
-                        entry_price=position.entry_price,
-                        size=abs(position.size),
-                        exit_time=bar.timestamp,
-                        exit_price=exit_price,
-                        pnl=pnl,
-                        pnl_pct=pnl / capital * 100,
-                        funding_paid=funding_paid,
-                    )
-                    trades.append(trade)
-                    capital += pnl
-                    position = None
-                    entry_bar = None
+            # Drain latency queue: execute signals that are due this bar.
+            if delay > 0:
+                still_pending: list[tuple[int, Any, Any]] = []
+                for sig_i, sig_bar, sig in pending_signals:
+                    if i >= sig_i + delay:
+                        _execute(sig, bar)
+                    else:
+                        still_pending.append((sig_i, sig_bar, sig))
+                pending_signals = still_pending
 
             # Update position MTM
             if position is not None:
@@ -170,6 +215,7 @@ class Backtester:
                 mark = bar.low if side > 0 else bar.high
                 if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage):
                     liq_price = mark
+                    slip = self.slippage
                     exit_price = liq_price
                     pnl = position.size * (exit_price - position.entry_price)
                     pnl -= capital * self.commission
