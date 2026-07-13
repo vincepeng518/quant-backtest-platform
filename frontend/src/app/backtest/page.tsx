@@ -6,6 +6,7 @@ import { useBacktestStore } from '@/stores/useBacktestStore';
 import api from '@/lib/api';
 import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
 import { Card } from '@/components/ui/Card';
+import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -121,7 +122,11 @@ export default function BacktestPage() {
   const strategyOptions = [...builtinOptions, ...userOptions];
 
   return (
-    <div className="space-y-6">
+    <PageShell
+      eyebrow="Backtest / workflow"
+      title="策略回測"
+      subtitle="載入市場數據，套用技術策略或你上傳的自定義策略，秒級生成績效報告與權益曲線。"
+    >
       {/* Configuration Card */}
       <Card>
         <div className="mb-6 flex items-center justify-between">
@@ -263,6 +268,6 @@ export default function BacktestPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
-}
+};

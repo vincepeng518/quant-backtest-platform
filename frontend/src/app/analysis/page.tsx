@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/Card';
+import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -24,7 +25,11 @@ export default function AnalysisPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <PageShell
+      eyebrow="Analysis / robustness"
+      title="穩健性驗證"
+      subtitle="Walk-Forward 樣本外驗證與蒙地卡羅模擬，量化策略在未知行情下的存活機率與破產風險。"
+    >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Select
           label="Validation Protocol"
@@ -69,6 +74,6 @@ export default function AnalysisPage() {
           </div>
         </Card>
       )}
-    </div>
+    </PageShell>
   );
-}
+};
