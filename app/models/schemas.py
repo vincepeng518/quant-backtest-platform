@@ -136,8 +136,8 @@ class AnalysisResultOut(BaseModel):
 
 class ParamRange(BaseModel):
     name: str
-    min_val: float = 0.0
-    max_val: float = 100.0
+    min: float = 0.0
+    max: float = 100.0
     step: float = 1.0
     type: str = "range"
 
