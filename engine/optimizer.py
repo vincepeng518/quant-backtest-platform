@@ -41,10 +41,13 @@ class Optimizer:
         for combo in combos:
             params = dict(zip(keys, combo))
             params = {k: _to_native(v) for k, v in params.items()}
-            self.backtester.strategy.init(params)
-            result = self.backtester.run()
-            metric_val = getattr(result, self.metric, 0)
-            results.append({"params": params, "score": metric_val, "result": result})
+            try:
+                self.backtester.strategy.init(params)
+                result = self.backtester.run()
+                metric_val = getattr(result, self.metric, 0)
+            except Exception:
+                metric_val = 0.0
+            results.append({"params": params, "score": metric_val, "result": None})
 
         results.sort(key=lambda x: x["score"], reverse=self.maximize)
         return results
@@ -64,8 +67,11 @@ class Optimizer:
             scores = []
             for ind in pop:
                 self.backtester.strategy.init(ind)
-                r = self.backtester.run()
-                scores.append(getattr(r, self.metric, 0))
+                try:
+                    r = self.backtester.run()
+                    scores.append(getattr(r, self.metric, 0))
+                except Exception:
+                    scores.append(0.0)
 
             selected = self._tournament_selection(pop, scores, k=3)
             offspring: list[dict] = []
@@ -110,9 +116,13 @@ class Optimizer:
         for _ in range(n_initial):
             params = self._random_sample(param_space)
             self.backtester.strategy.init(params)
-            r = self.backtester.run()
+            try:
+                r = self.backtester.run()
+                score = getattr(r, self.metric, 0)
+            except Exception:
+                score = 0.0
             X.append(self._params_to_vector(params, param_space))
-            y.append(getattr(r, self.metric, 0))
+            y.append(score)
 
         results: list[dict] = []
         y_mean = _np.mean(y) if y else 0.0
@@ -132,8 +142,11 @@ class Optimizer:
                 best_x = _np.random.uniform(0, 1, len(param_space))
             params = self._vector_to_params(best_x, param_space)
             self.backtester.strategy.init(params)
-            r = self.backtester.run()
-            score = getattr(r, self.metric, 0)
+            try:
+                r = self.backtester.run()
+                score = getattr(r, self.metric, 0)
+            except Exception:
+                score = 0.0
             X.append(best_x)
             y.append(score)
             y_scaled.append((score - y_mean) / (y_std + 1e-9))

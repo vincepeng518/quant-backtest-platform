@@ -47,7 +47,12 @@ class OptimizeService:
 
             param_space = {}
             for p in config.get("param_space", []):
-                param_space[p["name"]] = {"type": "range", "min": p["min_val"], "max": p["max_val"], "step": p["step"]}
+                param_space[p["name"]] = {
+                    "type": "range",
+                    "min": p["min"],
+                    "max": p["max"],
+                    "step": p.get("step", 1),
+                }
 
             opt = Optimizer(bt, metric="sharpe_ratio")
             if config.get("algorithm") == "bayesian":
