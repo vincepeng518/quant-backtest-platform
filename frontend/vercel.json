@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://quant-backed.onrender.com/api/$1"
+      "destination": "https://affectionate-alignment-production-6d7e.up.railway.app/api/$1"
     }
   ]
 }
