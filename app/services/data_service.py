@@ -40,7 +40,8 @@ class DataService:
             return pd.DataFrame(cached)
 
         data: pd.DataFrame | None = None
-        if source == "csv":
+        if source == "csv" or source == "test":
+            # local CSV only — no network (for fast testing / offline)
             data = self.csv_loader.load(symbol)
         elif source == "binance":
             data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)

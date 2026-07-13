@@ -4,6 +4,7 @@ export interface BacktestConfig {
   strategy: StrategyConfig;
   symbol: string;
   timeframe: string;
+  source?: string;
   start_date?: string;
   end_date?: string;
   risk: RiskParams;
