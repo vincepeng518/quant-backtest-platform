@@ -196,6 +196,13 @@ class DataService:
                 })
             else:
                 out.append({"symbol": s, "market": "crypto", "exchange": "bingx"})
+
+        # 兜底: load_markets 未返回 NCCO 商品对时, 直接注入已知列表 (BingX 商品对固定小集合)
+        existing = {x["symbol"] for x in out}
+        for bingx_sym, name in COMMODITY_MAP.items():
+            sym = bingx_sym.replace("-USDT", "/USDT")
+            if sym not in existing:
+                out.append({"symbol": sym, "market": "tradfi", "exchange": "bingx", "name": name})
         return out
 
 
