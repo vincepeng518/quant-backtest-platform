@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { SymbolSearch } from '@/components/ui/SymbolSearch';
 import { Input } from '@/components/ui/Input';
 import { MetricsCard } from '@/components/backtest/MetricsCard';
 import { PriceChart } from '@/components/charts/PriceChart';
@@ -256,14 +257,14 @@ function BacktestView() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
+          <SymbolSearch
             label="Market Instrument"
             value={symbol}
-            onChange={(e) => {
-              setSymbol(e.target.value);
-              loadOHLCV(e.target.value, timeframe);
+            options={symbols.map((s) => ({ symbol: s.symbol }))}
+            onChange={(s) => {
+              setSymbol(s);
+              loadOHLCV(s, timeframe);
             }}
-            options={symbols.map((s) => ({ label: s.symbol, value: s.symbol }))}
           />
           <Select
             label="Timeframe"
