@@ -71,6 +71,7 @@ class DataService:
             if symbol.upper().startswith("NCCO") or symbol.upper() in {"PAXG/USDT", "XAUT/USDT"}:
                 fetch_sym = symbol.replace("/USDT", "-USDT")
             data = await self._try_fetch(self.bingx, fetch_sym, timeframe, start_date, end_date)
+            logger.warning("GETOHLCV_BINGX_DONE sym=%s fetch_sym=%s got=%s", symbol, fetch_sym, len(data) if data is not None else "None")
             # Fallback chain: bingx -> binance -> csv
             if data is None or len(data) == 0:
                 data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
