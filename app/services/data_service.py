@@ -192,7 +192,7 @@ class DataService:
             if bingx_sym in COMMODITY_SET:
                 out.append({
                     "symbol": s, "market": "tradfi", "exchange": "bingx",
-                    "name": COMMODITY_MAP[bingx_sym],
+                    "description": COMMODITY_MAP[bingx_sym],
                 })
             else:
                 out.append({"symbol": s, "market": "crypto", "exchange": "bingx"})
@@ -202,7 +202,7 @@ class DataService:
         for bingx_sym, name in COMMODITY_MAP.items():
             sym = bingx_sym.replace("-USDT", "/USDT")
             if sym not in existing:
-                out.append({"symbol": sym, "market": "tradfi", "exchange": "bingx", "name": name})
+                out.append({"symbol": sym, "market": "tradfi", "exchange": "bingx", "description": name})
         return out
 
 
