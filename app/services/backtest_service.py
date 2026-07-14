@@ -61,8 +61,13 @@ class BacktestService:
         )
 
         # Load data
+        # BingX 商品/贵金属合约对需 -USDT 格式供 ccxt (Railway 旧镜像 get_ohlcv 可能无转换)
+        sym = config.get("symbol", "")
+        fetch_sym = sym
+        if sym.upper().startswith("NCCO") or sym.upper() in {"PAXG/USDT", "XAUT/USDT"}:
+            fetch_sym = sym.replace("/USDT", "-USDT")
         data = await self.data_service.get_ohlcv(
-            symbol=config.get("symbol", ""),
+            symbol=fetch_sym,
             timeframe=config.get("timeframe", "1h"),
             start_date=config.get("start_date", ""),
             end_date=config.get("end_date", ""),
