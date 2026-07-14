@@ -263,8 +263,9 @@ function BacktestView() {
             options={symbols.map((s) => ({ symbol: s.symbol }))}
             onChange={(s) => {
               setSymbol(s);
-              const mk = symbols.find((x) => x.symbol === s)?.market;
-              loadOHLCV(s, timeframe, mk === 'tradfi' ? 'tradfi' : undefined);
+              const mk = symbols.find((x) => x.symbol === s);
+              const src = mk?.exchange === 'bingx' ? 'bingx' : 'tradfi';
+              loadOHLCV(s, timeframe, src);
             }}
           />
           <Select
@@ -272,8 +273,9 @@ function BacktestView() {
             value={timeframe}
             onChange={(e) => {
               setTimeframe(e.target.value);
-              const mk = symbols.find((x) => x.symbol === symbol)?.market;
-              loadOHLCV(symbol, e.target.value, mk === 'tradfi' ? 'tradfi' : undefined);
+              const mk = symbols.find((x) => x.symbol === symbol);
+              const src = mk?.exchange === 'bingx' ? 'bingx' : 'tradfi';
+              loadOHLCV(symbol, e.target.value, src);
             }}
             options={[
               { label: '1 Minute', value: '1m' },
