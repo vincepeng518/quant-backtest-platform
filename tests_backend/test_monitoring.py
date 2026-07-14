@@ -116,3 +116,29 @@ def test_tail_snapshot_recorded():
     tails = conn.execute("SELECT COUNT(*) FROM tail_snapshots WHERE round_id='T:1'").fetchone()[0]
     assert tails > 0, "tail snapshot (Phase 4) should be recorded in last 10-20s"
     eng.close()
+
+
+def test_review_report_and_round_log():
+    """Phase 4 覆盘: round_logs 寫入 + review() 能算 win rate。"""
+    from monitoring.review import review
+    tmp = tempfile.mktemp(suffix=".db")
+    book = FakeBook(depth=5000, ask=0.65)
+    cfg = _cfg(min_secs_to_close=150, max_secs_to_close=200, odds_min=0.60,
+               odds_max=0.75, min_depth_shares=1000, dev_base_points=5.0)
+    eng = _make_engine(book, tmp, cfg)
+    base = 64000.0
+    for i in range(60):
+        eng.on_spot(base, 300 + i, market="T")
+    eng.on_spot(base - 30, 420, market="T")          # 窗口內砸盤 -> UP 信號
+    for i in range(80):
+        eng.on_spot(base, 520 + i, market="T")        # 尾盤
+    eng.settle_round("T:1", base + 5)                # UP 成本 base-30 < settle -> win
+    eng.close()
+    conn = sqlite3.connect(tmp)
+    rl = conn.execute("SELECT COUNT(*), target_price, close_price FROM round_logs").fetchone()
+    assert rl[0] == 1, "round_logs should be written on settle"
+    assert rl[1] is not None and rl[2] is not None
+    r = review(tmp)
+    assert r["shadow"]["total"] >= 1
+    assert r["shadow"]["win_rate"] == 100.0, "UP signal + settle higher => win"
+    assert r["hypothesis"]["up_win_rate"] == 100.0
