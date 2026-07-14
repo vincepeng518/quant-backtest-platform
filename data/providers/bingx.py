@@ -88,7 +88,10 @@ class BingXProvider:
                     break
 
             if not frames:
+                logger.warning("BINGX_FETCH_MARKER symbol=%s end_ms=%s frames=EMPTY", symbol, end_ms)
                 return pd.DataFrame()
+            logger.warning("BINGX_FETCH_MARKER symbol=%s frames=%d rows=%d start_ms=%s end_ms=%s",
+                         symbol, len(frames), len(merged) if 'merged' in dir() else -1, start_ms, end_ms)
 
             import itertools
 
