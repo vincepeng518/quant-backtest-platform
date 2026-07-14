@@ -44,46 +44,45 @@ class BingXProvider:
     ) -> Optional[pd.DataFrame]:
         """Fetch OHLCV as a DataFrame with columns timestamp/open/high/low/close/volume.
 
-        Paginates backwards from the most recent bar (or end_date) until start_date
-        is reached or the exchange window limit is hit. Filters to the requested
-        [start_date, end_date] window.
+        Fetches FORWARD from start_date (or most-recent if omitted), bounded by
+        `limit` bars, then trims to the [start_date, end_date] window.
         """
         try:
             import ccxt
 
             ex = self._get_exchange()
             tf_ms = TF_MS.get(timeframe, 3_600_000)
-            end_ms = None
-            if end_date:
-                end_ms = ex.parse8601(
-                    f"{end_date}Z" if len(end_date) == 10 else end_date
-                )
             start_ms = None
             if start_date:
                 start_ms = ex.parse8601(
                     f"{start_date}Z" if len(start_date) == 10 else start_date
                 )
+            end_ms = None
+            if end_date:
+                end_ms = ex.parse8601(
+                    f"{end_date}Z" if len(end_date) == 10 else end_date
+                )
 
             frames: list[list] = []
-            cursor = end_ms
-            max_pages = 12  # cap total pull (~12k bars) to bound latency
+            cursor = start_ms  # None -> most recent
+            remaining = limit
+            max_pages = 12
             for _ in range(max_pages):
+                if remaining <= 0:
+                    break
                 raw = await asyncio.to_thread(
-                    ex.fetch_ohlcv,
-                    symbol,
-                    timeframe,
-                    cursor,
-                    min(limit, 1000),
+                    ex.fetch_ohlcv, symbol, timeframe, cursor, min(remaining, 1000)
                 )
                 if not raw:
                     break
                 frames.append(raw)
-                first_ts = raw[0][0]
-                # stop if we've reached (or passed) the start window
-                if start_ms is not None and first_ts <= start_ms:
+                remaining -= len(raw)
+                last_ts = raw[-1][0]
+                # stop once we've passed the requested end window
+                if end_ms is not None and last_ts >= end_ms:
                     break
-                # move cursor earlier by one page worth of ms
-                cursor = first_ts - tf_ms * min(limit, 1000)
+                # advance cursor forward
+                cursor = last_ts + tf_ms
                 if cursor <= 0:
                     break
 
@@ -106,9 +105,6 @@ class BingXProvider:
                 df = df[df["timestamp"] >= pd.to_datetime(start_ms, unit="ms")]
             if end_ms is not None:
                 df = df[df["timestamp"] <= pd.to_datetime(end_ms, unit="ms")]
-            elif end_date:
-                df = df[df["timestamp"] <= pd.to_datetime(end_date)]
-
             return df.reset_index(drop=True)
         except Exception as e:
             logger.warning("BingX fetch failed for %s: %s", symbol, e)
