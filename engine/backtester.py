@@ -59,6 +59,7 @@ class BacktestResult:
     trades: list[Trade] = field(default_factory=list)
     equity_curve: list[float] = field(default_factory=list)
     drawdown_curve: list[float] = field(default_factory=list)
+    buy_hold_curve: list[float] = field(default_factory=list)
     timestamps: list[pd.Timestamp] = field(default_factory=list)
 
 
@@ -103,6 +104,8 @@ class Backtester:
         position: Optional[Position] = None
         equity_curve: list[float] = [capital]
         drawdown_curve: list[float] = [0.0]
+        buy_hold_curve: list[float] = [capital]
+        timestamps: list[Any] = [self.data.iloc[0].timestamp]
         trades: list[Trade] = []
         entry_bar: Optional[pd.Timestamp] = None
 
@@ -238,11 +241,19 @@ class Backtester:
             peak = max(equity_curve)
             dd = (peak - current_equity) / peak * 100
             drawdown_curve.append(dd)
+            timestamps.append(bar.timestamp)
+            # Buy & hold baseline: hold the asset from bar 0, scaled to initial capital
+            if len(buy_hold_curve) == 1:
+                buy_hold_curve.append(capital)
+            else:
+                base_close = self.data.iloc[0].close
+                buy_hold_curve.append(capital * (bar.close / base_close))
 
-        return self._calculate_metrics(trades, equity_curve, drawdown_curve)
+        return self._calculate_metrics(trades, equity_curve, drawdown_curve, buy_hold_curve, timestamps)
 
     def _calculate_metrics(
-        self, trades: list[Trade], equity: list[float], dd: list[float]
+        self, trades: list[Trade], equity: list[float], dd: list[float],
+        buy_hold_curve: list[float] | None = None, timestamps: list[Any] | None = None,
     ) -> BacktestResult:
         winners = [t for t in trades if t.pnl is not None and t.pnl > 0]
         losers = [t for t in trades if t.pnl is not None and t.pnl <= 0]
@@ -271,6 +282,8 @@ class Backtester:
             trades=trades,
             equity_curve=equity,
             drawdown_curve=dd,
+            buy_hold_curve=buy_hold_curve or [],
+            timestamps=timestamps or [],
         )
 
     @staticmethod

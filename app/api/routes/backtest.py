@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import BacktestConfig, BacktestResultOut, TaskStatus
@@ -64,11 +65,21 @@ def _result_to_out(task_id: str, result) -> BacktestResultOut:
     The dataclass stores Trade.entry_time/exit_time as pd.Timestamp, which
     pydantic v2 will not auto-coerce to str -> we stringify explicitly.
     Metrics live as flat fields on the dataclass (not a nested dict).
+    equity_curve / buy_hold_curve are aligned with `timestamps` and emitted as
+    {time, equity} point arrays (frontend charts need a time axis).
     """
     from dataclasses import asdict as _asdict
 
     def _ts(v):
         return str(v) if v is not None else None
+
+    def _to_unix(v):
+        if v is None:
+            return None
+        try:
+            return int(pd.Timestamp(v).timestamp())
+        except Exception:
+            return None
 
     r = result
     trades = [
@@ -82,6 +93,17 @@ def _result_to_out(task_id: str, result) -> BacktestResultOut:
             "pnl_pct": t.pnl_pct,
         }
         for t in r.trades
+    ]
+    _ts_list = getattr(r, "timestamps", []) or []
+    equity_curve = [
+        {"time": _to_unix(ts), "equity": float(eq)}
+        for ts, eq in zip(_ts_list, r.equity_curve)
+        if _to_unix(ts) is not None
+    ]
+    buy_hold_curve = [
+        {"time": _to_unix(ts), "equity": float(eq)}
+        for ts, eq in zip(_ts_list, getattr(r, "buy_hold_curve", []) or [])
+        if _to_unix(ts) is not None
     ]
     return BacktestResultOut(
         task_id=task_id,
@@ -98,7 +120,8 @@ def _result_to_out(task_id: str, result) -> BacktestResultOut:
             "avg_winner": r.avg_winner,
             "avg_loser": r.avg_loser,
         },
-        equity_curve=list(r.equity_curve),
+        equity_curve=equity_curve,
+        buy_hold_equity=buy_hold_curve,
         trades=trades,
     )
 

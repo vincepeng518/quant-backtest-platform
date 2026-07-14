@@ -51,13 +51,19 @@ export const DrawdownChart: React.FC<DrawdownChartProps> = ({
     });
 
     drawdownArea.setData(
-      data
-        .map((d) => {
-          const raw = d.time ?? (d as any).timestamp;
-          const t = typeof raw === 'string' ? Math.floor(new Date(raw).getTime() / 1000) : Math.floor((raw as number) / 1000);
-          return { time: t as UTCTimestamp, value: -Math.abs(d.drawdown) };
-        })
-        .filter((d) => Number.isFinite(d.time) && d.time > 0)
+      (() => {
+        let peak = -Infinity;
+        return data
+          .map((d) => {
+            const raw = d.time ?? (d as any).timestamp;
+            const t = typeof raw === 'string' ? Math.floor(new Date(raw).getTime() / 1000) : Math.floor((raw as number) / 1000);
+            const eq = (d as any).equity ?? 0;
+            peak = Math.max(peak, eq);
+            const dd = peak > 0 ? (eq - peak) / peak * 100 : 0;
+            return { time: t as UTCTimestamp, value: -Math.abs(dd) };
+          })
+          .filter((d) => Number.isFinite(d.time) && d.time > 0);
+      })()
     );
 
     chartRef.current = chart;

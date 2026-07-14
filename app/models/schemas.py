@@ -138,7 +138,8 @@ class BacktestResultOut(BaseModel):
     task_id: str
     status: str = "completed"
     metrics: MetricsOut = Field(default_factory=MetricsOut)
-    equity_curve: list[float] = []
+    equity_curve: list[dict] = []
+    buy_hold_equity: list[dict] = []
     trades: list[TradeRecord] = []
 
 
