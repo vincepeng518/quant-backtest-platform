@@ -50,10 +50,13 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
     });
 
     strategyLine.setData(
-      data.map((d) => ({
-        time: d.time as UTCTimestamp,
-        value: d.equity,
-      }))
+      data
+        .map((d) => {
+          const raw = d.time ?? (d as any).timestamp;
+          const t = typeof raw === 'string' ? Math.floor(new Date(raw).getTime() / 1000) : Math.floor((raw as number) / 1000);
+          return { time: t as UTCTimestamp, value: d.equity };
+        })
+        .filter((d) => Number.isFinite(d.time) && d.time > 0)
     );
 
     if (buyHoldData.length > 0) {
@@ -63,10 +66,13 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
         title: 'Buy & Hold',
       });
       buyHoldLine.setData(
-        buyHoldData.map((d) => ({
-          time: d.time as UTCTimestamp,
-          value: d.equity,
-        }))
+        buyHoldData
+          .map((d) => {
+            const raw = d.time ?? (d as any).timestamp;
+            const t = typeof raw === 'string' ? Math.floor(new Date(raw).getTime() / 1000) : Math.floor((raw as number) / 1000);
+            return { time: t as UTCTimestamp, value: d.equity };
+          })
+          .filter((d) => Number.isFinite(d.time) && d.time > 0)
       );
     }
 
