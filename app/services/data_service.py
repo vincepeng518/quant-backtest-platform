@@ -78,6 +78,9 @@ class DataService:
     @staticmethod
     def _is_tradfi(symbol: str) -> bool:
         s = symbol.upper()
+        # BingX 商品/贵金属合约对 (NCCO*/PAXG/XAUT) 走 BingX, 不算 Yahoo tradfi
+        if s.startswith("NCCO") or s in {"PAXG-USDT", "XAUT-USDT"}:
+            return False
         # Yahoo ticker 特征: 含 = (外汇/指数如 EURUSD=X), 或 -USD, 或纯字母股票/ETF
         if "=" in s or s.endswith("-USD") or s in {
             "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "META", "GOOGL",
@@ -129,6 +132,24 @@ class DataService:
         return result
 
     async def _crypto_symbols(self) -> list[dict]:
+        # BingX 商品/贵金属合约对 (NCCO* = Non-Crypto Commodity)，UI 归 TradFi 板块
+        # 但数据仍走 BingX (不是 Yahoo XAU)，保留原生 symbol 格式
+        COMMODITY_MAP = {
+            "NCCOXAG2USD-USDT": "白银 Silver",
+            "NCCOXPT2USD-USDT": "铂金 Platinum",
+            "NCCOPALLADIUM2USD-USDT": "钯金 Palladium",
+            "NCCO724COPPER2USD-USDT": "铜 Copper",
+            "NCCO1OILBRENT2USD-USDT": "布伦特原油 Brent",
+            "NCCO1OILWTI2USD-USDT": "WTI原油 Crude Oil",
+            "NCCOHEATINGOIL2USD-USDT": "取暖油 Heating Oil",
+            "NCCOGOLD2USD-USDT": "黄金综合 Gold",
+            "NCCOXAUEUR2USD-USDT": "黄金(欧元) Gold/EUR",
+            "NCFXAUD2USD-USDT": "澳元/美元 AUD/USD",
+            "PAXG-USDT": "Paxos Gold",
+            "XAUT-USDT": "Tether Gold",
+        }
+        COMMODITY_SET = set(COMMODITY_MAP.keys())
+
         try:
             import ccxt
 
@@ -141,13 +162,25 @@ class DataService:
             )
         except Exception as e:
             logger.warning("load_markets failed: %s — fallback to static list", e)
-            usdt = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+            usdt = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] + list(COMMODITY_SET)
 
         pinned = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
                   "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "LINK/USDT", "TON/USDT",
                   "MATIC/USDT", "TRX/USDT", "DOT/USDT", "NEAR/USDT", "LTC/USDT"]
         ordered = [s for s in pinned if s in usdt] + [s for s in usdt if s not in pinned]
-        return [{"symbol": s, "market": "crypto", "exchange": "bingx"} for s in ordered]
+
+        out = []
+        for s in ordered:
+            # BingX 合约对格式 NCCO...-USDT → ccxt 用 NCCO.../USDT
+            bingx_sym = s.replace("/", "-") if "/" in s else s
+            if bingx_sym in COMMODITY_SET:
+                out.append({
+                    "symbol": s, "market": "tradfi", "exchange": "bingx",
+                    "name": COMMODITY_MAP[bingx_sym],
+                })
+            else:
+                out.append({"symbol": s, "market": "crypto", "exchange": "bingx"})
+        return out
 
 
 def create_task_id() -> str:
