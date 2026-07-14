@@ -34,12 +34,11 @@ anomaly:
   lookback: 30
 
 # 訂單簿源 (Phase 2 深度/賠率)
-# 目前: polymarket (公開 CLOB, 深度代理)
-# TODO: predict.fun BNB Chain CLOB (需 auth, 待用戶授權後接)
+# 主戰場: predict.fun GraphQL 訂單簿 (公開, 無需 auth)
 orderbook:
-  source: "polymarket"
-  polymarket_token_id: "98022490269692409998126496127597032490334070080325855126491859374983463996227"
-  book_refresh_sec: 2       # 訂單簿輪詢間隔 (避免每 tick 打 API)
+  source: "predictfun"
+  polymarket_token_id: ""
+  book_refresh_sec: 5       # 訂單簿輪詢間隔 (避免每 tick 打 API)
 
 # 儲存
 storage:

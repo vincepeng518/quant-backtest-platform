@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from monitoring.config import MonitorConfig
 from monitoring.shadow_engine import ShadowEngine
 from monitoring.feed_binance import BinanceWsFeed
-from monitoring.orderbook import PolymarketClobSource
+from monitoring.orderbook import PredictFunBookSource
 
 
 def setup_logging(log_path: str) -> None:
@@ -39,8 +39,9 @@ def setup_logging(log_path: str) -> None:
 
 
 def build_book(cfg: MonitorConfig):
-    if cfg.ob_source == "polymarket" and cfg.ob_token_id:
-        return PolymarketClobSource(cfg.ob_token_id)
+    # 主战场: predict.fun GraphQL 订单簿 (公开, 无需 auth)
+    if cfg.ob_source in ("predictfun", "polymarket"):
+        return PredictFunBookSource()
     return None
 
 
@@ -48,14 +49,43 @@ async def run_live(cfg: MonitorConfig) -> None:
     setup_logging(cfg.log)
     eng = ShadowEngine(cfg, book_source=build_book(cfg))
     feed = BinanceWsFeed(cfg.binance_symbol)
-    feed.on_tick(lambda price, ts: eng.on_spot(price, ts, market="BTC-5m"))
-    logging.info("[LIVE] start. db=%s book=%s", cfg.db, cfg.ob_source)
+    # 动态解析当前活跃的 predict.fun BTC Up/Down 轮次 id
+    from monitoring.predictfun import PredictFunSource
+    pfs = PredictFunSource()
+
+    def get_market_id():
+        try:
+            rs = pfs.active_btc_rounds(limit=80)
+            if rs:
+                return rs[0]["id"]  # 最近活跃轮次
+        except Exception:
+            pass
+        return "BTC-5m"  # fallback
+
+    current_mid = [get_market_id()]
+
+    def on_tick(price, ts):
+        mid = current_mid[0]
+        eng.on_spot(price, ts, market=mid)
+        # 每 ~30s 重新解析活跃轮次 (轮次会轮替)
+        if int(ts) % 30 == 0:
+            nm = get_market_id()
+            if nm != mid:
+                current_mid[0] = nm
+                logging.info("[LIVE] switched market -> %s", nm)
+
+    feed.on_tick(on_tick)
+    logging.info("[LIVE] start. db=%s book=%s market=%s", cfg.db, cfg.ob_source, current_mid[0])
     try:
         await feed.run()
     except KeyboardInterrupt:
         logging.info("[LIVE] stopped by user")
     finally:
         eng.close()
+        try:
+            pfs.close()
+        except Exception:
+            pass
 
 
 async def run_replay(cfg: MonitorConfig, symbol: str) -> None:

@@ -130,14 +130,15 @@ class ShadowEngine:
         return last > self.cfg.anomaly_vol_mult * (mean + std)
 
     # ---- 訂單簿 (帶快取 + 降級) ----
-    def _get_book(self, rid: str) -> Optional[BookSnapshot]:
+    def _get_book(self, st: "RoundState") -> Optional[BookSnapshot]:
         if not self.book:
             return None
         now = time.time()
         if self._book_cache and (now - self._book_cache_ts) < self.cfg_model.ob_refresh_sec:
             return self._book_cache
         try:
-            b = self.book.fetch_book(rid)
+            # 用 predict.fun 市場 id (st.market) 拉訂單簿, 非組合的 round_id
+            b = self.book.fetch_book(st.market)
             if b:
                 self._book_cache = b
                 self._book_cache_ts = now
@@ -165,7 +166,7 @@ class ShadowEngine:
         if not (in_window and dev_trig and side):
             return
 
-        book = self._get_book(rid)
+        book = self._get_book(st)
         odds_ok = True
         depth_ok = True
         if book:
