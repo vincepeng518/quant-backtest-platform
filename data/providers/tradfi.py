@@ -60,14 +60,19 @@ class TradFiProvider:
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = [c[0] for c in df.columns]
 
+            df = df.reset_index()
             out = pd.DataFrame()
-            out["timestamp"] = df.index
-            out["open"] = df["Open"].astype(float)
-            out["high"] = df["High"].astype(float)
-            out["low"] = df["Low"].astype(float)
-            out["close"] = df["Close"].astype(float)
+            out["timestamp"] = pd.to_datetime(df["Date"] if "Date" in df else df.iloc[:, 0])
+            out["open"] = df["Open"].astype(float).values
+            out["high"] = df["High"].astype(float).values
+            out["low"] = df["Low"].astype(float).values
+            out["close"] = df["Close"].astype(float).values
             # 成交量可能为 NaN（指数/外汇有时缺）
-            out["volume"] = df.get("Volume", pd.Series(0, index=df.index)).fillna(0).astype(float)
+            vol = df.get("Volume")
+            if vol is None:
+                out["volume"] = 0.0
+            else:
+                out["volume"] = vol.fillna(0).astype(float).values
             out = out[["timestamp", "open", "high", "low", "close", "volume"]]
             out = out.dropna(subset=["close"]).reset_index(drop=True)
             return out if len(out) else None
