@@ -66,7 +66,11 @@ class DataService:
         elif source == "binance":
             data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
         else:  # default: bingx
-            data = await self._try_fetch(self.bingx, symbol, timeframe, start_date, end_date)
+            # BingX 商品/贵金属合约对 (NCCO*/PAXG/XAUT) 需 -USDT 格式供 ccxt
+            fetch_sym = symbol
+            if symbol.upper().startswith("NCCO") or symbol.upper() in {"PAXG/USDT", "XAUT/USDT"}:
+                fetch_sym = symbol.replace("/USDT", "-USDT")
+            data = await self._try_fetch(self.bingx, fetch_sym, timeframe, start_date, end_date)
             # Fallback chain: bingx -> binance -> csv
             if data is None or len(data) == 0:
                 data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
@@ -158,8 +162,10 @@ class DataService:
             markets = await asyncio.to_thread(ex.load_markets)
             usdt = sorted(
                 k for k, m in markets.items()
-                if k.endswith("/USDT") and m.get("active", True)
+                if (k.endswith("/USDT") or k.endswith("-USDT")) and m.get("active", True)
             )
+            # ccxt 用 /USDT, BingX 原生用 -USDT；统一转 /USDT 供上层使用
+            usdt = [k.replace("-USDT", "/USDT") if k.endswith("-USDT") else k for k in usdt]
         except Exception as e:
             logger.warning("load_markets failed: %s — fallback to static list", e)
             usdt = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] + list(COMMODITY_SET)
