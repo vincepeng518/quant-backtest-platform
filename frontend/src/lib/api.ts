@@ -6,6 +6,7 @@ import {
   UserStrategy,
   AnalysisResult,
   OptimizeResult,
+  MonitorStats,
 } from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -47,6 +48,7 @@ export const api = {
     request<{ status: string; progress: number; error?: string }>(`/backtest/status/${taskId}`),
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
   getBacktestHistory: () => request<any[]>('/backtest/history'),
+  getMonitorStats: () => request<MonitorStats>('/monitoring/stats'),
 
   uploadStrategy: (payload: StrategyPayload) =>
     request<UserStrategy>('/strategy/upload', {

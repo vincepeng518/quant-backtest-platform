@@ -7,6 +7,7 @@ import { MetricsCard } from '@/components/ui/MetricsCard';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useDashboard } from '@/lib/dashboard';
+import { useMonitor } from '@/lib/monitor';
 
 const modules = [
   {
@@ -60,6 +61,47 @@ function StatsStrip() {
     { label: '最差 Sharpe', value: stats.worstRun ? Number(stats.worstRun.sharpe).toFixed(2) : '—', accent: 'danger' },
   ];
   return <MetricsCard items={items} />;
+}
+
+function MonitorStrip() {
+  const { stats, loading, error } = useMonitor();
+  if (loading) return <Spinner />;
+  if (error || !stats?.available || !stats.data) {
+    return (
+      <div className="rounded-xl border border-border/10 bg-surface/50 p-5">
+        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-textSecondary">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent/60" />
+          <span>predict.fun 實時監控</span>
+        </div>
+        <p className="mt-3 text-sm text-textSecondary">
+          {error ? '監控端未連線' : '監控守護進程未啟動 — 本地 daemon 上線後此處顯示真實戰績'}
+        </p>
+      </div>
+    );
+  }
+  const d = stats.data;
+  const items: { label: string; value: string | number; accent?: 'success' | 'danger' | 'neutral' | 'accent' }[] = [
+    { label: '影子交易', value: d.shadow.resolved, accent: 'accent' },
+    { label: '勝率', value: `${d.shadow.win_rate}%`, accent: d.shadow.win_rate >= 50 ? 'success' : 'danger' },
+    { label: '累計 P&L', value: d.shadow.total_pnl, accent: d.shadow.total_pnl >= 0 ? 'success' : 'danger' },
+    { label: '尾盤加速', value: d.tail.tail_accel ?? '—', accent: 'neutral' },
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-textSecondary">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          <span>predict.fun 實時監控</span>
+        </div>
+        {stats.updated_at && (
+          <span className="font-mono text-[10px] text-textSecondary">
+            {new Date(stats.updated_at).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+      <MetricsCard items={items} />
+    </div>
+  );
 }
 
 function RecentRuns() {
@@ -162,6 +204,7 @@ export default function Home() {
       {/* ── 即時儀表板 ── */}
       <section className="space-y-6">
         <StatsStrip />
+        <MonitorStrip />
         <RecentRuns />
       </section>
 

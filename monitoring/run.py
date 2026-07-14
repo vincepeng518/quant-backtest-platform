@@ -82,16 +82,49 @@ async def run_live(cfg: MonitorConfig) -> None:
 
     feed.on_tick(on_tick)
     logging.info("[LIVE] start. db=%s book=%s market=%s", cfg.db, cfg.ob_source, current_mid[0])
+
+    # 背景任務: 每 60s 把監控統計推送到回測平台後端 (首頁展示用)
+    push_task = asyncio.create_task(_push_loop(cfg))
     try:
         await feed.run()
     except KeyboardInterrupt:
         logging.info("[LIVE] stopped by user")
     finally:
+        push_task.cancel()
         eng.close()
         try:
             pfs.close()
         except Exception:
             pass
+
+
+async def _push_loop(cfg: MonitorConfig) -> None:
+    """定時把 review() 摘要推送到回測平台後端 /api/monitoring/push。"""
+    from monitoring.review import review
+    backend = os.getenv("MONITOR_BACKEND_URL",
+                        "https://affectionate-alignment-production-6d7e.up.railway.app")
+    key = os.getenv("MONITOR_PUSH_KEY", "quant-monitor-local")
+    import httpx
+    while True:
+        try:
+            await asyncio.sleep(60)
+            rep = review(cfg.db)
+            async with httpx.AsyncClient(timeout=15.0) as c:
+                r = await c.post(
+                    f"{backend}/api/monitoring/push",
+                    headers={"x-monitor-key": key},
+                    json=rep,
+                )
+                if r.status_code == 200:
+                    logging.info("[PUSH] monitoring stats pushed (resolved=%s)",
+                                 rep.get("shadow", {}).get("resolved"))
+                else:
+                    logging.warning("[PUSH] failed %s: %s", r.status_code, r.text[:80])
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logging.warning("[PUSH] loop error: %s", e)
+            await asyncio.sleep(30)
 
 
 async def run_replay(cfg: MonitorConfig, symbol: str) -> None:
