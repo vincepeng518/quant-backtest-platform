@@ -4,6 +4,8 @@ import asyncio
 from typing import Any
 
 import pandas as pd
+import logging
+logger = logging.getLogger(__name__)
 
 from app.services.data_service import DataService, _backtest_tasks, _execute_backtest, create_task_id
 from app.services.strategy_service import get_strategy
@@ -71,6 +73,7 @@ class BacktestService:
         fetch_sym = sym
         if sym.upper().startswith("NCCO") or sym.upper() in {"PAXG/USDT", "XAUT/USDT"}:
             fetch_sym = sym.replace("/USDT", "-USDT")
+        logger.warning("BACKTEST_FETCH_MARKER src=%s sym=%s fetch_sym=%s", src, sym, fetch_sym)
         if src == "tradfi":
             data = await self.data_service._try_fetch(self.data_service.tradfi, fetch_sym, tf, sd, ed)
         elif src == "binance":
