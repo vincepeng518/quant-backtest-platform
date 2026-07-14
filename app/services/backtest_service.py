@@ -72,7 +72,6 @@ class BacktestService:
             end_date=config.get("end_date", ""),
             source=config.get("source", "bingx"),
         )
-        logger.warning("BT_DATA_MARKER sym=%s src=%s len=%s", sym, config.get("source"), len(data) if data is not None else "None")
         if data is None or len(data) == 0:
             return {"task_id": task_id, "status": "error", "error": "No data"}
         bt.set_data(data)

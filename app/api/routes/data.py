@@ -25,8 +25,8 @@ async def get_symbols():
 
 
 @router.get("/ohlcv", response_model=list[OHLCVPoint])
-async def get_ohlcv(symbol: str, timeframe: str = "1h", source: str = "bingx"):
-    df = await ds.get_ohlcv(symbol, timeframe, source=source)
+async def get_ohlcv(symbol: str, timeframe: str = "1h", source: str = "bingx", start_date: str = "", end_date: str = ""):
+    df = await ds.get_ohlcv(symbol, timeframe, start_date, end_date, source=source)
     if df is None or df.empty:
         return []
     # coerce timestamp to unix milliseconds (int) so it preserves sub-second precision
