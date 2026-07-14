@@ -142,3 +142,13 @@ export interface OptimizeResult {
   trials: { params: Record<string, any>; score: number }[];
   grid: OptimizeGrid | null;
 }
+
+export interface MonitorStats {
+  available: boolean;
+  updated_at?: string;
+  data?: {
+    shadow: { total: number; resolved: number; wins: number; win_rate: number; avg_pnl: number; total_pnl: number };
+    tail: { rounds: number; avg_jump_last10s_pct: number; avg_jump_prev10s_pct: number; tail_accel: number };
+    hypothesis: { up_win_rate: number; down_win_rate: number; note: string };
+  };
+}
