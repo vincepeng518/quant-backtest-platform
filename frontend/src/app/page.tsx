@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge, GitCompareArrows } from 'lucide-react';
 import { MetricsCard } from '@/components/ui/MetricsCard';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useDashboard } from '@/lib/dashboard';
@@ -81,10 +82,10 @@ function MonitorStrip() {
   }
   const d = stats.data;
   const items: { label: string; value: string | number; accent?: 'success' | 'danger' | 'neutral' | 'accent' }[] = [
-    { label: '影子交易', value: d.shadow.resolved, accent: 'accent' },
-    { label: '勝率', value: `${d.shadow.win_rate}%`, accent: d.shadow.win_rate >= 50 ? 'success' : 'danger' },
-    { label: '累計 P&L', value: d.shadow.total_pnl, accent: d.shadow.total_pnl >= 0 ? 'success' : 'danger' },
-    { label: '尾盤加速', value: d.tail.tail_accel ?? '—', accent: 'neutral' },
+    { label: '影子交易', value: d?.shadow?.resolved ?? 0, accent: 'accent' },
+    { label: '勝率', value: `${d?.shadow?.win_rate ?? 0}%`, accent: (d?.shadow?.win_rate ?? 0) >= 50 ? 'success' : 'danger' },
+    { label: '累計 P&L', value: d?.shadow?.total_pnl ?? 0, accent: (d?.shadow?.total_pnl ?? 0) >= 0 ? 'success' : 'danger' },
+    { label: '尾盤加速', value: d?.tail?.tail_accel ?? '—', accent: 'neutral' },
   ];
   return (
     <div className="space-y-3">
@@ -204,7 +205,9 @@ export default function Home() {
       {/* ── 即時儀表板 ── */}
       <section className="space-y-6">
         <StatsStrip />
-        <MonitorStrip />
+        <ErrorBoundary>
+          <MonitorStrip />
+        </ErrorBoundary>
         <RecentRuns />
       </section>
 
