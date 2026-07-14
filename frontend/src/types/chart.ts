@@ -1,4 +1,4 @@
-export type MarketType = 'crypto' | 'stock' | 'futures' | 'forex';
+export type MarketType = 'crypto' | 'stock' | 'futures' | 'forex' | 'tradfi';
 export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
 
 export interface SymbolInfo {
