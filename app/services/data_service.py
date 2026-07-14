@@ -100,7 +100,7 @@ class DataService:
         try:
             return await provider.fetch_ohlcv(symbol, timeframe, start_date, end_date)
         except Exception as e:
-            logger.warning("%s fetch failed for %s: %s", type(provider).__name__, symbol, e)
+            logger.warning("%s FETCH_EXC for %s: %s: %s", type(provider).__name__, symbol, type(e).__name__, e)
             return None
 
     async def get_symbols(self) -> list[dict]:
