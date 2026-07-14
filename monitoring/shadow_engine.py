@@ -51,7 +51,12 @@ class ShadowEngine:
     Phase 4: 結算 + 尾盤快照 + 自動覆盤
     """
 
-    def __init__(self, cfg: MonitorConfig, book_source: Optional[OrderBookSource] = None) -> None:
+    def __init__(self, cfg: MonitorConfig, book_source: Optional[OrderBookSource] = None,
+                 target_provider=None) -> None:
+        """target_provider: callable(market_id) -> Optional[float]
+        返回該輪次的真實 startPrice (Phase 1 目標價真值)。
+        None -> 回退 Binance 輪次開盤價近似。
+        """
         self.cfg_model = cfg
         self.cfg = PhaseConfig(
             min_secs_to_close=cfg.min_secs_to_close,
@@ -64,6 +69,7 @@ class ShadowEngine:
             tail_min=cfg.tail_min, tail_max=cfg.tail_max,
         )
         self.book = book_source
+        self.target_provider = target_provider
         self.dev = DeviationCalculator(
             base_points=cfg.dev_base_points, min_points=cfg.dev_min_points,
             max_points=cfg.dev_max_points, vol_mult=cfg.dev_vol_mult, window=cfg.dev_window)
@@ -95,9 +101,18 @@ class ShadowEngine:
         ev = self.dev.evaluate(price)
         # 輪次路由
         rid = self._current_round_id(ts, market)
+        is_new = rid not in self.rounds
         st = self.rounds.setdefault(rid, RoundState(
             round_id=rid, market=market, open_ts=ts - (ts % 300),
             close_ts=ts - (ts % 300) + 300, open_price=price))
+        if is_new and self.target_provider is not None:
+            # Phase 1 真值: 用 REST 輪次 startPrice 當目標價 (取代 Binance 開盤近似)
+            try:
+                tp = self.target_provider(market)
+                if tp is not None:
+                    st.open_price = tp
+            except Exception as e:
+                logger.warning("[ENGINE] target_provider failed: %s", e)
         st.window_drop_pct = (st.open_price - price) / st.open_price * 100.0
         # 尾盤快照 (Phase 4) — 即時持久化
         secs_left = st.close_ts - ts

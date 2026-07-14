@@ -26,6 +26,7 @@ class MonitorConfig:
     ob_source: str = "polymarket"
     ob_token_id: str = ""
     ob_refresh_sec: float = 2.0
+    api_key: str = ""            # predict.fun API Key (REST 真值源: startPrice/endPrice)
     db: str = "monitoring/shadow.db"
     log: str = "monitoring/monitor.log"
     settle_on_close: bool = True
@@ -65,6 +66,7 @@ class MonitorConfig:
             ob_source=ob.get("source", cls.ob_source),
             ob_token_id=ob.get("polymarket_token_id", cls.ob_token_id),
             ob_refresh_sec=ob.get("book_refresh_sec", cls.ob_refresh_sec),
+            api_key=ob.get("api_key", cls.api_key),
             db=sto.get("db", cls.db),
             log=sto.get("log", cls.log),
             settle_on_close=run.get("settle_on_close", cls.settle_on_close),

@@ -130,40 +130,119 @@ class PredictFunSource:
             pass
 
 
+class PredictFunRest:
+    """predict.fun REST 數據源 (需 API Key, 主網所有端點都要)。
+
+    提供 Phase 1 / Phase 4 的真值:
+      - variantData.startPrice: 輪次開始價 (Phase 1 的「目標價」真值)
+      - variantData.endPrice:   輪次結算價 (Phase 4 的結算真值)
+      - variantData.priceFeedId: Pyth/Chainlink feed id
+    這些 GraphQL 沒有, 只在 REST /v1/markets 提供。
+    """
+
+    BASE = "https://api.predict.fun/v1"
+
+    def __init__(self, api_key: str, timeout: float = 12.0):
+        self.api_key = api_key
+        self._client = httpx.Client(
+            timeout=timeout,
+            headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        )
+        self._cache_ttl = 30.0
+        self._cache: dict = {}
+        self._cache_ts: float = 0.0
+
+    def _get(self, path: str, params: dict | None = None) -> Optional[dict]:
+        try:
+            r = self._client.get(self.BASE + path, params=params)
+            if r.status_code != 200:
+                logger.warning("[PREDICT-REST] HTTP %s: %s", r.status_code, r.text[:200])
+                return None
+            return r.json()
+        except Exception as e:
+            logger.warning("[PREDICT-REST] request failed: %s", e)
+            return None
+
+    def btc_rounds(self, status: str = "OPEN", limit: int = 50,
+                   use_cache: bool = True) -> list[dict]:
+        """返回 BTC Up/Down 輪次 (含 variantData.startPrice/endPrice 真值)。"""
+        now = time.time()
+        cache_key = f"{status}:{limit}"
+        if use_cache and (now - self._cache_ts) < self._cache_ttl and cache_key in self._cache:
+            return self._cache[cache_key]
+
+        d = self._get("/markets", {"first": str(limit),
+                                    "marketVariant": "CRYPTO_UP_DOWN",
+                                    "status": status})
+        if not d or d.get("success") is False or "data" not in d:
+            return self._cache.get(cache_key, [])
+        markets = d["data"]
+        if not isinstance(markets, list):
+            markets = markets.get("markets", [])
+
+        out = []
+        for m in markets:
+            q = (m.get("question") or "").upper()
+            if "BITCOIN UP OR DOWN" not in q:
+                continue
+            vd = m.get("variantData") or {}
+            out.append({
+                "id": m["id"],
+                "question": m["question"],
+                "condition_id": m.get("conditionId"),
+                "status": m.get("status"),
+                "start_price": vd.get("startPrice"),   # Phase 1 真值
+                "end_price": vd.get("endPrice"),       # Phase 4 真值
+                "price_feed_id": vd.get("priceFeedId"),
+                "created_at": m.get("createdAt"),
+            })
+        self._cache[cache_key] = out
+        self._cache_ts = now
+        return out
+
+    def start_price_for(self, market_id: str) -> Optional[float]:
+        """單一輪次的 startPrice (Phase 1 真值)。None 表示輪次尚未開始。"""
+        d = self._get(f"/markets/{market_id}")
+        if not d or "data" not in d:
+            return None
+        m = d["data"] if isinstance(d["data"], dict) else (d["data"][0] if d.get("data") else {})
+        vd = (m or {}).get("variantData") or {}
+        return vd.get("startPrice")
+
+    def close(self):
+        try:
+            self._client.close()
+        except Exception:
+            pass
+
 # ---------------------------------------------------------------------------
-# 鏈上輪次 start/end price (Phase 1 目標價真值來源)
+# [DEPRECATED] 鏈上輪次 start/end price
 #
-# predict.fun 的 BTC Up/Down 輪次由鏈上 ChainlinkUpDownAdapter 管理:
-#   - 每輪有已知 startPrice (輪次開始價, 即 Phase 1 的「目標價」)
-#   - 結算時用 Chainlink Data Streams v3 報告的 endPrice
-# 這些可透過 conditionId 在 BSC 上讀取 (無需 auth)。
-#
-# 已知合約地址候選 (來自 docs.predict.fun): 0xf4aa30b537882eca7e69defb68d6f631cda77b00
-# 待確認後填入下方 ADAPTER 並實作 getRound(conditionId) -> (startPrice, endPrice)。
-# 在確認前, Phase 1 暫用 Binance 輪次開盤價當目標價近似 (已在 shadow_engine 實作)。
+# 原計畫: 透過 conditionId 在 BSC 上讀 ChainlinkUpDownAdapter 拿 startPrice。
+# 實際確認: predict.fun 用的是 **Pyth Network** 喂價 (variantData.priceFeedId),
+#   且 REST /v1/markets 的 variantData.startPrice / endPrice 已直接提供真值
+#   (需 API Key, 已由 PredictFunRest 實作並接進 ShadowEngine.target_provider)。
+#   => 鏈上讀取已不再需要, 下方函數保留為 stub (回傳 None)。
 # ---------------------------------------------------------------------------
-BSC_RPC = "https://bsc-dataseed.bnbchain.org"
-_ADAPTER_CANDIDATE = "0xf4aa30b537882eca7e69defb68d6f631cda77b00"
 
 
 def condition_start_price(condition_id: str) -> Optional[float]:
-    """鏈上讀取輪次 startPrice (Phase 1 目標價真值)。
-
-    待 ChainlinkUpDownAdapter 合約地址 + ABI 確認後實作。
-    目前回傳 None -> 呼叫方回退 Binance 輪次開盤價近似。
-    """
-    # TODO: adapter = _ADAPTER_CANDIDATE; call getRound(conditionId)
-    #   via BSC RPC eth_call, decode (startPrice, endPrice).
+    """[DEPRECATED] 鏈上 startPrice。現由 PredictFunRest 提供, 此處永遠回傳 None。"""
     return None
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    src = PredictFunSource()
-    rounds = src.active_btc_rounds(limit=60)
-    print(f"active BTC rounds: {len(rounds)}")
-    for r in rounds[:5]:
-        print(f"  {r['id']} | {r['question'][:45]} | bids={len(r['bids'])} asks={len(r['asks'])}")
-        if r["bids"]:
-            print(f"    top bid: {r['bids'][0]}")
-    src.close()
+    # REST 真值源示範
+    from monitoring.config import MonitorConfig
+    cfg = MonitorConfig.load()
+    if cfg.api_key:
+        rest = PredictFunRest(cfg.api_key)
+        rs = rest.btc_rounds(status="OPEN", limit=10)
+        print(f"OPEN BTC rounds (REST, real startPrice): {len(rs)}")
+        for r in rs[:5]:
+            print(f"  {r['id']} | {r['question'][:40]} | start={r['start_price']} end={r['end_price']}")
+        rest.close()
+    else:
+        print("no api_key in config; skipping REST demo")
+
