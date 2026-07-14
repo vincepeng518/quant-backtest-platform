@@ -143,11 +143,20 @@ class DataService:
             "NCCOXPT2USD-USDT": "铂金 Platinum",
             "NCCOPALLADIUM2USD-USDT": "钯金 Palladium",
             "NCCO724COPPER2USD-USDT": "铜 Copper",
+            "NCCONICKEL2USD-USDT": "镍 Nickel",
+            "NCCOZINC2USD-USDT": "锌 Zinc",
+            "NCCOALUMINIUM2USD-USDT": "铝 Aluminium",
+            "NCCOLEAD2USD-USDT": "铅 Lead",
             "NCCO1OILBRENT2USD-USDT": "布伦特原油 Brent",
             "NCCO1OILWTI2USD-USDT": "WTI原油 Crude Oil",
             "NCCOHEATINGOIL2USD-USDT": "取暖油 Heating Oil",
+            "NCCOGASOLINE2USD-USDT": "汽油 Gasoline",
+            "NCCO7241NATGAS2USD-USDT": "天然气 Natural Gas",
             "NCCOGOLD2USD-USDT": "黄金综合 Gold",
-            "NCCOXAUEUR2USD-USDT": "黄金(欧元) Gold/EUR",
+            "NCCOXAUAUD2USD-USDT": "黄金(澳元) Gold/AUD",
+            "NCCOWHEAT2USD-USDT": "小麦 Wheat",
+            "NCCOSOYBEANS2USD-USDT": "大豆 Soybeans",
+            "NCCOCOTTON2USD-USDT": "棉花 Cotton",
             "NCFXAUD2USD-USDT": "澳元/美元 AUD/USD",
             "PAXG-USDT": "Paxos Gold",
             "XAUT-USDT": "Tether Gold",
@@ -162,7 +171,8 @@ class DataService:
             markets = await asyncio.to_thread(ex.load_markets)
             usdt = sorted(
                 k for k, m in markets.items()
-                if (k.endswith("/USDT") or k.endswith("-USDT")) and m.get("active", True)
+                if (k.endswith("/USDT") or k.endswith("-USDT"))
+                and m.get("active", True) is not False  # BingX active 常为 None
             )
             # ccxt 用 /USDT, BingX 原生用 -USDT；统一转 /USDT 供上层使用
             usdt = [k.replace("-USDT", "/USDT") if k.endswith("-USDT") else k for k in usdt]
