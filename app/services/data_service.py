@@ -83,6 +83,18 @@ class DataService:
             {"symbol": "BTC/USDT", "market": "crypto", "exchange": "bingx"},
             {"symbol": "ETH/USDT", "market": "crypto", "exchange": "bingx"},
             {"symbol": "SOL/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "BNB/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "XRP/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "ADA/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "DOGE/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "AVAX/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "LINK/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "TON/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "MATIC/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "TRX/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "DOT/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "NEAR/USDT", "market": "crypto", "exchange": "bingx"},
+            {"symbol": "LTC/USDT", "market": "crypto", "exchange": "bingx"},
         ]
 
 
