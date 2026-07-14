@@ -71,13 +71,24 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       wickDownColor: '#ef4444',
     });
 
-    const formattedData = data.map((d) => ({
-      time: d.time as UTCTimestamp,
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close,
-    }));
+    const formattedData = data
+      .filter((d) => d != null)
+      .map((d) => {
+        const raw = d.time ?? (d as any).timestamp;
+        // lightweight-charts 需要 UNIX 秒级时间戳 (UTCTimestamp)
+        const t =
+          typeof raw === 'string'
+            ? Math.floor(new Date(raw).getTime() / 1000)
+            : Math.floor((raw as number) / 1000);
+        return {
+          time: t as UTCTimestamp,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+        };
+      })
+      .filter((d) => Number.isFinite(d.time) && d.time > 0);
 
     candlestickSeries.setData(formattedData);
 

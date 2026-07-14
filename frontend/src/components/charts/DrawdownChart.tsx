@@ -50,10 +50,13 @@ export const DrawdownChart: React.FC<DrawdownChartProps> = ({
     });
 
     drawdownArea.setData(
-      data.map((d) => ({
-        time: d.time as UTCTimestamp,
-        value: -Math.abs(d.drawdown), // Format as negative % values
-      }))
+      data
+        .map((d) => {
+          const raw = d.time ?? (d as any).timestamp;
+          const t = typeof raw === 'string' ? Math.floor(new Date(raw).getTime() / 1000) : Math.floor((raw as number) / 1000);
+          return { time: t as UTCTimestamp, value: -Math.abs(d.drawdown) };
+        })
+        .filter((d) => Number.isFinite(d.time) && d.time > 0)
     );
 
     chartRef.current = chart;
