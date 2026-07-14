@@ -35,6 +35,12 @@ class EmaAdxKlStrategy(StrategyBase):
         self.tp_atr_mult: float = float(params.get("tp_atr_mult", 1.5))
         self.kl_atr_mult: float = float(params.get("kl_atr_mult", 3.0))
 
+        # 动态支撑/压力位 (auto S/R)：避免手填 KL 常数
+        self.sr_mode: str = str(params.get("sr_mode", "auto"))  # 'auto' | 'manual'
+        self.sr_lookback: int = int(params.get("sr_lookback", 200))
+        self.sr_res_pct: float = float(params.get("sr_res_pct", 0.80))  # 压力 = high 的 80 分位
+        self.sr_sup_pct: float = float(params.get("sr_sup_pct", 0.20))  # 支撑 = low 的 20 分位
+
         # 滚动历史
         self._closes: list[float] = []
         self._highs: list[float] = []
@@ -45,6 +51,14 @@ class EmaAdxKlStrategy(StrategyBase):
         self._entry: float = 0.0
         self._sl: float = 0.0
         self._tp: float = 0.0
+
+    def _dynamic_sr(self) -> tuple[float, float]:
+        """滚动窗口分位算压力/支撑，auto 模式每根 bar 自动更新。"""
+        hi = np.asarray(self._highs[-self.sr_lookback:], dtype=float)
+        lo = np.asarray(self._lows[-self.sr_lookback:], dtype=float)
+        res = float(np.percentile(hi, self.sr_res_pct * 100)) if len(hi) else self.kl_long
+        sup = float(np.percentile(lo, self.sr_sup_pct * 100)) if len(lo) else self.kl_short
+        return res, sup
 
     # ── 指标计算（手算，不依赖 pandas_ta）──
     def _ema(self, vals: list[float], period: int) -> Optional[float]:
@@ -142,6 +156,12 @@ class EmaAdxKlStrategy(StrategyBase):
             return None
 
         # ── 空仓：检查进场 ──
+        # 动态支撑/压力位：auto 模式用滚动分位带替代手填 KL 常数
+        if self.sr_mode == 'auto':
+            kl_long, kl_short = self._dynamic_sr()
+        else:
+            kl_long, kl_short = self.kl_long, self.kl_short
+
         ema_slope_up = ema > ema_prev
         price_above_ema = close > ema
         trend_strong = adx >= self.adx_threshold
@@ -151,7 +171,7 @@ class EmaAdxKlStrategy(StrategyBase):
         cross_under = (prev_close >= ema_prev) and (close < ema)
 
         # 多头
-        kl_dist_long = abs(self.kl_long - close)
+        kl_dist_long = abs(kl_long - close)
         kl_enough_long = (kl_dist_long / atr) >= self.kl_atr_mult
         bull_trend = price_above_ema and ema_slope_up
         if bull_trend and trend_strong and kl_enough_long and cross_over:
@@ -165,7 +185,7 @@ class EmaAdxKlStrategy(StrategyBase):
             )
 
         # 空头
-        kl_dist_short = abs(close - self.kl_short)
+        kl_dist_short = abs(close - kl_short)
         kl_enough_short = (kl_dist_short / atr) >= self.kl_atr_mult
         bear_trend = (not price_above_ema) and (not ema_slope_up)
         if bear_trend and trend_strong and kl_enough_short and cross_under:
@@ -198,6 +218,10 @@ class EmaAdxKlStrategy(StrategyBase):
             "sl_atr_mult": {"type": "range", "min": 0.5, "max": 3.0, "step": 0.1},
             "tp_atr_mult": {"type": "range", "min": 0.5, "max": 4.0, "step": 0.1},
             "kl_atr_mult": {"type": "range", "min": 1.0, "max": 5.0, "step": 0.5},
+            "sr_mode": {"type": "choice", "values": ["auto", "manual"]},
+            "sr_lookback": {"type": "range", "min": 50, "max": 500, "step": 10},
+            "sr_res_pct": {"type": "range", "min": 0.6, "max": 0.95, "step": 0.05},
+            "sr_sup_pct": {"type": "range", "min": 0.05, "max": 0.4, "step": 0.05},
         }
 
     def warmup_period(self) -> int:
