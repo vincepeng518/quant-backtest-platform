@@ -78,24 +78,36 @@ class DataService:
             return None
 
     async def get_symbols(self) -> list[dict]:
-        # ponytail: static list, sourced live via BingX
-        return [
-            {"symbol": "BTC/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "ETH/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "SOL/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "BNB/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "XRP/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "ADA/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "DOGE/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "AVAX/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "LINK/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "TON/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "MATIC/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "TRX/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "DOT/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "NEAR/USDT", "market": "crypto", "exchange": "bingx"},
-            {"symbol": "LTC/USDT", "market": "crypto", "exchange": "bingx"},
+        # 动态拉取 BingX 全量 USDT 活跃交易对 (支持全币種 + 搜索)
+        cached = cache.get("symbols:bingx")
+        if cached and isinstance(cached, dict) and "symbols" in cached:
+            return cached["symbols"]  # type: ignore[return-value]
+
+        try:
+            import ccxt
+
+            ex = ccxt.bingx()
+            ex.timeout = 20_000
+            markets = await asyncio.to_thread(ex.load_markets)
+            usdt = sorted(
+                k for k, m in markets.items()
+                if k.endswith("/USDT") and m.get("active", True)
+            )
+        except Exception as e:
+            logger.warning("load_markets failed: %s — fallback to static list", e)
+            usdt = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+
+        # 常用币置顶，便于搜索时优先看到
+        pinned = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
+                  "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "LINK/USDT", "TON/USDT",
+                  "MATIC/USDT", "TRX/USDT", "DOT/USDT", "NEAR/USDT", "LTC/USDT"]
+        ordered = [s for s in pinned if s in usdt] + [s for s in usdt if s not in pinned]
+
+        result = [
+            {"symbol": s, "market": "crypto", "exchange": "bingx"} for s in ordered
         ]
+        cache.set("symbols:bingx", {"symbols": result}, ttl=3600)
+        return result
 
 
 def create_task_id() -> str:
