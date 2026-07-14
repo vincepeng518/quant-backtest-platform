@@ -45,6 +45,10 @@ class DataService:
         if cached is not None:
             return pd.DataFrame(cached)
 
+        # 自动识别 TradFi 符号 (yfinance/Yahoo ticker)，即使 route 未传 source 也走 Yahoo
+        if source != "csv" and source != "test" and self._is_tradfi(symbol):
+            source = "tradfi"
+
         data: pd.DataFrame | None = None
         if source == "csv" or source == "test":
             # local CSV only — no network (for fast testing / offline)
@@ -69,10 +73,21 @@ class DataService:
             if data is None or len(data) == 0:
                 logger.info("Falling back to CSV for %s", symbol)
                 data = self.csv_loader.load(symbol)
-
-        if data is not None and len(data):
-            cache.set(cache_key, data.to_dict(orient="records"))
         return data if data is not None else pd.DataFrame()
+
+    @staticmethod
+    def _is_tradfi(symbol: str) -> bool:
+        s = symbol.upper()
+        # Yahoo ticker 特征: 含 = (外汇/指数如 EURUSD=X), 或 -USD, 或纯字母股票/ETF
+        if "=" in s or s.endswith("-USD") or s in {
+            "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "META", "GOOGL",
+            "SPY", "QQQ", "DIA", "GC=F", "SI=F", "CL=F", "BTC-USD",
+        }:
+            return True
+        # 纯大写字母且无 / (非 BTC/USDT 这种 crypto 对)
+        if "/" not in s and s.replace("=", "").replace("-", "").isalpha() and len(s) <= 5:
+            return True
+        return False
 
     async def _try_fetch(self, provider, symbol, timeframe, start_date, end_date) -> pd.DataFrame | None:
         try:
