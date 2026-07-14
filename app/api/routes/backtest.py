@@ -59,7 +59,7 @@ async def get_status(task_id: str):
     return TaskStatus(**s)
 
 
-def _result_to_out(task_id: str, result) -> BacktestResultOut:
+def _result_to_out(task_id: str, result, config: dict | None = None) -> BacktestResultOut:
     """Convert an in-memory BacktestResult dataclass to BacktestResultOut.
 
     The dataclass stores Trade.entry_time/exit_time as pd.Timestamp, which
@@ -108,6 +108,7 @@ def _result_to_out(task_id: str, result) -> BacktestResultOut:
     return BacktestResultOut(
         task_id=task_id,
         status="completed",
+        config=config or {},
         metrics={
             "total_trades": r.total_trades,
             "win_rate": r.win_rate,
@@ -130,7 +131,7 @@ def _result_to_out(task_id: str, result) -> BacktestResultOut:
 async def get_results(task_id: str):
     task = _backtest_tasks.get(task_id)
     if task and task.get("result") is not None:
-        return _result_to_out(task_id, task["result"])
+        return _result_to_out(task_id, task["result"], task.get("config"))
     bd = BACKTESTS_DIR
     fp = bd / f"{task_id}.json"
     if fp.exists():
@@ -138,6 +139,7 @@ async def get_results(task_id: str):
         return BacktestResultOut(
             task_id=task_id,
             status=d.get("status", "completed"),
+            config=d.get("config", {}),
             metrics=d.get("metrics", {}),
             equity_curve=d.get("equity_curve", []),
             trades=d.get("trades", []),

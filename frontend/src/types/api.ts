@@ -65,10 +65,9 @@ export interface BacktestResult {
   task_id: string;
   config: BacktestConfig;
   metrics: PerformanceMetrics;
-  trades: TradeRecord[];
   equity_curve: EquityPoint[];
   buy_hold_equity: EquityPoint[];
-  monthly_returns: Record<string, number>;
+  trades: TradeRecord[];
 }
 
 export interface StrategyParam {

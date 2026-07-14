@@ -387,6 +387,22 @@ function BacktestView() {
       {/* Results */}
       {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
         <div className="space-y-6">
+          {/* Result summary: strategy + symbol + timeframe */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-surface/50 px-4 py-3 text-sm">
+            <span className="text-textSecondary">回測配置</span>
+            <span className="rounded bg-accent/10 px-2 py-0.5 font-medium text-accent">
+              {(() => {
+                const tid = results?.config?.strategy?.template_id || selectedStrategy;
+                const t = templates.find((x) => x.id === tid);
+                return t?.name ?? tid ?? '—';
+              })()}
+            </span>
+            <span className="font-mono text-text">{results?.config?.symbol ?? symbol}</span>
+            <span className="rounded bg-border/20 px-2 py-0.5 text-textSecondary">
+              {results?.config?.timeframe ?? timeframe}
+            </span>
+          </div>
+
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <MetricsCard
               label="Total Return"
