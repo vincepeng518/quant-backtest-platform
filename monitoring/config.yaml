@@ -39,6 +39,7 @@ orderbook:
   source: "predictfun"
   polymarket_token_id: ""
   book_refresh_sec: 5       # 訂單簿輪詢間隔 (避免每 tick 打 API)
+  api_key: "***REMOVED-PREDICT-KEY***"   # predict.fun API Key (REST 真值源 startPrice/endPrice)
 
 # 儲存
 storage:

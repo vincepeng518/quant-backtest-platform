@@ -47,7 +47,13 @@ def build_book(cfg: MonitorConfig):
 
 async def run_live(cfg: MonitorConfig) -> None:
     setup_logging(cfg.log)
-    eng = ShadowEngine(cfg, book_source=build_book(cfg))
+    # Phase 1 真值源: predict.fun REST (API Key) 的輪次 startPrice
+    target_provider = None
+    if cfg.api_key:
+        from monitoring.predictfun import PredictFunRest
+        _rest = PredictFunRest(cfg.api_key)
+        target_provider = _rest.start_price_for
+    eng = ShadowEngine(cfg, book_source=build_book(cfg), target_provider=target_provider)
     feed = BinanceWsFeed(cfg.binance_symbol)
     # 动态解析当前活跃的 predict.fun BTC Up/Down 轮次 id
     from monitoring.predictfun import PredictFunSource
