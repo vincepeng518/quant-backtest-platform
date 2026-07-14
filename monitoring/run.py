@@ -149,6 +149,7 @@ def main() -> None:
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--replay", metavar="SYMBOL")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--review", action="store_true", help="Phase 4 自動覆盤報告 (從 DB)")
     ap.add_argument("--config", default="monitoring/config.yaml")
     args = ap.parse_args()
     cfg = MonitorConfig.load(args.config)
@@ -158,6 +159,10 @@ def main() -> None:
         asyncio.run(run_replay(cfg, args.replay))
     elif args.selftest:
         run_selftest(cfg)
+    elif args.review:
+        from monitoring.review import review
+        import json
+        print(json.dumps(review(cfg.db), indent=2, ensure_ascii=False))
     else:
         ap.print_help()
 

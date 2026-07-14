@@ -452,3 +452,19 @@
 2026-07-14 07:18:01,237 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
 2026-07-14 07:18:31,637 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
 2026-07-14 07:19:01,289 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:20:30,369 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:20:30,374 INFO [LIVE] start. db=monitoring/shadow.db book=predictfun market=768159
+2026-07-14 07:20:30,438 INFO [FEED] connected btcusdt@trade
+2026-07-14 07:20:30,602 INFO HTTP Request: GET https://api.predict.fun/v1/markets/768159 "HTTP/1.1 200 OK"
+2026-07-14 07:21:00,895 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:21:31,245 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:22:01,603 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:22:30,897 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:23:01,051 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:23:31,679 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:24:01,220 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:24:31,085 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:25:27,096 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 07:25:27,102 INFO [LIVE] start. db=monitoring/shadow.db book=predictfun market=768159
+2026-07-14 07:25:27,168 INFO [FEED] connected btcusdt@trade
+2026-07-14 07:25:27,801 INFO HTTP Request: GET https://api.predict.fun/v1/markets/768159 "HTTP/1.1 200 OK"

@@ -231,6 +231,22 @@ class ShadowEngine:
                 "SELECT id, side, sim_buy_cost, entry_type FROM shadow_trades WHERE round_id=? ORDER BY id DESC LIMIT 1",
                 (rid,))
             row = cur.fetchone()
+            st = self.rounds.get(rid)
+            # 寫入 round_logs (Phase 4 覆盘用: 真值 target_price + 結算 close_price)
+            if st is not None:
+                try:
+                    self.conn.execute(
+                        """INSERT OR REPLACE INTO round_logs
+                           (round_id, market, round_open_ts, round_close_ts,
+                            open_price, close_price, target_price,
+                            deviation_entry, btc_window_drop_pct, rsi, resolved)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,1)""",
+                        (rid, st.market, st.open_ts, st.close_ts,
+                         st.open_price, settle_price, st.open_price,
+                         None, st.window_drop_pct, st.rsi))
+                    self.conn.commit()
+                except Exception as e:
+                    logger.warning("[SETTLE] round_logs write failed: %s", e)
             if row:
                 tid, side, cost, etype = row
                 win = (settle_price > cost) if side == "UP" else (settle_price < cost)
