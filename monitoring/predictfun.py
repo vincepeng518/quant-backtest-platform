@@ -130,6 +130,33 @@ class PredictFunSource:
             pass
 
 
+# ---------------------------------------------------------------------------
+# 鏈上輪次 start/end price (Phase 1 目標價真值來源)
+#
+# predict.fun 的 BTC Up/Down 輪次由鏈上 ChainlinkUpDownAdapter 管理:
+#   - 每輪有已知 startPrice (輪次開始價, 即 Phase 1 的「目標價」)
+#   - 結算時用 Chainlink Data Streams v3 報告的 endPrice
+# 這些可透過 conditionId 在 BSC 上讀取 (無需 auth)。
+#
+# 已知合約地址候選 (來自 docs.predict.fun): 0xf4aa30b537882eca7e69defb68d6f631cda77b00
+# 待確認後填入下方 ADAPTER 並實作 getRound(conditionId) -> (startPrice, endPrice)。
+# 在確認前, Phase 1 暫用 Binance 輪次開盤價當目標價近似 (已在 shadow_engine 實作)。
+# ---------------------------------------------------------------------------
+BSC_RPC = "https://bsc-dataseed.bnbchain.org"
+_ADAPTER_CANDIDATE = "0xf4aa30b537882eca7e69defb68d6f631cda77b00"
+
+
+def condition_start_price(condition_id: str) -> Optional[float]:
+    """鏈上讀取輪次 startPrice (Phase 1 目標價真值)。
+
+    待 ChainlinkUpDownAdapter 合約地址 + ABI 確認後實作。
+    目前回傳 None -> 呼叫方回退 Binance 輪次開盤價近似。
+    """
+    # TODO: adapter = _ADAPTER_CANDIDATE; call getRound(conditionId)
+    #   via BSC RPC eth_call, decode (startPrice, endPrice).
+    return None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     src = PredictFunSource()
