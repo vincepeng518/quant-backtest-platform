@@ -47,6 +47,17 @@ def calculate_indicators(df):
     df.fillna(0, inplace=True)
     return df
 
+# ── 动态支撑/压力位 (替代手填 KL 常数) ──
+SR_LOOKBACK = 200
+SR_RES_PCT = 0.80  # 压力 = 近 N 根 high 的 80 分位
+SR_SUP_PCT = 0.20  # 支撑 = 近 N 根 low 的 20 分位
+
+def dynamic_sr(df):
+    window = df.tail(SR_LOOKBACK)
+    res = window['high'].quantile(SR_RES_PCT)
+    sup = window['low'].quantile(SR_SUP_PCT)
+    return res, sup
+
 def check_entry_signals(df):
     current_bar = df.iloc[-1]
     prev_bar = df.iloc[-2]
@@ -60,10 +71,14 @@ def check_entry_signals(df):
     ema_slope_up = ema200 > ema200_prev
     price_above_ema = close_price > ema200
     trend_strong = adx >= ADX_THRESHOLD
-    kl_dist_long = abs(KL_PRICE_LONG - close_price)
+
+    # 动态支撑/压力位，替代手填 KL_PRICE_LONG/SHORT
+    kl_long, kl_short = dynamic_sr(df)
+
+    kl_dist_long = abs(kl_long - close_price)
     kl_enough_long = (kl_dist_long / atr) >= 3.0
     bull_trend = price_above_ema and ema_slope_up
-    kl_dist_short = abs(close_price - KL_PRICE_SHORT)
+    kl_dist_short = abs(close_price - kl_short)
     kl_enough_short = (kl_dist_short / atr) >= 3.0
     bear_trend = (not price_above_ema) and (not ema_slope_up)
     cross_over = (prev_bar['close'] <= prev_bar['EMA_200']) and (close_price > ema200)
@@ -98,8 +113,6 @@ def check_exit(current_price):
         if current_price <= stop_loss_price:
             print(f"价格 {current_price} 触及停损 {stop_loss_price}，执行平仓。")
             exit_triggered = True
-        elif current_price >= take_loss_price:
-            pass
         elif current_price >= take_profit_price:
             print(f"价格 {current_price} 触及停利 {take_profit_price}，执行平仓。")
             exit_triggered = True
