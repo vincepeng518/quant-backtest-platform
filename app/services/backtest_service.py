@@ -96,6 +96,27 @@ class BacktestService:
         if task["status"] != "completed":
             return {"task_id": task_id, "status": task["status"], "error": "Not ready"}
         r = task["result"]
+
+        # Build time-aligned equity / buy-hold curves (frontend expects {time, equity})
+        def _ts(v):
+            if v is None:
+                return None
+            try:
+                return int(pd.Timestamp(v).timestamp())
+            except Exception:
+                return None
+
+        eq_pts = [
+            {"time": _ts(ts), "equity": float(eq)}
+            for ts, eq in zip(getattr(r, "timestamps", []) or [], r.equity_curve)
+            if _ts(ts) is not None
+        ]
+        bh_pts = [
+            {"time": _ts(ts), "equity": float(eq)}
+            for ts, eq in zip(getattr(r, "timestamps", []) or [], getattr(r, "buy_hold_curve", []) or [])
+            if _ts(ts) is not None
+        ]
+
         return {
             "task_id": task_id,
             "status": "completed",
@@ -111,7 +132,8 @@ class BacktestService:
                 "avg_winner": r.avg_winner,
                 "avg_loser": r.avg_loser,
             },
-            "equity_curve": r.equity_curve,
+            "equity_curve": eq_pts,
+            "buy_hold_equity": bh_pts,
             "trades": [
                 {
                     "entry_time": str(t.entry_time),
