@@ -115,3 +115,15 @@
 2026-07-13 20:30:16,961 INFO [FEED] connected btcusdt@trade
 2026-07-13 20:34:47,299 INFO [LIVE] start. db=monitoring/shadow.db book=polymarket
 2026-07-13 20:34:47,398 INFO [FEED] connected btcusdt@trade
+2026-07-14 04:22:47,276 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:22:47,279 INFO [LIVE] start. db=monitoring/shadow.db book=predictfun market=767997
+2026-07-14 04:22:47,344 INFO [FEED] connected btcusdt@trade
+2026-07-14 04:23:31,238 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:24:00,810 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:24:31,712 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:25:01,021 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:25:31,497 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:26:00,877 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:26:31,383 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:27:01,077 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-14 04:27:30,820 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
