@@ -13,7 +13,7 @@ interface SymbolSearchProps {
 }
 
 const FAV_KEY = 'fav_symbols';
-const SECTORS: string[] = ['主流', 'Meme', 'DeFi', 'AI', 'Layer2', '其他', '收藏'];
+const SECTORS: string[] = ['主流', 'Meme', 'DeFi', 'AI', 'Layer2', 'TradFi', '其他', '收藏'];
 
 export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   label,

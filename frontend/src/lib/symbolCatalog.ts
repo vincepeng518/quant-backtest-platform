@@ -2,7 +2,7 @@
 // BingX load_markets 只給 symbol，不給板塊，這裡用手動維護的常用分類表。
 // 只列主流/有代表性的；未列出的 symbol 歸入「其他」，仍可自由搜尋。
 
-export type Sector = '主流' | 'Meme' | 'DeFi' | 'AI' | 'Layer2' | '其他';
+export type Sector = '主流' | 'Meme' | 'DeFi' | 'AI' | 'Layer2' | 'TradFi' | '其他';
 
 export const SECTOR_GROUPS: Record<Exclude<Sector, '其他'>, string[]> = {
   主流: [
@@ -27,6 +27,10 @@ export const SECTOR_GROUPS: Record<Exclude<Sector, '其他'>, string[]> = {
   Layer2: [
     'ARB/USDT', 'OP/USDT', 'MATIC/USDT', 'IMX/USDT', 'STRK/USDT', 'MANTA/USDT',
     'METIS/USDT', 'ZK/USDT', 'BLAST/USDT',
+  ],
+  TradFi: [
+    'AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'SPY', 'QQQ', 'DIA',
+    'EURUSD=X', 'USDJPY=X', 'GC=F', 'SI=F', 'CL=F', 'BTC-USD',
   ],
 };
 

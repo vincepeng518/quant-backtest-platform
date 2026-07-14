@@ -14,6 +14,7 @@ import pandas as pd
 from app.utils.cache import cache
 from data.providers.binance import BinanceProvider
 from data.providers.bingx import BingXProvider
+from data.providers.tradfi import TradFiProvider
 from data.providers.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class DataService:
     def __init__(self) -> None:
         self.binance = BinanceProvider()
         self.bingx = BingXProvider()
+        self.tradfi = TradFiProvider()
         self.csv_loader = CSVLoader()
 
     async def get_ohlcv(
@@ -55,6 +57,8 @@ class DataService:
                 gen = generate_test_data(symbol.replace("/", "_"))
                 if gen is not None and len(gen) > 0:
                     data = gen
+        elif source == "tradfi":
+            data = await self._try_fetch(self.tradfi, symbol, timeframe, start_date, end_date)
         elif source == "binance":
             data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
         else:  # default: bingx
@@ -79,10 +83,37 @@ class DataService:
 
     async def get_symbols(self) -> list[dict]:
         # 动态拉取 BingX 全量 USDT 活跃交易对 (支持全币種 + 搜索)
-        cached = cache.get("symbols:bingx")
+        cached = cache.get("symbols:all")
         if cached and isinstance(cached, dict) and "symbols" in cached:
             return cached["symbols"]  # type: ignore[return-value]
 
+        crypto_syms = await self._crypto_symbols()
+
+        # TradFi 精选列表 (yfinance 不支持 load_markets 全量枚举)
+        tradfi_syms = [
+            {"symbol": "AAPL", "market": "tradfi", "exchange": "nasdaq", "name": "Apple"},
+            {"symbol": "TSLA", "market": "tradfi", "exchange": "nasdaq", "name": "Tesla"},
+            {"symbol": "NVDA", "market": "tradfi", "exchange": "nasdaq", "name": "NVIDIA"},
+            {"symbol": "MSFT", "market": "tradfi", "exchange": "nasdaq", "name": "Microsoft"},
+            {"symbol": "AMZN", "market": "tradfi", "exchange": "nasdaq", "name": "Amazon"},
+            {"symbol": "META", "market": "tradfi", "exchange": "nasdaq", "name": "Meta"},
+            {"symbol": "GOOGL", "market": "tradfi", "exchange": "nasdaq", "name": "Alphabet"},
+            {"symbol": "SPY", "market": "tradfi", "exchange": "nyse", "name": "S&P 500 ETF"},
+            {"symbol": "QQQ", "market": "tradfi", "exchange": "nasdaq", "name": "Nasdaq 100 ETF"},
+            {"symbol": "DIA", "market": "tradfi", "exchange": "nyse", "name": "Dow Jones ETF"},
+            {"symbol": "EURUSD=X", "market": "tradfi", "exchange": "fx", "name": "EUR/USD"},
+            {"symbol": "USDJPY=X", "market": "tradfi", "exchange": "fx", "name": "USD/JPY"},
+            {"symbol": "GC=F", "market": "tradfi", "exchange": "comex", "name": "黄金 Gold"},
+            {"symbol": "SI=F", "market": "tradfi", "exchange": "comex", "name": "白银 Silver"},
+            {"symbol": "CL=F", "market": "tradfi", "exchange": "nymex", "name": "原油 WTI"},
+            {"symbol": "BTC-USD", "market": "tradfi", "exchange": "crypto", "name": "Bitcoin (Yahoo)"},
+        ]
+
+        result = crypto_syms + tradfi_syms
+        cache.set("symbols:all", {"symbols": result}, ttl=3600)
+        return result
+
+    async def _crypto_symbols(self) -> list[dict]:
         try:
             import ccxt
 
@@ -97,17 +128,11 @@ class DataService:
             logger.warning("load_markets failed: %s — fallback to static list", e)
             usdt = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
 
-        # 常用币置顶，便于搜索时优先看到
         pinned = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
                   "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "LINK/USDT", "TON/USDT",
                   "MATIC/USDT", "TRX/USDT", "DOT/USDT", "NEAR/USDT", "LTC/USDT"]
         ordered = [s for s in pinned if s in usdt] + [s for s in usdt if s not in pinned]
-
-        result = [
-            {"symbol": s, "market": "crypto", "exchange": "bingx"} for s in ordered
-        ]
-        cache.set("symbols:bingx", {"symbols": result}, ttl=3600)
-        return result
+        return [{"symbol": s, "market": "crypto", "exchange": "bingx"} for s in ordered]
 
 
 def create_task_id() -> str:
