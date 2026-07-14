@@ -40,6 +40,7 @@ def _ensure_registered() -> None:
         from strategies.technical.breakout import BreakoutStrategy
         from strategies.technical.pairs import PairsTradingStrategy
         from strategies.technical.arbitrage import StatisticalArbitrageStrategy
+        from strategies.technical.ema_adx_kl import EmaAdxKlStrategy
         from strategies.statistical.chainlink_updown import ChainlinkUpDownStrategy
         from strategies.statistical.polymarket_btc import PolymarketBtcStrategy
 
@@ -47,6 +48,7 @@ def _ensure_registered() -> None:
         register_strategy(BreakoutStrategy)
         register_strategy(PairsTradingStrategy)
         register_strategy(StatisticalArbitrageStrategy)
+        register_strategy(EmaAdxKlStrategy)
         register_strategy(ChainlinkUpDownStrategy)
         register_strategy(PolymarketBtcStrategy)
         load_user_strategies()
