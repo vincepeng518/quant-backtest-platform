@@ -33,6 +33,14 @@ const modules = [
     desc: '雙邊持倉捕捉同一資產在不同交易所的價差與資金費率差，合約級手續費與 funding 實景建模。',
     metric: 'BASIS',
   },
+  {
+    name: 'Analysis',
+    path: '/analysis',
+    icon: TrendingUp,
+    tag: '穩健性分析',
+    desc: '樣本內外對比、過擬合檢測與回測一致性診斷，驗證策略在未知行情下的真實邊際。',
+    metric: 'ROBUST',
+  },
 ];
 
 const capabilities = [
@@ -163,7 +171,7 @@ export default function Home() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
             核心模塊
           </h2>
-          <span className="font-mono text-xs text-textSecondary">03 / workflows</span>
+          <span className="font-mono text-xs text-textSecondary">04 / workflows</span>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
