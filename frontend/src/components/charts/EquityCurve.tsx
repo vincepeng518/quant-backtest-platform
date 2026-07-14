@@ -17,6 +17,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -78,6 +79,19 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
 
     chartRef.current = chart;
 
+    // ── 悬停图例 ──
+    const legendEl = legendRef.current;
+    const fmt = (n: number) => (n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    const renderLegend = (param: any) => {
+      if (!legendEl || !param || !param.time || !param.seriesData) { if (legendEl) legendEl.style.display = 'none'; return; }
+      const sd = param.seriesData.get(strategyLine) as { value?: number } | undefined;
+      const t = param.time as number;
+      const dt = new Date(t * 1000).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+      legendEl.style.display = 'flex';
+      legendEl.innerHTML = `<span style="color:#a3a3a3;margin-right:8px">${dt}</span><span style="color:#3b82f6">权益 ${fmt(sd?.value ?? NaN)}</span>`;
+    };
+    chart.subscribeCrosshairMove(renderLegend);
+
     const handleResize = () => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -90,12 +104,18 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      chart.unsubscribeCrosshairMove(renderLegend);
       chart.remove();
     };
   }, [data, buyHoldData, theme]);
 
   return (
     <div className="relative w-full bg-surface p-4 border-t border-border/10">
+      <div
+        ref={legendRef}
+        className="pointer-events-none absolute left-6 top-6 z-10 hidden items-center font-mono text-xs"
+        style={{ display: 'none' }}
+      />
       <div ref={containerRef} className="w-full h-[300px]" />
     </div>
   );
