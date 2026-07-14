@@ -62,26 +62,16 @@ class BacktestService:
             **kwargs,
         )
 
-        # Load data — 直接调 provider，绕开 get_ohlcv 的 _is_tradfi 自动识别
-        # (避免 PAXG/XAUT/NCCO 等被误判为 Yahoo tradfi 导致空数据)
+        # Load data via get_ohlcv (proven working path: handles NCCO->-USDT,
+        # _is_tradfi routing, bingx/binance fallback). Pass source explicitly.
         sym = config.get("symbol", "")
-        src = config.get("source", "bingx")
-        tf = config.get("timeframe", "1h")
-        sd = config.get("start_date", "")
-        ed = config.get("end_date", "")
-        # BingX 商品/贵金属合约对需 -USDT 格式供 ccxt
-        fetch_sym = sym
-        if sym.upper().startswith("NCCO") or sym.upper() in {"PAXG/USDT", "XAUT/USDT"}:
-            fetch_sym = sym.replace("/USDT", "-USDT")
-        logger.warning("BACKTEST_FETCH_MARKER src=%s sym=%s fetch_sym=%s", src, sym, fetch_sym)
-        if src == "tradfi":
-            data = await self.data_service._try_fetch(self.data_service.tradfi, fetch_sym, tf, sd, ed)
-        elif src == "binance":
-            data = await self.data_service._try_fetch(self.data_service.binance, fetch_sym, tf, sd, ed)
-        else:  # bingx (默认)
-            data = await self.data_service._try_fetch(self.data_service.bingx, fetch_sym, tf, sd, ed)
-            if data is None or len(data) == 0:
-                data = await self.data_service._try_fetch(self.data_service.binance, fetch_sym, tf, sd, ed)
+        data = await self.data_service.get_ohlcv(
+            symbol=sym,
+            timeframe=config.get("timeframe", "1h"),
+            start_date=config.get("start_date", ""),
+            end_date=config.get("end_date", ""),
+            source=config.get("source", "bingx"),
+        )
         if data is None or len(data) == 0:
             return {"task_id": task_id, "status": "error", "error": "No data"}
         bt.set_data(data)
