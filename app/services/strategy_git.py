@@ -1,33 +1,104 @@
 from __future__ import annotations
-import logging, os, subprocess
-from pathlib import Path
+
+import base64
+import json
+import logging
+import os
+import urllib.request
+import urllib.error
 
 logger = logging.getLogger(__name__)
-REPO_ROOT = Path(__file__).resolve().parents[2]
-GIT_URL = "https://{token}@github.com/vincepeng518/quant-backtest-platform.git"
 
-def _git(args: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, timeout=60)
+REPO = "vincepeng518/quant-backtest-platform"
+API = f"https://api.github.com/repos/{REPO}/contents"
+
+# Use a dedicated path inside the repo for user strategies so they survive
+# redeploys (Dockerfile COPYs the repo at build time, and this writes back to
+# GitHub so the next build picks them up). No git CLI required in the container.
+USER_PREFIX = "strategies/user"
+
+
+def _headers() -> dict:
+    token = os.environ.get("GITHUB_TOKEN", "")
+    h = {"Accept": "application/vnd.github+json"}
+    if token:
+        h["Authorization"] = f"Bearer {token}"
+    return h
+
+
+def _api(path: str, method: str = "GET", data: bytes | None = None) -> dict | None:
+    url = f"{API}/{path}"
+    req = urllib.request.Request(url, data=data, method=method, headers=_headers())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            body = r.read().decode("utf-8")
+            return json.loads(body) if body else None
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None  # file does not exist yet
+        logger.warning("GitHub API %s %s -> %s", method, path, e.read().decode()[:200])
+        return None
+    except Exception as e:  # noqa: BLE001
+        logger.warning("GitHub API %s %s failed: %s", method, path, e)
+        return None
+
+
+def _put(path: str, content: str, message: str) -> tuple[bool, str]:
+    """Create or update a file via Contents API."""
+    existing = _api(path)
+    payload = {
+        "message": message,
+        "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+        "branch": "master",
+    }
+    if existing and "sha" in existing:
+        payload["sha"] = existing["sha"]
+    data = json.dumps(payload).encode("utf-8")
+    resp = _api(path, method="PUT", data=data)
+    if resp and "content" in resp:
+        return True, "pushed"
+    return False, "github api error"
+
+
+def _delete(path: str, message: str) -> tuple[bool, str]:
+    existing = _api(path)
+    if not existing or "sha" not in existing:
+        return True, "nothing to delete"
+    payload = {"message": message, "sha": existing["sha"], "branch": "master"}
+    resp = _api(path, method="DELETE", data=json.dumps(payload).encode("utf-8"))
+    if resp is not None:  # 204 returns None on success
+        return True, "deleted"
+    return False, "github api error"
+
 
 def git_persist(files: list[str], message: str) -> tuple[bool, str]:
-    token = os.environ.get("GITHUB_TOKEN", "")
-    if not token:
+    """Persist user strategy files to GitHub so they survive container rebuilds.
+
+    `files` are absolute or repo-relative paths; we map them under USER_PREFIX.
+    """
+    if not os.environ.get("GITHUB_TOKEN"):
         return False, "GITHUB_TOKEN missing"
     try:
-        _git(["config", "user.email", "agent@hermes.local"])
-        _git(["config", "user.name", "quant-agent"])
-        _git(["remote", "set-url", "origin", GIT_URL.format(token=token)])
-        _git(["add", *files])
-        # 若無變更，視為成功
-        cp = _git(["commit", "-m", message])
-        if cp.returncode != 0:
-            msg = cp.stdout + cp.stderr
-            if ("nothing" in msg and "commit" in msg) or ("no changes added" in msg):
-                return True, "no changes"
-            return False, cp.stderr[:300]
-        push = _git(["push", "origin", "master"])
-        if push.returncode != 0:
-            return False, push.stderr[:300]
-        return True, "pushed"
-    except Exception as e:
+        ok_all = True
+        detail_parts = []
+        for f in files:
+            p = str(f)
+            # map repo path -> github path
+            if USER_PREFIX in p:
+                rel = p[p.index(USER_PREFIX):]
+            elif "strategies/user" in p:
+                rel = "strategies/user/" + p.split("strategies/user/")[-1]
+            else:
+                rel = os.path.basename(p)
+            if not os.path.exists(p):
+                # file was deleted locally (e.g. strategy removal)
+                ok, d = _delete(rel, message)
+            else:
+                with open(p, "r", encoding="utf-8") as fh:
+                    content = fh.read()
+                ok, d = _put(rel, content, message)
+            ok_all = ok_all and ok
+            detail_parts.append(f"{rel}:{d}")
+        return ok_all, "; ".join(detail_parts)
+    except Exception as e:  # noqa: BLE001
         return False, str(e)[:300]
