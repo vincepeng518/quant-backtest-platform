@@ -15,10 +15,10 @@
 
 | 區塊 | 顯示內容 | 計算/來源 | 著色 |
 |---|---|---|---|
-| **總損益** | 絕對金額 + 百分比，如 `+132.07 USDT` / `+1.32%` | `net_profit`($) + `total_return_pct`(%) | 正綠 / 負紅 |
-| **最大回撤** | 絕對金額 + 百分比 | `max_drawdown`(%) → 金額 = `initial_capital * max_drawdown/100` | 紅 |
-| **獲利交易** | 勝率% + 比例，如 `34.59% 448/1295` | `win_rate`(%) + `winning_trades`/`total_trades` | 中性 |
-| **獲利因子** | 小數值，如 `1.42` | `profit_factor` | 中性 |
+| **總損益** | 絕對金額 + 百分比，如 `+132.07 USDT` / `+1.32%` | TV Net Profit = Σ(獲利帶符號)。`net_profit`($) = `total_pnl`；`total_return_pct`(%) = (final_equity−initial)/initial×100 | 正綠 / 負紅 |
+| **最大回撤** | 絕對金額 + 百分比 | TV Max Drawdown：逐持倉時段用 `Max_Equity − Equity_on_Entry + 合約×(Entry−Low/High)` 取盤中極值。我們以 equity 曲線峰谷差近似 → `max_drawdown`($) 絕對；`max_drawdown_pct`(%) = `max_drawdown / initial_capital × 100`（佔初始資金比） | 紅 |
+| **獲利交易** | 勝率% + 比例，如 `34.59% 448/1295` | TV Percent Profitable = 盈利數 / 已平倉總數。`win_rate`(%) + `winning_trades`/`total_trades` | 中性 |
+| **獲利因子** | 小數值，如 `1.42` | TV Profit Factor = **毛利潤 / 毛虧損**（絕對值比）= `Σwinner_pnl / abs(Σloser_pnl)` | 中性 |
 
 ## 二、圖例與控制面板（圖表左上方）
 - **累計損益**（預設開啟）— 對應主圖資金曲線，toggle 開關
