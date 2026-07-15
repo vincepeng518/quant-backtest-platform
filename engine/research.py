@@ -5,6 +5,8 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
+from strategies.base import StrategyBase, Bar
+
 
 def _log_returns(df: pd.DataFrame) -> pd.Series:
     close = df["close"].astype(float)
@@ -88,9 +90,6 @@ def market_profile(df: pd.DataFrame, benchmark: Optional[pd.DataFrame] = None) -
     }
 
 
-from strategies.base import StrategyBase, Bar
-
-
 def _row_to_bar(row) -> Bar:
     return Bar(
         timestamp=row["timestamp"],
@@ -105,6 +104,7 @@ def signal_profile(df: pd.DataFrame, strategy_cls: type[StrategyBase], params: d
     strat.init(params)
     signals: list[str] = []
     entry_prices: list[float] = []
+    entry_idx: list[int] = []
     fwd_rets: list[float] = []
     closes = df["close"].astype(float).values
     for i, (_, row) in enumerate(df.iterrows()):
@@ -114,21 +114,24 @@ def signal_profile(df: pd.DataFrame, strategy_cls: type[StrategyBase], params: d
         if sig.action in ("buy", "sell", "close_buy", "close_sell"):
             signals.append(sig.action)
             entry_prices.append(float(row["close"]))
+            entry_idx.append(i)
             # forward return N=5 bars
             if i + 5 < len(closes):
                 fwd_rets.append(float(np.log(closes[i + 5] / closes[i])))
     counts: dict[str, int] = {}
     for s in signals:
         counts[s] = counts.get(s, 0) + 1
-    longs = sum(v for k, v in counts.items() if "buy" in k)
-    shorts = sum(v for k, v in counts.items() if "sell" in k)
+    longs = signals.count("buy")
+    shorts = signals.count("sell")
     total = longs + shorts
     lsm = (longs / total) if total else 0.0
-    # entry timing: price percentile within rolling 50-bar window
+    # entry timing: price percentile within trailing 50-bar window AT each signal's time
     timing = []
     roll = df["close"].rolling(50)
-    for p in entry_prices:
-        lo, hi = roll.min().iloc[-1], roll.max().iloc[-1]
+    roll_min = roll.min()
+    roll_max = roll.max()
+    for p, i in zip(entry_prices, entry_idx):
+        lo, hi = roll_min.iloc[i], roll_max.iloc[i]
         timing.append(float((p - lo) / (hi - lo)) if hi > lo else 0.5)
     return {
         "signal_counts": counts,

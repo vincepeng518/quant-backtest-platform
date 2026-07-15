@@ -33,10 +33,19 @@ def test_returns_stats_fields():
 
 def test_signal_profile_keys():
     df = generate_test_data("BTC_USDT")
-    # use a strategy that emits signals on this synthetic data; if none, assert shape only
-    try:
-        r = signal_profile(df, MovingAverageCrossStrategy, {})
-    except Exception:
-        return  # skip if strategy requires warmup not present
+    r = signal_profile(df, MovingAverageCrossStrategy, {})
+    # top-level keys
     for k in ("signal_counts", "long_short_ratio", "entry_timing", "signal_forward_return"):
         assert k in r, f"missing {k}"
+    # nested structure
+    assert isinstance(r["signal_counts"], dict), "signal_counts must be a dict"
+    assert isinstance(r["long_short_ratio"], float), "long_short_ratio must be a float"
+    et = r["entry_timing"]
+    assert isinstance(et["mean_percentile"], float), "entry_timing.mean_percentile must be a float"
+    assert et["samples"] > 0, "entry_timing should have samples on data that emits signals"
+    sfr = r["signal_forward_return"]
+    assert isinstance(sfr["mean"], float), "signal_forward_return.mean must be a float"
+    assert isinstance(sfr["n"], int), "signal_forward_return.n must be an int"
+    # if the strategy emits no buy/sell signals the profile is meaningless -> fail loudly
+    emitted = sum(v for k, v in r["signal_counts"].items() if k in ("buy", "sell"))
+    assert emitted > 0, "MovingAverageCrossStrategy should emit entry signals on this data"
