@@ -73,16 +73,23 @@ class EngulfingPullbackStrategy(StrategyBase):
         n = len(self._closes)
         if n < period * 2 + 1:
             return None
+        # Only need a recent window: Wilder smoothing converges, older bars
+        # contribute <1% after ~period*4 bars. Avoids O(n^2) on long series.
+        win = period * 4
+        hi = self._highs[-win:] if win < n else self._highs
+        lo = self._lows[-win:] if win < n else self._lows
+        cl = self._closes[-win:] if win < n else self._closes
+        m = len(cl)
         plus_dm, minus_dm, tr = [], [], []
-        for i in range(1, n):
-            up = self._highs[i] - self._highs[i - 1]
-            dn = self._lows[i - 1] - self._lows[i]
+        for i in range(1, m):
+            up = hi[i] - hi[i - 1]
+            dn = lo[i - 1] - lo[i]
             plus_dm.append(max(up, 0.0) if up > dn else 0.0)
             minus_dm.append(max(dn, 0.0) if dn > up else 0.0)
             tr.append(max(
-                self._highs[i] - self._lows[i],
-                abs(self._highs[i] - self._closes[i - 1]),
-                abs(self._lows[i] - self._closes[i - 1]),
+                hi[i] - lo[i],
+                abs(hi[i] - cl[i - 1]),
+                abs(lo[i] - cl[i - 1]),
             ))
         # Wilder smoothing
         def wilder(series: list[float]) -> float:
