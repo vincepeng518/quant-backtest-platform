@@ -37,7 +37,7 @@ interface OptimizeStore {
   bookSlippage: number;
   makerProbability: number;
   forceLimit: boolean;
-  setStrategy: (id: string) => void;
+  setStrategy: (id: string, defaultParams?: { name: string; type?: string; min?: number; max?: number; step?: number }[]) => void;
   setMarket: (m: { symbol: string; timeframe: string; source: string }) => void;
   addParam: (name: string) => void;
   updateParam: (id: string, patch: Partial<ParamRangeUI>) => void;
@@ -47,6 +47,21 @@ interface OptimizeStore {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 9);
+
+// Build the editable param-space UI rows from a strategy's template params.
+// Only numeric range params (int/float) become adjustable rows; others are skipped.
+function paramsToSpace(params: { name: string; type?: string; min?: number; max?: number; step?: number }[]): ParamRangeUI[] {
+  const rows = (params || [])
+    .filter((p) => p.type === 'int' || p.type === 'float' || p.type === 'range' || (p.min != null && p.max != null))
+    .map((p) => ({
+      id: uid(),
+      name: p.name,
+      min: Number(p.min ?? 1),
+      max: Number(p.max ?? 10),
+      step: Number(p.step ?? (p.type === 'float' ? 0.1 : 1)),
+    }));
+  return rows.length ? rows : [{ id: uid(), name: 'param_1', min: 1, max: 10, step: 1 }];
+}
 
 export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   status: 'idle',
@@ -77,7 +92,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   bookSlippage: 0.0005,
   makerProbability: 0,
   forceLimit: false,
-  setStrategy: (id) => set({ strategyId: id }),
+  setStrategy: (id, defaultParams) => set({ strategyId: id, paramSpace: paramsToSpace(defaultParams ?? []) }),
   setMarket: (m) => set(m),
   addParam: (name) =>
     set((s) => ({ paramSpace: [...s.paramSpace, { id: uid(), name, min: 1, max: 10, step: 1 }] })),
