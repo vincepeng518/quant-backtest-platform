@@ -442,7 +442,7 @@ function BacktestView() {
               { label: '5 Minutes', value: '5m' },
               { label: '15 Minutes', value: '15m' },
               { label: '30 Minutes', value: '30m' },
-              { label: '40 Minutes', value: '40m' },
+              { label: '45 Minutes', value: '45m' },
               { label: '1 Hour', value: '1h' },
               { label: '4 Hours', value: '4h' },
               { label: '1 Day', value: '1d' },

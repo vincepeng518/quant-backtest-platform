@@ -24,7 +24,7 @@ const FALLBACK_STRATEGIES = [
 ];
 
 const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
-const TIMEFRAMES = ['15m', '30m', '40m', '1h', '4h', '1d'];
+const TIMEFRAMES = ['15m', '30m', '45m', '1h', '4h', '1d'];
 const SOURCES = [
   { label: 'Test (offline)', value: 'test' },
   { label: 'BingX', value: 'bingx' },

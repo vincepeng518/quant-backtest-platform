@@ -45,7 +45,7 @@ class DataService:
         if cached is not None:
             return pd.DataFrame(cached)
 
-        # 自定义分钟级周期（如 40m 非 Binance 原生间隔）：从 1m 基础数据重采样
+        # 自定义分钟级周期（如 45m 非 Binance 原生间隔）：从 1m 基础数据重采样
         minutes = self._custom_minutes(timeframe)
         if minutes is not None:
             base = await self._fetch_base(symbol, start_date, end_date, source)
@@ -92,7 +92,7 @@ class DataService:
         """Return minutes if timeframe is a custom minute interval that needs resampling.
 
         Binance natively supports 1m/5m/15m/30m/1h/4h/1d. Anything else
-        expressed as `<N>m` (e.g. 40m) is resampled from 1m base data.
+        expressed as `<N>m` (e.g. 45m) is resampled from 1m base data.
         """
         native = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w"}
         if timeframe in native:
