@@ -237,28 +237,34 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         hour: '2-digit', minute: '2-digit', hour12: false,
       });
 
-      let html = `<span style="color:#a3a3a3;margin-right:8px">${dt}</span>`;
+      let html = '';
+      legendEl.style.display = 'flex';
+      legendEl.replaceChildren();
+      const mk = (txt: string, col: string, gap = '0 6px') => { const s = document.createElement('span'); s.style.color = col; s.style.margin = gap; s.textContent = txt; return s; };
+      legendEl.appendChild(mk(dt, '#a3a3a3', '0 8px 0 0'));
       if (eq) {
         const up = eq.value! >= initialCapital;
         const c = up ? GREEN : RED;
-        html += `<span style="color:#a3a3a3">權益</span><span style="color:${c};margin:0 6px">${fmt(eq.value!)}</span>`;
+        legendEl.appendChild(mk('權益', '#a3a3a3'));
+        legendEl.appendChild(mk(fmt(eq.value!), c));
       }
       if (bh) {
-        html += `<span style="color:#a3a3a3">B&amp;H</span><span style="color:${BH_GRAY};margin:0 6px">${fmt(bh.value!)}</span>`;
+        legendEl.appendChild(mk('B&H', '#a3a3a3'));
+        legendEl.appendChild(mk(fmt(bh.value!), BH_GRAY));
       }
       if (hist) {
         const c = hist.value! >= 0 ? GREEN : RED;
-        html += `<span style="color:#a3a3a3">單筆</span><span style="color:${c};margin:0 6px">${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}</span>`;
+        legendEl.appendChild(mk('單筆', '#a3a3a3'));
+        legendEl.appendChild(mk(`${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}`, c));
       }
       if (showSpread && spreadLine) {
         const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
         if (sp) {
           const c = sp.value! >= 0 ? GREEN : RED;
-          html += `<span style="color:#a3a3a3">差值</span><span style="color:${c};margin:0 6px">${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}</span>`;
+          legendEl.appendChild(mk('差值', '#a3a3a3'));
+          legendEl.appendChild(mk(`${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}`, c));
         }
       }
-      legendEl.style.display = 'flex';
-      legendEl.innerHTML = html;
     };
     chart.subscribeCrosshairMove(renderLegend);
 

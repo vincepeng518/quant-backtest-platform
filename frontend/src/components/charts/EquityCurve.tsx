@@ -88,7 +88,10 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
       const t = param.time as number;
       const dt = new Date(t * 1000).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
       legendEl.style.display = 'flex';
-      legendEl.innerHTML = `<span style="color:#a3a3a3;margin-right:8px">${dt}</span><span style="color:#3b82f6">權益 ${fmt(sd?.value ?? NaN)}</span>`;
+      legendEl.replaceChildren();
+      const mk = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.textContent = txt; return s; };
+      legendEl.appendChild(mk(dt, '#a3a3a3'));
+      legendEl.appendChild(mk(`權益 ${fmt(sd?.value ?? NaN)}`, '#3b82f6'));
     };
     chart.subscribeCrosshairMove(renderLegend);
 

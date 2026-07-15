@@ -25,3 +25,11 @@ frontend/package-lock.json
 backtests/*.json
 __pycache__/
 *.pyc
+
+# monitoring runtime artifacts
+monitoring/*.log
+monitoring/shadow.db-*
+monitoring/shadow.db
+
+# selftest db
+monitoring/shadow.db.selftest

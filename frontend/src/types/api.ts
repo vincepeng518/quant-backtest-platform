@@ -223,6 +223,19 @@ export interface AdminOverview {
   config: SiteConfig;
 }
 
+export interface SiteConfigUpdate {
+  default_timeframe?: string | null;
+  default_symbol?: string | null;
+  default_source?: string | null;
+  default_initial_capital?: number | null;
+  default_commission?: number | null;
+  default_slippage?: number | null;
+  max_position_pct?: number | null;
+  risk_guard_daily_loss_pct?: number | null;
+  risk_guard_max_drawdown_pct?: number | null;
+  maintenance_mode?: boolean | null;
+}
+
 export interface ResearchResult {
   task_id: string;
   status: string;
