@@ -5,11 +5,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Cache-bust: force re-COPY of all source on every deploy (Railway build cache
-# was reusing a stale data_service.py layer). Value bumped per deploy.
-ENV RAILWAY_REBUILD_NONCE=20260715-03
-
 COPY . .
+
+# Cache-bust: this RUN depends on the COPY above and changes every deploy,
+# forcing Docker to re-evaluate (and re-COPY) the source layer on Railway.
+RUN echo "railway-deploy-20260715T03" > /app/.deploy_nonce
 
 EXPOSE 8000
 
