@@ -7,6 +7,7 @@ import {
   AnalysisResult,
   OptimizeResult,
   MonitorStats,
+  ResearchResult,
 } from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -96,5 +97,10 @@ export const api = {
     request<{ applied: boolean }>('/optimize/best-params', {
       method: 'POST',
     }),
+
+  runResearch: (cfg: Record<string, any>) =>
+    request<{ task_id: string }>('/research/run', { method: 'POST', body: JSON.stringify(cfg) }),
+  getResearchResults: (id: string) =>
+    request<ResearchResult>(`/research/results/${id}`),
 };
 export default api;
