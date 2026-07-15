@@ -35,7 +35,13 @@ async def app_exception_handler(request: Request, exc: AppException):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    import os
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "railway_git_commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "none"),
+        "data_fix_present": os.path.exists("/app/data/providers/test_data.py"),
+    }
 
 
 @app.get("/")
