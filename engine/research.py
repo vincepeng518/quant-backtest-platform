@@ -86,3 +86,55 @@ def market_profile(df: pd.DataFrame, benchmark: Optional[pd.DataFrame] = None) -
         "correlation": corr,
         "seasonality": seasonality,
     }
+
+
+from strategies.base import StrategyBase, Bar
+
+
+def _row_to_bar(row) -> Bar:
+    return Bar(
+        timestamp=row["timestamp"],
+        open=float(row["open"]), high=float(row["high"]),
+        low=float(row["low"]), close=float(row["close"]),
+        volume=float(row["volume"]),
+    )
+
+
+def signal_profile(df: pd.DataFrame, strategy_cls: type[StrategyBase], params: dict) -> dict[str, Any]:
+    strat = strategy_cls()
+    strat.init(params)
+    signals: list[str] = []
+    entry_prices: list[float] = []
+    fwd_rets: list[float] = []
+    closes = df["close"].astype(float).values
+    for i, (_, row) in enumerate(df.iterrows()):
+        sig = strat.next(_row_to_bar(row))
+        if sig is None:
+            continue
+        if sig.action in ("buy", "sell", "close_buy", "close_sell"):
+            signals.append(sig.action)
+            entry_prices.append(float(row["close"]))
+            # forward return N=5 bars
+            if i + 5 < len(closes):
+                fwd_rets.append(float(np.log(closes[i + 5] / closes[i])))
+    counts: dict[str, int] = {}
+    for s in signals:
+        counts[s] = counts.get(s, 0) + 1
+    longs = sum(v for k, v in counts.items() if "buy" in k)
+    shorts = sum(v for k, v in counts.items() if "sell" in k)
+    total = longs + shorts
+    lsm = (longs / total) if total else 0.0
+    # entry timing: price percentile within rolling 50-bar window
+    timing = []
+    roll = df["close"].rolling(50)
+    for p in entry_prices:
+        lo, hi = roll.min().iloc[-1], roll.max().iloc[-1]
+        timing.append(float((p - lo) / (hi - lo)) if hi > lo else 0.5)
+    return {
+        "signal_counts": counts,
+        "long_short_ratio": lsm,
+        "entry_timing": {"mean_percentile": float(np.mean(timing)) if timing else 0.5,
+                          "samples": len(timing)},
+        "signal_forward_return": {"mean": float(np.mean(fwd_rets)) if fwd_rets else 0.0,
+                                   "n": len(fwd_rets)},
+    }
