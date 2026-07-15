@@ -151,3 +151,20 @@ export interface MonitorStats {
     hypothesis: { up_win_rate: number; down_win_rate: number; note: string };
   };
 }
+
+export interface ResearchResult {
+  task_id: string;
+  status: string;
+  summary: {
+    returns_stats?: Record<string, number>;
+    autocorrelation?: Record<string, number>;
+    hurst?: number;
+    vol_regime?: { windows: Array<{ i: number; vol: number; regime: string }>; q_high: number; q_low: number };
+    correlation?: number | null;
+    seasonality?: Record<string, number>;
+    signal_counts?: Record<string, number>;
+    long_short_ratio?: number;
+    entry_timing?: { mean_percentile: number; samples: number };
+    signal_forward_return?: { mean: number; n: number };
+  };
+}
