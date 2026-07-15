@@ -119,6 +119,9 @@ class TradeRecord(BaseModel):
     pnl_pct: float | None = None
     funding_paid: float | None = None
     liquidated: bool = False
+    direction: str = "long"
+    exit_reason: str = ""
+    holding_bars: int = 0
 
 
 class MetricsOut(BaseModel):
@@ -132,6 +135,9 @@ class MetricsOut(BaseModel):
     avg_trade: float = 0.0
     avg_winner: float = 0.0
     avg_loser: float = 0.0
+    net_profit: float = 0.0
+    largest_loss: float = 0.0
+    largest_loss_pct: float = 0.0
 
 
 class BacktestResultOut(BaseModel):

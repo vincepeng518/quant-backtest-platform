@@ -1,11 +1,12 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useDataStore } from '@/stores/useDataStore';
 import { useBacktestStore } from '@/stores/useBacktestStore';
 import api from '@/lib/api';
 import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
+import { TradeMarker } from '@/types/chart';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageShell } from '@/components/layout/PageShell';
@@ -18,6 +19,15 @@ import { PriceChart } from '@/components/charts/PriceChart';
 import { EquityCurve } from '@/components/charts/EquityCurve';
 import { DrawdownChart } from '@/components/charts/DrawdownChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
+
+// Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
+// Robust to both backend shapes so the chart markers survive format changes.
+const toUnixSec = (v: any): number => {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  const ms = Date.parse(v);
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
+};
 
 // Local view of the backend param spec (backend sends {type, min, max, step}
 // for ranges and {type, values} for choices). The shared StrategyParam type
@@ -155,6 +165,68 @@ function BacktestView() {
 
   const selectedTemplate = templates.find((t) => t.id === selectedStrategy);
   const params = (selectedTemplate?.params as unknown as ParamSpec[]) || [];
+
+  // ── TradingView-style entry/exit markers (built from results.trades) ──
+  const markers: TradeMarker[] = useMemo(() => {
+    if (!results?.trades) return [];
+    const out: TradeMarker[] = [];
+    for (const t of results.trades as any[]) {
+      const dir: string = t.direction || 'long';
+      const isShort = dir === 'short' || dir === 'sell';
+      const pnl = Number(t.pnl) || 0;
+      // Entry marker: below the bar, arrow for direction, 多/空 label
+      out.push({
+        time: toUnixSec(t.entry_time),
+        position: 'belowBar',
+        shape: isShort ? 'arrowDown' : 'arrowUp',
+        color: isShort ? '#ef4444' : '#10b981',
+        text: isShort ? '空' : '多',
+      });
+      // Exit marker: above the bar, circle, PnL% label colored by outcome
+      out.push({
+        time: toUnixSec(t.exit_time),
+        position: 'aboveBar',
+        shape: 'circle',
+        color: pnl >= 0 ? '#10b981' : '#ef4444',
+        text: `${((Number(t.pnl_pct) || 0) * 100).toFixed(1)}%`,
+      });
+    }
+    return out;
+  }, [results]);
+
+  // ── Trade Blotter sort state ──
+  type SortKey = 'entry_time' | 'pnl';
+  const [sortKey, setSortKey] = useState<SortKey>('entry_time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const sortedTrades = useMemo(() => {
+    const trades = [...((results?.trades as any[]) || [])];
+    trades.sort((a: any, b: any) => {
+      let av: number;
+      let bv: number;
+      if (sortKey === 'pnl') {
+        av = Number(a.pnl) || 0;
+        bv = Number(b.pnl) || 0;
+      } else {
+        av = toUnixSec(a.entry_time);
+        bv = toUnixSec(b.entry_time);
+      }
+      return sortDir === 'asc' ? av - bv : bv - av;
+    });
+    return trades;
+  }, [results, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortIndicator = (key: SortKey) =>
+    sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : '';
 
   const handleRun = () => {
     const paramsConfig: Record<string, any> = {};
@@ -384,7 +456,7 @@ function BacktestView() {
               Price Action
             </h3>
           </div>
-          <PriceChart data={ohlcv} theme="dark" />
+          <PriceChart data={ohlcv} markers={markers} theme="dark" />
         </Card>
       )}
 
@@ -407,7 +479,7 @@ function BacktestView() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
             <MetricsCard
               label="Total Return"
               value={`${results.metrics.total_return_pct.toFixed(2)}%`}
@@ -424,6 +496,30 @@ function BacktestView() {
               value={`${(results.metrics.win_rate * 100).toFixed(1)}%`}
             />
             <MetricsCard label="Profit Factor" value={results.metrics.profit_factor.toFixed(2)} />
+            <MetricsCard
+              label="Net Profit"
+              value={`$${results.metrics.net_profit != null ? results.metrics.net_profit.toFixed(2) : '—'}`}
+              color={
+                results.metrics.net_profit != null
+                  ? results.metrics.net_profit >= 0
+                    ? 'positive'
+                    : 'negative'
+                  : 'neutral'
+              }
+            />
+            <MetricsCard
+              label="Max Trade Loss"
+              value={
+                results.metrics.largest_loss != null
+                  ? `${results.metrics.largest_loss.toFixed(2)} (${
+                      results.metrics.largest_loss_pct != null
+                        ? results.metrics.largest_loss_pct.toFixed(2)
+                        : '0.00'
+                    }%)`
+                  : '—'
+              }
+              color="negative"
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -462,22 +558,40 @@ function BacktestView() {
                   <thead>
                     <tr className="text-left text-xs uppercase text-textSecondary border-t border-border/10">
                       <th className="px-6 py-3">#</th>
-                      <th className="px-6 py-3">Entry Time</th>
+                      <th
+                        className="px-6 py-3 cursor-pointer select-none hover:text-text"
+                        onClick={() => toggleSort('entry_time')}
+                      >
+                        Entry Time {sortIndicator('entry_time')}
+                      </th>
+                      <th className="px-6 py-3">Side</th>
                       <th className="px-6 py-3 text-right">Entry</th>
                       <th className="px-6 py-3 text-right">Exit</th>
                       <th className="px-6 py-3 text-right">Size</th>
-                      <th className="px-6 py-3 text-right">PnL</th>
+                      <th
+                        className="px-6 py-3 text-right cursor-pointer select-none hover:text-text"
+                        onClick={() => toggleSort('pnl')}
+                      >
+                        PnL {sortIndicator('pnl')}
+                      </th>
                       <th className="px-6 py-3 text-right">PnL %</th>
+                      <th className="px-6 py-3">Exit Reason</th>
+                      <th className="px-6 py-3 text-right">Bars</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {results.trades.map((t: any, i: number) => (
+                    {sortedTrades.map((t: any, i: number) => (
                       <tr
                         key={i}
                         className="border-t border-border/10 hover:bg-white/[0.02] transition-colors"
                       >
                         <td className="px-6 py-3 text-textSecondary">{i + 1}</td>
                         <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>
+                        <td className={`px-6 py-3 font-semibold ${
+                          t.direction === 'short' ? 'text-danger' : 'text-success'
+                        }`}>
+                          {t.direction === 'short' ? '空' : '多'}
+                        </td>
                         <td className="px-6 py-3 text-right text-text">
                           {Number(t.entry_price).toFixed(2)}
                         </td>
@@ -500,6 +614,10 @@ function BacktestView() {
                           }`}
                         >
                           {t.pnl_pct != null ? `${(Number(t.pnl_pct) * 100).toFixed(2)}%` : '—'}
+                        </td>
+                        <td className="px-6 py-3 text-textSecondary">{t.exit_reason || '—'}</td>
+                        <td className="px-6 py-3 text-right text-textSecondary">
+                          {t.holding_bars != null ? Number(t.holding_bars).toFixed(0) : '—'}
                         </td>
                       </tr>
                     ))}

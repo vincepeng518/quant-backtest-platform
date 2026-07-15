@@ -135,6 +135,9 @@ class BacktestService:
                 "avg_trade": r.avg_trade,
                 "avg_winner": r.avg_winner,
                 "avg_loser": r.avg_loser,
+                "net_profit": float(r.total_pnl),
+                "largest_loss": r.largest_loss,
+                "largest_loss_pct": r.largest_loss_pct,
             },
             "equity_curve": eq_pts,
             "buy_hold_equity": bh_pts,
@@ -149,6 +152,9 @@ class BacktestService:
                     "pnl_pct": t.pnl_pct,
                     "funding_paid": t.funding_paid,
                     "liquidated": t.liquidated,
+                    "direction": t.direction,
+                    "exit_reason": t.exit_reason,
+                    "holding_bars": t.holding_bars,
                 }
                 for t in r.trades
             ],
