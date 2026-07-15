@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/Input';
 import { PerformancePanel } from '@/components/backtest/PerformancePanel';
 import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
-import { PriceChart } from '@/components/charts/PriceChart';
+import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
@@ -546,7 +546,14 @@ function BacktestView() {
               Price Action
             </h3>
           </div>
-          <PriceChart data={ohlcv} markers={markers} theme="dark" />
+          <TvBacktestChart
+            data={ohlcv}
+            markers={markers}
+            equityData={results?.equity_curve ?? []}
+            buyHoldData={results?.buy_hold_equity ?? []}
+            emaLen={200}
+            theme="dark"
+          />
         </Card>
       )}
 
