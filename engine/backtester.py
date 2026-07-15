@@ -297,7 +297,8 @@ class Backtester:
             total_return_pct=(final_equity - self.initial_capital) / self.initial_capital * 100,
             total_return=total_pnl,
             max_drawdown=max(dd),
-            max_drawdown_pct=max(dd),
+            # TV "Max Drawdown %": drawdown as % of the equity peak it was measured from.
+            max_drawdown_pct=(max(dd) / self.initial_capital * 100) if self.initial_capital else 0.0,
             sharpe_ratio=self._sharpe(returns),
             sortino_ratio=self._sortino(returns),
             profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,

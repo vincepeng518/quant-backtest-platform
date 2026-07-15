@@ -126,9 +126,12 @@ class BacktestService:
             "status": "completed",
             "metrics": {
                 "total_trades": r.total_trades,
+                "winning_trades": r.winning_trades,
+                "losing_trades": r.losing_trades,
                 "win_rate": r.win_rate,
                 "total_return_pct": r.total_return_pct,
                 "max_drawdown": r.max_drawdown,
+                "max_drawdown_pct": r.max_drawdown_pct,
                 "sharpe_ratio": r.sharpe_ratio,
                 "sortino_ratio": r.sortino_ratio,
                 "profit_factor": r.profit_factor,
