@@ -14,10 +14,8 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { SymbolSearch } from '@/components/ui/SymbolSearch';
 import { Input } from '@/components/ui/Input';
-import { MetricsCard } from '@/components/backtest/MetricsCard';
+import { PerformancePanel } from '@/components/backtest/PerformancePanel';
 import { PriceChart } from '@/components/charts/PriceChart';
-import { EquityCurve } from '@/components/charts/EquityCurve';
-import { DrawdownChart } from '@/components/charts/DrawdownChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
@@ -479,68 +477,21 @@ function BacktestView() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-            <MetricsCard
-              label="Total Return"
-              value={`${results.metrics.total_return_pct.toFixed(2)}%`}
-              color={results.metrics.total_return >= 0 ? 'positive' : 'negative'}
+          <Card className="p-0 overflow-hidden">
+            <div className="p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                績效面板
+              </h3>
+            </div>
+            <PerformancePanel
+              metrics={results.metrics}
+              equity={results.equity_curve}
+              buyHold={results.buy_hold_equity}
+              trades={results.trades}
+              positionStatus={results.position_status}
+              initialCapital={Number(results.config?.initial_capital ?? 100000)}
             />
-            <MetricsCard label="Sharpe Ratio" value={results.metrics.sharpe_ratio.toFixed(2)} />
-            <MetricsCard
-              label="Max Drawdown"
-              value={`${(results.metrics.max_drawdown * 100).toFixed(2)}%`}
-              color="negative"
-            />
-            <MetricsCard
-              label="Win Rate"
-              value={`${(results.metrics.win_rate * 100).toFixed(1)}%`}
-            />
-            <MetricsCard label="Profit Factor" value={results.metrics.profit_factor.toFixed(2)} />
-            <MetricsCard
-              label="Net Profit"
-              value={`$${results.metrics.net_profit != null ? results.metrics.net_profit.toFixed(2) : '—'}`}
-              color={
-                results.metrics.net_profit != null
-                  ? results.metrics.net_profit >= 0
-                    ? 'positive'
-                    : 'negative'
-                  : 'neutral'
-              }
-            />
-            <MetricsCard
-              label="Max Trade Loss"
-              value={
-                results.metrics.largest_loss != null
-                  ? `${results.metrics.largest_loss.toFixed(2)} (${
-                      results.metrics.largest_loss_pct != null
-                        ? results.metrics.largest_loss_pct.toFixed(2)
-                        : '0.00'
-                    }%)`
-                  : '—'
-              }
-              color="negative"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card className="p-0 overflow-hidden">
-              <div className="p-6 pb-0">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  Equity Growth Curve
-                </h3>
-              </div>
-              <EquityCurve data={results.equity_curve} buyHoldData={results.buy_hold_equity} />
-            </Card>
-
-            <Card className="p-0 overflow-hidden">
-              <div className="p-6 pb-0">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  Drawdown Profile
-                </h3>
-              </div>
-              <DrawdownChart data={results.equity_curve} />
-            </Card>
-          </div>
+          </Card>
 
           {/* Trade blotter */}
           {results.trades && results.trades.length > 0 && (

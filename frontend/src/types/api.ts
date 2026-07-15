@@ -65,6 +65,11 @@ export interface EquityPoint {
   drawdown: number;
 }
 
+export interface PositionStatusPoint {
+  time: number | string;
+  state: 'long' | 'short' | 'flat' | string;
+}
+
 export interface BacktestResult {
   task_id: string;
   config: BacktestConfig;
@@ -72,6 +77,7 @@ export interface BacktestResult {
   equity_curve: EquityPoint[];
   buy_hold_equity: EquityPoint[];
   trades: TradeRecord[];
+  position_status?: PositionStatusPoint[];
 }
 
 export interface StrategyParam {
