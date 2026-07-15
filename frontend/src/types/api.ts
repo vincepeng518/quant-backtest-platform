@@ -56,6 +56,10 @@ export interface PerformanceMetrics {
   net_profit?: number;
   largest_loss?: number;
   largest_loss_pct?: number;
+  largest_win?: number;
+  win_loss_ratio?: number;
+  annual_return_pct?: number;
+  trade_freq?: number;
 }
 
 export interface EquityPoint {

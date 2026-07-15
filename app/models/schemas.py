@@ -141,6 +141,13 @@ class MetricsOut(BaseModel):
     net_profit: float = 0.0
     largest_loss: float = 0.0
     largest_loss_pct: float = 0.0
+    largest_win: float = 0.0
+    win_loss_ratio: float = 0.0
+    expectancy: float = 0.0
+    annual_return_pct: float = 0.0
+    calmar_ratio: float = 0.0
+    avg_holding_bars: float = 0.0
+    trade_freq: float = 0.0
 
 
 class BacktestResultOut(BaseModel):

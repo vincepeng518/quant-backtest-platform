@@ -90,6 +90,14 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const winningTrades = Number(m.winning_trades ?? 0);
   const totalTrades = Number(m.total_trades ?? 0);
   const profitFactor = Number(m.profit_factor ?? 0);
+  const annualReturnPct = Number(m.annual_return_pct ?? 0);
+  const calmar = Number(m.calmar_ratio ?? 0);
+  const largestWin = Number(m.largest_win ?? 0);
+  const largestLoss = Number(m.largest_loss ?? 0);
+  const winLossRatio = Number(m.win_loss_ratio ?? 0);
+  const expectancy = Number(m.expectancy ?? 0);
+  const avgHoldingBars = Number(m.avg_holding_bars ?? 0);
+  const tradeFreq = Number(m.trade_freq ?? 0);
 
   // ── Status bar segments (defensive: only when position_status exists) ──
   const statusSegments = useMemo(() => {
@@ -126,7 +134,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
 
   return (
     <div className="bg-surface border-t border-border/10">
-      {/* 4 KPI blocks */}
+      {/* 8 KPI blocks */}
       <div className="grid grid-cols-2 sm:grid-cols-4 border-border/10">
         <KpiBlock
           label="總損益"
@@ -149,6 +157,51 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         <KpiBlock
           label="獲利因子"
           value={`${profitFactor.toFixed(2)}`}
+          color="neutral"
+        />
+        <KpiBlock
+          label="年化回報"
+          value={`${annualReturnPct >= 0 ? '+' : ''}${annualReturnPct.toFixed(2)}%`}
+          color={annualReturnPct >= 0 ? 'pos' : 'neg'}
+        />
+        <KpiBlock
+          label="卡瑪比率"
+          value={`${calmar.toFixed(2)}`}
+          sub="年化/最大回撤"
+          color="neutral"
+        />
+        <KpiBlock
+          label="最大單筆盈利"
+          value={`${largestWin >= 0 ? '+' : ''}${largestWin.toFixed(2)}`}
+          color="pos"
+        />
+        <KpiBlock
+          label="最大單筆虧損"
+          value={`${largestLoss.toFixed(2)}`}
+          color="neg"
+        />
+        <KpiBlock
+          label="盈虧比"
+          value={`${winLossRatio.toFixed(2)}`}
+          sub="均盈/均虧"
+          color="neutral"
+        />
+        <KpiBlock
+          label="期望值"
+          value={`${expectancy >= 0 ? '+' : ''}${expectancy.toFixed(2)}`}
+          sub="每筆期望 PnL"
+          color={expectancy >= 0 ? 'pos' : 'neg'}
+        />
+        <KpiBlock
+          label="平均持倉"
+          value={`${avgHoldingBars.toFixed(1)}`}
+          sub="根/K線"
+          color="neutral"
+        />
+        <KpiBlock
+          label="交易頻率"
+          value={`${tradeFreq.toFixed(2)}`}
+          sub="筆/日"
           color="neutral"
         />
       </div>
