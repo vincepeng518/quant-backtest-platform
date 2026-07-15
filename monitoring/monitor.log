@@ -6602,3 +6602,269 @@ sqlite3.DatabaseError: database disk image is malformed
 2026-07-15 13:15:00,956 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
 2026-07-15 13:15:01,882 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
 2026-07-15 13:15:01,882 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:15:31,237 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:15:31,237 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:15:37,828 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:15:37,828 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:15:37,829 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:15:37,829 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:16:01,360 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:16:01,360 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:16:30,866 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:16:30,866 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:16:38,638 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:16:38,638 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:16:38,639 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:16:38,639 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:17:01,105 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:17:01,105 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:17:39,479 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:17:39,479 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:17:39,480 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:17:39,480 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:18:31,493 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:18:31,493 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:18:39,793 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:18:39,793 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:18:39,793 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:18:39,793 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:19:00,929 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:19:00,929 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:19:30,790 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:19:30,790 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:19:40,594 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:19:40,594 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:19:40,594 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:19:40,594 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:20:00,669 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:20:00,669 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:20:01,455 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:20:01,455 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:20:31,577 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:20:31,577 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:20:41,426 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:20:41,426 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:20:41,427 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:20:41,427 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:21:00,973 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:21:00,973 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:21:31,429 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:21:31,429 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:21:41,732 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:21:41,732 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:21:41,733 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:21:41,733 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:22:01,441 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:22:01,441 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:22:42,047 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:22:42,047 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:22:42,047 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:22:42,047 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:23:00,830 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:23:00,830 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:23:31,156 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:23:31,156 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:23:42,365 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:23:42,365 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:23:42,366 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:23:42,366 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:24:01,342 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:24:01,342 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:24:31,191 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:24:31,191 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:24:42,695 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:24:42,695 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:24:42,696 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:24:42,696 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:25:00,410 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:25:00,410 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:25:01,409 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:25:01,409 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:25:30,916 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:25:30,916 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:25:43,004 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:25:43,004 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:25:43,004 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:25:43,004 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:26:01,425 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:26:01,425 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:26:31,188 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:26:31,188 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:26:43,833 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:26:43,833 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:26:43,834 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:26:43,834 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:27:01,103 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:27:01,103 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:27:31,172 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:27:31,172 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:27:44,647 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:27:44,647 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:27:44,648 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:27:44,648 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:28:01,287 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:28:01,287 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:28:31,652 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:28:31,652 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:28:45,459 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:28:45,459 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:28:45,460 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:28:45,460 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:29:31,262 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:29:31,262 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:29:46,280 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:29:46,280 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:29:46,280 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:29:46,280 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:30:00,229 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:30:00,229 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:30:01,251 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:30:01,251 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:30:31,693 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:30:31,693 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:30:47,084 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:30:47,084 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:30:47,084 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:30:47,084 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:31:01,418 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:31:01,418 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:31:30,746 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:31:30,746 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:31:47,388 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:31:47,388 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:31:47,389 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:31:47,389 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:32:01,486 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:32:01,486 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:32:31,548 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:32:31,548 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:32:48,213 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:32:48,213 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:32:48,214 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:32:48,214 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:33:01,448 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:33:01,448 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:33:30,951 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:33:30,951 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:33:49,026 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:33:49,026 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:33:49,027 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:33:49,027 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:34:01,651 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:34:01,651 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:34:49,365 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:34:49,365 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:34:49,366 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:34:49,366 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:35:00,388 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:35:00,388 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:35:01,177 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:35:01,177 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:35:49,676 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:35:49,676 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:35:49,677 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:35:49,677 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:36:31,205 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:36:31,205 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:36:49,994 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:36:49,994 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:36:49,995 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:36:49,995 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:37:01,073 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:37:01,073 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:37:31,659 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:37:31,659 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:37:50,309 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:37:50,309 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:37:50,309 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:37:50,309 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:38:01,267 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:38:01,267 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:38:30,999 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:38:30,999 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:38:31,004 INFO [LIVE] switched market -> 773074
+2026-07-15 13:38:31,004 INFO [LIVE] switched market -> 773074
+2026-07-15 13:38:31,157 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:38:31,157 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:38:50,644 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:38:50,644 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:38:50,645 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:38:50,645 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:39:01,256 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:39:01,256 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:39:31,600 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:39:31,600 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:39:50,964 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:39:50,964 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:39:50,965 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:39:50,965 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:40:00,573 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:40:00,573 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:40:01,437 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:40:01,437 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:40:31,243 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:40:31,243 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:40:51,290 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:40:51,290 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:40:51,291 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:40:51,291 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:41:00,759 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:41:00,759 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:41:30,995 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:41:30,995 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:41:51,617 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:41:51,617 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:41:51,618 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:41:51,618 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:42:01,869 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:42:01,869 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:42:30,981 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:42:30,981 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:42:52,413 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:42:52,413 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:42:52,413 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:42:52,413 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:43:00,988 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:43:00,988 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:43:31,541 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:43:31,541 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:43:52,722 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:43:52,722 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:43:52,723 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:43:52,723 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:44:01,466 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:44:01,466 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:44:31,127 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:44:31,127 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:44:53,570 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:44:53,570 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:44:53,571 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:44:53,571 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:45:00,273 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:45:00,273 INFO HTTP Request: GET https://api.predict.fun/v1/markets?first=80&marketVariant=CRYPTO_UP_DOWN&status=OPEN "HTTP/1.1 200 OK"
+2026-07-15 13:45:01,229 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:45:01,229 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:45:30,942 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:45:30,942 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:46:08,786 WARNING [PUSH] loop error: 
+2026-07-15 13:46:08,786 WARNING [PUSH] loop error: 
+2026-07-15 13:46:31,125 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:46:31,125 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:47:01,682 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:47:01,682 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:47:30,975 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:47:30,975 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:47:39,597 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:47:39,597 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:47:39,598 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:47:39,598 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:48:01,073 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:48:01,073 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:48:31,873 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:48:31,873 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:48:39,931 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:48:39,931 INFO HTTP Request: POST https://affectionate-alignment-production-6d7e.up.railway.app/api/monitoring/push "HTTP/1.1 200 OK"
+2026-07-15 13:48:39,932 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:48:39,932 INFO [PUSH] monitoring stats pushed (resolved=0)
+2026-07-15 13:49:01,255 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"
+2026-07-15 13:49:01,255 INFO HTTP Request: POST https://graphql.predict.fun/graphql "HTTP/1.1 200 OK"

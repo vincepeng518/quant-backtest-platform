@@ -53,6 +53,8 @@ function OptimizeView() {
 
   const searchParams = useSearchParams();
   const [strategyOptions, setStrategyOptions] = useState<{ label: string; value: string }[]>(FALLBACK_STRATEGIES);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [userStrategies, setUserStrategies] = useState<any[]>([]);
 
   // P8: dynamically list builtin templates + user-uploaded strategies
   useEffect(() => {
@@ -62,15 +64,26 @@ function OptimizeView() {
         const user = (u as any[]).map((s) => ({ label: `我的：${s.name}`, value: `user_${s.id}` }));
         const merged = [...user, ...builtin.filter((b) => !user.some((x) => x.value === b.value))];
         setStrategyOptions(merged);
+        setTemplates(t as any[]);
+        setUserStrategies(u as any[]);
       })
       .catch(() => {/* keep fallback */});
   }, []);
+
+  // Resolve a strategy's template params (for param-space rebuild on switch).
+  const paramsFor = (id: string): { name: string; type?: string; min?: number; max?: number; step?: number }[] => {
+    const tpl = templates.find((t) => t.id === id);
+    if (tpl && Array.isArray(tpl.params)) return tpl.params;
+    const us = userStrategies.find((s) => `user_${s.id}` === id);
+    if (us && Array.isArray((us as any).params)) return (us as any).params;
+    return [];
+  };
 
   // P8: preselect from ?strategy= (e.g. user_xxxx) coming from /strategies
   useEffect(() => {
     const pref = searchParams.get('strategy');
     if (pref && strategyOptions.some((o) => o.value === pref)) {
-      setStrategy(pref);
+      setStrategy(pref, paramsFor(pref));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategyOptions]);
@@ -83,7 +96,7 @@ function OptimizeView() {
     >
       {/* Config: strategy + market */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value)} options={strategyOptions} />
+        <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value, paramsFor(e.target.value))} options={strategyOptions} />
         <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={SYMBOLS.map((s) => ({ label: s, value: s }))} />
         <Select label="Timeframe" value={timeframe} onChange={(e) => setMarket({ symbol, timeframe: e.target.value, source })} options={TIMEFRAMES.map((t) => ({ label: t, value: t }))} />
         <Select label="Data Source" value={source} onChange={(e) => setMarket({ symbol, timeframe, source: e.target.value })} options={SOURCES} />
