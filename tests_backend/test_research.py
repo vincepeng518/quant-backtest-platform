@@ -49,3 +49,33 @@ def test_signal_profile_keys():
     # if the strategy emits no buy/sell signals the profile is meaningless -> fail loudly
     emitted = sum(v for k, v in r["signal_counts"].items() if k in ("buy", "sell"))
     assert emitted > 0, "MovingAverageCrossStrategy should emit entry signals on this data"
+
+
+def test_research_run_and_results():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+    body = {
+        "type": "market",
+        "symbol": "BTC/USDT",
+        "timeframe": "1h",
+        "start_date": "2024-05-01",
+        "end_date": "2024-06-01",
+    }
+    r = client.post("/api/research/run", json=body)
+    assert r.status_code == 202, r.text
+    tid = r.json()["task_id"]
+    # poll until terminal state (completed or error — data may be unavailable offline)
+    out = None
+    for _ in range(30):
+        res = client.get(f"/api/research/results/{tid}")
+        out = res.json()
+        if out["status"] in ("completed", "error"):
+            break
+        import time
+
+        time.sleep(0.5)
+    assert out is not None, "results endpoint never returned"
+    assert out["status"] in ("completed", "error"), out
+    assert "status" in out
