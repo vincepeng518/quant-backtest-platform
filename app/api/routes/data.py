@@ -33,4 +33,6 @@ async def get_ohlcv(symbol: str, timeframe: str = "1h", source: str = "bingx", s
     out = df.copy()
     if str(out["timestamp"].dtype).startswith("datetime"):
         out["timestamp"] = _to_unix_ms(out["timestamp"])
+    elif out["timestamp"].dtype == object:  # strings / mixed -> parse to datetime first
+        out["timestamp"] = _to_unix_ms(pd.to_datetime(out["timestamp"]))
     return out.to_dict(orient="records")
