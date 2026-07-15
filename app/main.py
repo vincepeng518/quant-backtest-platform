@@ -36,11 +36,13 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.get("/health")
 async def health():
     import os
+    td = "/app/data/providers/test_data.py"
+    size = os.path.getsize(td) if os.path.exists(td) else -1
     return {
         "status": "ok",
         "version": "1.0.0",
         "railway_git_commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "none"),
-        "data_fix_present": os.path.exists("/app/data/providers/test_data.py"),
+        "test_data_bytes": size,
     }
 
 
