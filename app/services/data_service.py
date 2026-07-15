@@ -271,7 +271,8 @@ class DataService:
                     "description": COMMODITY_MAP[bingx_sym],
                 })
             else:
-                out.append({"symbol": s, "market": "crypto", "exchange": "bingx"})
+                base = s.split("/")[0]
+                out.append({"symbol": s, "market": "crypto", "exchange": "bingx", "name": base})
 
         # 兜底: load_markets 未返回 NCCO 商品对时, 直接注入已知列表 (BingX 商品对固定小集合)
         existing = {x["symbol"] for x in out}
