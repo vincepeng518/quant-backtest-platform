@@ -45,6 +45,15 @@ class DataService:
         if cached is not None:
             return pd.DataFrame(cached)
 
+        # test/csv 源由 generate_test_data 直接按 timeframe 生成对应周期数据，
+        # 不需要走 custom_minutes 重采样分支（避免 15m/30m 被 1h 数据冒充）。
+        if source in ("test", "csv"):
+            base = await self._fetch_base(symbol, start_date, end_date, source, timeframe)
+            if base is None or len(base) == 0:
+                return pd.DataFrame()
+            cache.set(cache_key, base.to_dict(orient="records"), ttl=600)
+            return base
+
         # 自定义分钟级周期（如 45m 非 Binance 原生间隔）：从 1m 基础数据重采样
         minutes = self._custom_minutes(timeframe)
         if minutes is not None:
@@ -103,7 +112,7 @@ class DataService:
                 return n
         return None
 
-    async def _fetch_base(self, symbol: str, start_date: str, end_date: str, source: str) -> Optional[pd.DataFrame]:
+    async def _fetch_base(self, symbol: str, start_date: str, end_date: str, source: str, timeframe: str = "1h") -> Optional[pd.DataFrame]:
         """Fetch 1m base OHLCV (used as the resample source for custom intervals)."""
         # Route tradfi/test through their normal paths; resampling only applies to crypto.
         if self._is_tradfi(symbol):
@@ -112,7 +121,7 @@ class DataService:
             data = self.csv_loader.load(symbol)
             if data is None or len(data) < 5000:
                 from data.providers.test_data import generate_test_data
-                gen = generate_test_data(symbol.replace("/", "_"))
+                gen = generate_test_data(symbol.replace("/", "_"), timeframe=timeframe)
                 if gen is not None and len(gen) > 0:
                     data = gen
             return data
