@@ -58,9 +58,15 @@ class BacktestResult:
     calmar_ratio: float = 0.0
     largest_loss: float = 0.0
     largest_loss_pct: float = 0.0
+    largest_win: float = 0.0
     avg_trade: float = 0.0
     avg_winner: float = 0.0
     avg_loser: float = 0.0
+    win_loss_ratio: float = 0.0  # avg_win / |avg_loss| (payoff ratio)
+    expectancy: float = 0.0  # per-trade expected PnL
+    annual_return_pct: float = 0.0  # CAGR
+    avg_holding_bars: float = 0.0
+    trade_freq: float = 0.0  # trades per day
     trades: list[Trade] = field(default_factory=list)
     equity_curve: list[float] = field(default_factory=list)
     drawdown_curve: list[float] = field(default_factory=list)
@@ -279,12 +285,44 @@ class Backtester:
 
         losses = [t.pnl for t in losers]
         largest_loss = min(losses) if losses else 0.0
+        # TV "Largest Losing Trade": single biggest loss (absolute pnl).
         largest_loss_pct = min(
             [t.pnl_pct for t in losers if t.pnl_pct is not None], default=0.0
         )
+        wins = [t.pnl for t in winners if t.pnl is not None]
+        largest_win = max(wins) if wins else 0.0
 
         returns = np.diff(equity) / np.array(equity[:-1])
         returns = returns[~np.isnan(returns) & ~np.isinf(returns)]
+
+        # --- PnL% fix: TV口径 = pnl / 持仓名义价值(size*entry_price), NOT /total capital ---
+        for t in trades:
+            notional = (t.size * t.entry_price) if t.size and t.entry_price else 0.0
+            t.pnl_pct = (t.pnl / notional * 100) if (notional and t.pnl is not None) else 0.0
+
+        # --- TV-extended metrics ---
+        # Annualized return: CAGR from total_return_pct over the test period.
+        annual_return_pct = 0.0
+        days = 0
+        if timestamps and len(timestamps) >= 2:
+            days = (pd.Timestamp(timestamps[-1]) - pd.Timestamp(timestamps[0])).days
+            if days > 0 and final_equity > 0:
+                years = days / 365.0
+                annual_return_pct = ((final_equity / self.initial_capital) ** (1 / years) - 1) * 100
+        # Calmar = annualized return / max drawdown (%).
+        calmar = (annual_return_pct / max(dd)) if max(dd) > 0 else 0.0
+        # Avg win/loss ratio (payoff ratio).
+        avg_win = sum(t.pnl for t in winners) / len(winners) if winners else 0.0
+        avg_loss = sum(t.pnl for t in losers) / len(losers) if losers else 0.0
+        win_loss_ratio = (avg_win / abs(avg_loss)) if avg_loss != 0 else 0.0
+        # Expectancy = win_rate*avg_win - loss_rate*avg_loss (per trade expected PnL).
+        wr = (len(winners) / len(trades)) if trades else 0.0
+        expectancy = (wr * avg_win - (1 - wr) * abs(avg_loss)) if trades else 0.0
+        # Avg holding period (bars) + trade frequency (trades/day).
+        avg_holding_bars = (
+            sum(t.holding_bars for t in trades) / len(trades)
+        ) if trades else 0.0
+        trade_freq = (len(trades) / days) if days > 0 else 0.0
 
         position_status = self._build_position_status(trades)
 
@@ -294,8 +332,8 @@ class Backtester:
             losing_trades=len(losers),
             win_rate=len(winners) / len(trades) * 100 if trades else 0,
             total_pnl=total_pnl,
-            total_return_pct=(final_equity - self.initial_capital) / self.initial_capital * 100,
             total_return=total_pnl,
+            total_return_pct=(final_equity - self.initial_capital) / self.initial_capital * 100,
             max_drawdown=max(dd),
             # TV "Max Drawdown %": drawdown as % of the equity peak it was measured from.
             max_drawdown_pct=(max(dd) / self.initial_capital * 100) if self.initial_capital else 0.0,
@@ -304,9 +342,16 @@ class Backtester:
             profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,
             largest_loss=largest_loss,
             largest_loss_pct=largest_loss_pct,
+            largest_win=largest_win,
             avg_trade=total_pnl / len(trades) if trades else 0,
-            avg_winner=sum(t.pnl for t in winners) / len(winners) if winners else 0,
-            avg_loser=sum(t.pnl for t in losers) / len(losers) if losers else 0,
+            avg_winner=avg_win,
+            avg_loser=avg_loss,
+            win_loss_ratio=win_loss_ratio,
+            expectancy=expectancy,
+            annual_return_pct=annual_return_pct,
+            calmar_ratio=calmar,
+            avg_holding_bars=avg_holding_bars,
+            trade_freq=trade_freq,
             trades=trades,
             equity_curve=equity,
             drawdown_curve=dd,
