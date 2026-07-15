@@ -107,7 +107,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
     candlestickSeriesRef.current = candlestickSeries;
     chartRef.current = chart;
 
-    // ── 悬停图例 (Crosshair OHLC legend) ──
+    // ── 懸停圖例 (Crosshair OHLC legend) ──
     const legendEl = legendRef.current;
     const renderLegend = (param: any) => {
       if (!legendEl) return;
