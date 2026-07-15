@@ -52,6 +52,10 @@ export interface PerformanceMetrics {
   expectancy: number;
   calmar_ratio: number;
   volatility: number;
+  // ── Pine v6 alignment (emitted by backend; optional for backward compat) ──
+  net_profit?: number;
+  largest_loss?: number;
+  largest_loss_pct?: number;
 }
 
 export interface EquityPoint {

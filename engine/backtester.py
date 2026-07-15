@@ -36,6 +36,9 @@ class Trade:
     pnl_pct: Optional[float] = None
     funding_paid: float = 0.0
     liquidated: bool = False
+    direction: str = "long"  # long / short, derived from position.size sign
+    exit_reason: str = ""  # signal / liquidation / end
+    holding_bars: int = 0  # exit_bar_index - entry_bar_index
 
 
 @dataclass
@@ -53,6 +56,8 @@ class BacktestResult:
     sortino_ratio: float = 0.0
     profit_factor: float = 0.0
     calmar_ratio: float = 0.0
+    largest_loss: float = 0.0
+    largest_loss_pct: float = 0.0
     avg_trade: float = 0.0
     avg_winner: float = 0.0
     avg_loser: float = 0.0
@@ -108,6 +113,7 @@ class Backtester:
         timestamps: list[Any] = [self.data.iloc[0].timestamp]
         trades: list[Trade] = []
         entry_bar: Optional[pd.Timestamp] = None
+        entry_bar_index: Optional[int] = None
 
         # Latency queue: pending (signal_bar_index, bar, signal) entries executed
         # once the current bar index has advanced fill_delay_bars() past the signal.
@@ -125,8 +131,8 @@ class Backtester:
                 return self.exchange.slippage_for(depth=1000.0, qty=qty)
             return self.slippage
 
-        def _execute(sig: Any, current_bar: Any) -> None:
-            nonlocal capital, position, entry_bar
+        def _execute(sig: Any, current_bar: Any, current_bar_index: int) -> None:
+            nonlocal capital, position, entry_bar, entry_bar_index
             order_type = "limit" if self.force_limit else getattr(sig, "order_type", "market")
             # A limit order rests on the book; whether it fills as maker is decided
             # by the exchange model (maker_probability). Market orders are taker.
@@ -141,6 +147,7 @@ class Backtester:
                 position = Position(size=size, entry_price=price, current_price=price)
                 capital -= cost
                 entry_bar = current_bar.timestamp
+                entry_bar_index = current_bar_index
 
             elif sig.action == "sell" and position is None:
                 price = sig.price * (1 - slip) if sig.price else current_bar.close * (1 - slip)
@@ -149,6 +156,7 @@ class Backtester:
                 position = Position(size=size, entry_price=price, current_price=price)
                 capital -= cost
                 entry_bar = current_bar.timestamp
+                entry_bar_index = current_bar_index
 
             elif sig.action in ("close",) and position is not None:
                 exit_price = (
@@ -172,11 +180,15 @@ class Backtester:
                     pnl=pnl,
                     pnl_pct=pnl / capital * 100,
                     funding_paid=funding_paid,
+                    direction="long" if position.size > 0 else "short",
+                    exit_reason="signal",
+                    holding_bars=(current_bar_index - entry_bar_index) if entry_bar_index is not None else 0,
                 )
                 trades.append(trade)
                 capital += pnl
                 position = None
                 entry_bar = None
+                entry_bar_index = None
 
         for i, (_, row) in enumerate(self.data.iterrows()):
             bar = Bar(
@@ -196,14 +208,14 @@ class Backtester:
                     # Buffer the signal; it executes fill_delay_bars() later.
                     pending_signals.append((i, bar, signal))
                 else:
-                    _execute(signal, bar)
+                    _execute(signal, bar, i)
 
             # Drain latency queue: execute signals that are due this bar.
             if delay > 0:
                 still_pending: list[tuple[int, Any, Any]] = []
                 for sig_i, sig_bar, sig in pending_signals:
                     if i >= sig_i + delay:
-                        _execute(sig, bar)
+                        _execute(sig, bar, i)
                     else:
                         still_pending.append((sig_i, sig_bar, sig))
                 pending_signals = still_pending
@@ -230,11 +242,15 @@ class Backtester:
                     # funding (if T2 wiring present, also accrue on forced close)
                     trade = Trade(entry_time=entry_bar or bar.timestamp, entry_price=position.entry_price,
                                   size=abs(position.size), exit_time=bar.timestamp, exit_price=exit_price,
-                                  pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=getattr(self, '_last_funding', 0.0), liquidated=True)
+                                  pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=getattr(self, '_last_funding', 0.0), liquidated=True,
+                                  direction="long" if position.size > 0 else "short",
+                                  exit_reason="liquidation",
+                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0)
                     trades.append(trade)
                     capital += pnl
                     position = None
                     entry_bar = None
+                    entry_bar_index = None
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
@@ -260,6 +276,12 @@ class Backtester:
         total_pnl = sum(t.pnl for t in trades if t.pnl is not None)
         final_equity = equity[-1]
 
+        losses = [t.pnl for t in losers]
+        largest_loss = min(losses) if losses else 0.0
+        largest_loss_pct = min(
+            [t.pnl_pct for t in losers if t.pnl_pct is not None], default=0.0
+        )
+
         returns = np.diff(equity) / np.array(equity[:-1])
         returns = returns[~np.isnan(returns) & ~np.isinf(returns)]
 
@@ -276,6 +298,8 @@ class Backtester:
             sharpe_ratio=self._sharpe(returns),
             sortino_ratio=self._sortino(returns),
             profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,
+            largest_loss=largest_loss,
+            largest_loss_pct=largest_loss_pct,
             avg_trade=total_pnl / len(trades) if trades else 0,
             avg_winner=sum(t.pnl for t in winners) / len(winners) if winners else 0,
             avg_loser=sum(t.pnl for t in losers) / len(losers) if losers else 0,
