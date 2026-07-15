@@ -91,6 +91,9 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             "size": t.size,
             "pnl": t.pnl,
             "pnl_pct": t.pnl_pct,
+            "direction": getattr(t, "direction", "long"),
+            "exit_reason": getattr(t, "exit_reason", ""),
+            "holding_bars": getattr(t, "holding_bars", 0),
         }
         for t in r.trades
     ]
@@ -105,25 +108,33 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
         for ts, eq in zip(_ts_list, getattr(r, "buy_hold_curve", []) or [])
         if _to_unix(ts) is not None
     ]
+    position_status = getattr(r, "position_status", []) or []
     return BacktestResultOut(
         task_id=task_id,
         status="completed",
         config=config or {},
         metrics={
             "total_trades": r.total_trades,
+            "winning_trades": r.winning_trades,
+            "losing_trades": r.losing_trades,
             "win_rate": r.win_rate,
             "total_return_pct": r.total_return_pct,
             "max_drawdown": r.max_drawdown,
+            "max_drawdown_pct": r.max_drawdown_pct,
             "sharpe_ratio": r.sharpe_ratio,
             "sortino_ratio": r.sortino_ratio,
             "profit_factor": r.profit_factor,
             "avg_trade": r.avg_trade,
             "avg_winner": r.avg_winner,
             "avg_loser": r.avg_loser,
+            "net_profit": float(r.total_pnl),
+            "largest_loss": r.largest_loss,
+            "largest_loss_pct": r.largest_loss_pct,
         },
         equity_curve=equity_curve,
         buy_hold_equity=buy_hold_curve,
         trades=trades,
+        position_status=position_status,
     )
 
 
