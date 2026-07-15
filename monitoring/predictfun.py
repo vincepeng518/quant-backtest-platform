@@ -201,13 +201,20 @@ class PredictFunRest:
         return out
 
     def start_price_for(self, market_id: str) -> Optional[float]:
-        """單一輪次的 startPrice (Phase 1 真值)。None 表示輪次尚未開始。"""
-        d = self._get(f"/markets/{market_id}")
-        if not d or "data" not in d:
-            return None
-        m = d["data"] if isinstance(d["data"], dict) else (d["data"][0] if d.get("data") else {})
-        vd = (m or {}).get("variantData") or {}
-        return vd.get("startPrice")
+        """單一輪次的 startPrice (Phase 1 真值)。None 表示輪次尚未開始。
+
+        改用 btc_rounds() 列表查找 — REST /markets 列表接口可正確返回
+        variantData.startPrice；直接 GET /markets/{id} 會被後端當整數 id 解析
+        而傳 slug/字串時噴 400 (invalid digit)。
+        """
+        try:
+            rs = self.btc_rounds(status="OPEN", limit=80, use_cache=True)
+            for r in rs:
+                if str(r["id"]) == str(market_id):
+                    return r.get("start_price")
+        except Exception:
+            pass
+        return None
 
     def close(self):
         try:

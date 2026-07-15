@@ -294,6 +294,11 @@ class Backtester:
 
         returns = np.diff(equity) / np.array(equity[:-1])
         returns = returns[~np.isnan(returns) & ~np.isinf(returns)]
+        # TV convention: Sharpe/Sortino computed from DAILY returns, annualized
+        # via sqrt(252). Resample equity to last-per-day; fall back to per-bar
+        # returns (annualized at 252) only for very short tests.
+        daily_returns = self._daily_returns(equity, timestamps or [])
+        sr_returns = daily_returns if len(daily_returns) >= 2 else returns
 
         # --- PnL% fix: TV口径 = pnl / 持仓名义价值(size*entry_price), NOT /total capital ---
         for t in trades:
@@ -334,11 +339,13 @@ class Backtester:
             total_pnl=total_pnl,
             total_return=total_pnl,
             total_return_pct=(final_equity - self.initial_capital) / self.initial_capital * 100,
-            max_drawdown=max(dd),
-            # TV "Max Drawdown %": drawdown as % of the equity peak it was measured from.
-            max_drawdown_pct=(max(dd) / self.initial_capital * 100) if self.initial_capital else 0.0,
-            sharpe_ratio=self._sharpe(returns),
-            sortino_ratio=self._sortino(returns),
+            # TV convention:
+            #   max_drawdown      = peak-to-trough DOLLAR loss
+            #   max_drawdown_pct  = same decline as % of the peak equity
+            max_drawdown=(self.initial_capital * max(dd) / 100) if self.initial_capital else max(dd),
+            max_drawdown_pct=max(dd),
+            sharpe_ratio=self._sharpe(sr_returns),
+            sortino_ratio=self._sortino(sr_returns),
             profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,
             largest_loss=largest_loss,
             largest_loss_pct=largest_loss_pct,
@@ -396,7 +403,33 @@ class Backtester:
         return segments
 
     @staticmethod
+    def _daily_returns(equity: list[float], timestamps: list[Any]) -> np.ndarray:
+        """Collapse per-bar equity into end-of-day returns (TV Sharpe/Sortino basis).
+
+        If we can't align to calendar days (no/short timestamps), returns empty
+        and the caller falls back to per-bar returns.
+        """
+        if not timestamps or len(equity) < 2:
+            return np.array([])
+        try:
+            import pandas as pd
+            ts = pd.to_datetime(timestamps)
+            eq = np.asarray(equity, dtype=float)
+            if len(ts) != len(eq):
+                return np.array([])
+            s = pd.Series(eq, index=ts).sort_index()
+            daily = s.groupby([pd.Timestamp(d).date() for d in s.index]).last()
+            if len(daily) < 2:
+                return np.array([])
+            dv = daily.to_numpy(dtype=float)
+            r = dv[1:] / dv[:-1] - 1.0
+            return r[~np.isnan(r) & ~np.isinf(r)]
+        except Exception:
+            return np.array([])
+
+    @staticmethod
     def _sharpe(returns: np.ndarray, rf: float = 0.02) -> float:
+        # Assumes `returns` are DAILY returns; annualize via sqrt(252).
         if len(returns) == 0 or np.std(returns) == 0:
             return 0.0
         excess = returns - rf / 252
@@ -404,6 +437,7 @@ class Backtester:
 
     @staticmethod
     def _sortino(returns: np.ndarray, rf: float = 0.02) -> float:
+        # Assumes `returns` are DAILY returns; annualize via sqrt(252).
         if len(returns) == 0:
             return 0.0
         excess = returns - rf / 252
