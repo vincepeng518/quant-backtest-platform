@@ -15,6 +15,8 @@ import { Select } from '@/components/ui/Select';
 import { SymbolSearch } from '@/components/ui/SymbolSearch';
 import { Input } from '@/components/ui/Input';
 import { PerformancePanel } from '@/components/backtest/PerformancePanel';
+import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
+import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { PriceChart } from '@/components/charts/PriceChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
 
@@ -68,7 +70,39 @@ function BacktestView() {
   const [selectedStrategy, setSelectedStrategy] = useState('ma_cross');
   const [paramValues, setParamValues] = useState<Record<string, any>>({});
 
-  // ── Engine realism (opt-in; all OFF = legacy 1x spot) ──
+  // ── P2-2: 多幣種批量回測 ──
+  const [batchInput, setBatchInput] = useState('');
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchResults, setBatchResults] = useState<
+    { symbol: string; status: string; metrics?: any; error?: string }[]
+  >([]);
+
+  // ── P2-3: 回測備註 (localStorage, keyed by task_id) ──
+  const [note, setNote] = useState('');
+  const currentTaskId = (results as any)?.task_id ?? null;
+  const noteKey = currentTaskId ? `bt_note_${currentTaskId}` : null;
+  useEffect(() => {
+    if (noteKey) {
+      try {
+        setNote(localStorage.getItem(noteKey) ?? '');
+      } catch {
+        setNote('');
+      }
+    } else {
+      setNote('');
+    }
+  }, [noteKey]);
+  const saveNote = (v: string) => {
+    setNote(v);
+    if (noteKey) {
+      try {
+        if (v) localStorage.setItem(noteKey, v);
+        else localStorage.removeItem(noteKey);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
   const [enableFunding, setEnableFunding] = useState(false);
   const [fundingInterval, setFundingInterval] = useState(8);
   const [fundingRate, setFundingRate] = useState(0.0001);
@@ -278,6 +312,62 @@ function BacktestView() {
     runBacktest(payload as any);
   };
 
+  // P2-2: 多幣種批量回測 — 併發跑每個 symbol，輪詢結果後彙總對比。
+  const handleBatchRun = async () => {
+    const syms = batchInput
+      .split(/[\s,]+/)
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
+    if (syms.length === 0) return;
+    setBatchRunning(true);
+    setBatchResults(syms.map((s) => ({ symbol: s, status: 'running' })));
+
+    const worker = async (sym: string) => {
+      const payload: Record<string, any> = {
+        strategy: { template_id: selectedStrategy, params: paramsConfigFor(sym) },
+        symbol: sym,
+        timeframe,
+        source: dataSource,
+        start_date: startDate,
+        end_date: endDate,
+        initial_capital: 10000.0,
+        commission: 0.001,
+        slippage: 0.0005,
+        max_position_pct: 1.0,
+      };
+      try {
+        const { task_id } = await api.runBacktest(payload as any);
+        // poll until done (reuse same cadence as store)
+        for (let i = 0; i < 120; i++) {
+          const st = await api.getBacktestStatus(task_id);
+          if (st.status === 'completed') {
+            const r = await api.getBacktestResults(task_id);
+            return { symbol: sym, status: 'completed', metrics: (r as any).metrics };
+          }
+          if (st.status === 'error') return { symbol: sym, status: 'error', error: st.error ?? 'failed' };
+          await new Promise((res) => setTimeout(res, 1000));
+        }
+        return { symbol: sym, status: 'error', error: 'timeout' };
+      } catch (e: any) {
+        return { symbol: sym, status: 'error', error: e?.message ?? String(e) };
+      }
+    };
+
+    const out = await Promise.all(syms.map(worker));
+    setBatchResults(out);
+    setBatchRunning(false);
+  };
+
+  // 依當前表單參數構建 params（與 handleRun 一致）
+  const paramsConfigFor = (sym: string): Record<string, any> => {
+    const cfg: Record<string, any> = {};
+    params.forEach((p) => {
+      const raw = paramValues[p.name];
+      cfg[p.name] = p.type === 'choice' || p.values ? raw : Number(raw);
+    });
+    return cfg;
+  };
+
   const exportCsv = () => {
     if (!results) return;
     const rows: string[] = [];
@@ -458,6 +548,79 @@ function BacktestView() {
         </Card>
       )}
 
+      {/* P2-2: 多幣種批量回測 */}
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
+            多幣種批量回測
+          </h2>
+          <span className="font-mono text-xs text-textSecondary">
+            逗號或空白分隔 · 共用當前策略參數
+          </span>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Input
+            label="Symbols"
+            placeholder="BTCUSDT, ETHUSDT, SOLUSDT"
+            value={batchInput}
+            onChange={(e) => setBatchInput(e.target.value)}
+          />
+          <Button
+            onClick={handleBatchRun}
+            disabled={batchRunning}
+            variant="primary"
+            className="mt-6"
+          >
+            {batchRunning ? '批次執行中...' : '批次回測'}
+          </Button>
+        </div>
+
+        {batchResults.length > 0 && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-sm font-mono">
+              <thead>
+                <tr className="text-left text-xs uppercase text-textSecondary border-b border-border/10">
+                  <th className="px-4 py-2">Symbol</th>
+                  <th className="px-4 py-2 text-right">總回報%</th>
+                  <th className="px-4 py-2 text-right">交易數</th>
+                  <th className="px-4 py-2 text-right">勝率%</th>
+                  <th className="px-4 py-2 text-right">最大回撤%</th>
+                  <th className="px-4 py-2 text-right">獲利因子</th>
+                  <th className="px-4 py-2 text-right">年化%</th>
+                  <th className="px-4 py-2">狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchResults.map((r) => (
+                  <tr key={r.symbol} className="border-t border-border/10">
+                    <td className="px-4 py-2 font-semibold text-text">{r.symbol}</td>
+                    {r.status === 'completed' && r.metrics ? (
+                      <>
+                        <td className="px-4 py-2 text-right" style={{ color: Number(r.metrics.total_return_pct) >= 0 ? '#10b981' : '#ef4444' }}>
+                          {(Number(r.metrics.total_return_pct) || 0).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-2 text-right text-text">{r.metrics.total_trades ?? '—'}</td>
+                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.win_rate) || 0).toFixed(1)}</td>
+                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.max_drawdown_pct) || 0).toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.profit_factor) || 0).toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right" style={{ color: Number(r.metrics.annual_return_pct) >= 0 ? '#10b981' : '#ef4444' }}>
+                          {(Number(r.metrics.annual_return_pct) || 0).toFixed(2)}%
+                        </td>
+                      </>
+                    ) : (
+                      <td className="px-4 py-2 text-right text-textSecondary" colSpan={6}>
+                        {r.status === 'running' ? '執行中...' : r.error ?? r.status}
+                      </td>
+                    )}
+                    <td className="px-4 py-2 text-textSecondary">{r.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       {/* Results */}
       {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
         <div className="space-y-6">
@@ -475,9 +638,22 @@ function BacktestView() {
             <span className="rounded bg-border/20 px-2 py-0.5 text-textSecondary">
               {results?.config?.timeframe ?? timeframe}
             </span>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <span className="text-xs font-mono text-textSecondary">備註</span>
+            <input
+              className="flex-1 rounded border border-border/30 bg-surface px-3 py-1.5 text-sm text-text outline-none focus:border-accent"
+              placeholder={noteKey ? '為此回測加入備註（本機保存）' : '回測完成後可加備註'}
+              value={note}
+              disabled={!noteKey}
+              onChange={(e) => saveNote(e.target.value)}
+            />
+            {noteKey && (
+              <span className="font-mono text-[10px] text-textSecondary">已存本機 · {noteKey}</span>
+            )}
           </div>
+        </div>
 
-          <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden">
             <div className="p-6 pb-0">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
                 績效面板
@@ -574,6 +750,35 @@ function BacktestView() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </Card>
+          )}
+
+          {/* P1-2: 月度收益表 */}
+          {results.equity_curve && results.equity_curve.length > 0 && (
+            <Card className="p-0 overflow-hidden">
+              <div className="p-6 pb-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                  月度收益表
+                </h3>
+              </div>
+              <MonthlyReturnsTable
+                equity={results.equity_curve}
+                initialCapital={Number(results.config?.initial_capital ?? 10000)}
+              />
+            </Card>
+          )}
+
+          {/* P1-3: 交易統計分佈 */}
+          {results.trades && results.trades.length > 0 && (
+            <Card className="p-0 overflow-hidden">
+              <div className="p-6 pb-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                  交易統計分佈
+                </h3>
+              </div>
+              <div className="px-6 pb-6">
+                <TradeStatsDist trades={results.trades} />
               </div>
             </Card>
           )}

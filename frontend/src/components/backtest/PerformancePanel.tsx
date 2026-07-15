@@ -28,7 +28,8 @@ const KpiBlock: React.FC<{
   value: string;
   sub?: string;
   color?: 'pos' | 'neg' | 'neutral' | 'inherit';
-}> = ({ label, value, sub, color = 'inherit' }) => {
+  tip?: string;
+}> = ({ label, value, sub, color = 'inherit', tip }) => {
   const colorClass =
     color === 'pos'
       ? 'text-success'
@@ -36,7 +37,7 @@ const KpiBlock: React.FC<{
       ? 'text-danger'
       : 'text-text';
   return (
-    <div className="bg-surface px-4 py-4 border-t border-border/10 flex flex-col gap-1 select-none">
+    <div className="bg-surface px-4 py-4 border-t border-border/10 flex flex-col gap-1 select-none" title={tip}>
       <span className="text-[11px] font-medium text-textSecondary uppercase tracking-wider">
         {label}
       </span>
@@ -80,6 +81,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const [showBuyHold, setShowBuyHold] = useState(false);
   const [showPnl, setShowPnl] = useState(true);
   const [showGainDd, setShowGainDd] = useState(true);
+  const [showSpread, setShowSpread] = useState(false);
 
   const m = metrics as any;
   const netProfit = Number(m.net_profit ?? 0);
@@ -141,68 +143,80 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
           value={`${netProfit >= 0 ? '+' : ''}${netProfit.toFixed(2)} USDT`}
           sub={`${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`}
           color={netProfit >= 0 ? 'pos' : 'neg'}
+          tip="Net Profit：所有平倉交易盈虧總和（= 期末權益 − 初始資金）"
         />
         <KpiBlock
           label="最大回撤"
           value={`${maxDdAmount.toFixed(2)} USDT`}
           sub={`${maxDdPct.toFixed(2)}%`}
           color="neg"
+          tip="Max Drawdown：權益曲線從歷史峰值到谷值的最大跌幅"
         />
         <KpiBlock
           label="獲利交易"
           value={`${winRate.toFixed(2)}%`}
           sub={`${winningTrades}/${totalTrades}`}
           color="neutral"
+          tip="Win Rate：獲利交易數 / 總交易數"
         />
         <KpiBlock
           label="獲利因子"
           value={`${profitFactor.toFixed(2)}`}
           color="neutral"
+          tip="Profit Factor：總毛利 / 總毛損（絕對值）。>1 表示系統盈利"
         />
         <KpiBlock
           label="年化回報"
           value={`${annualReturnPct >= 0 ? '+' : ''}${annualReturnPct.toFixed(2)}%`}
           color={annualReturnPct >= 0 ? 'pos' : 'neg'}
+          tip="Annualized Return：以測試區間天數年化（CAGR）的複合年增率"
         />
         <KpiBlock
           label="卡瑪比率"
           value={`${calmar.toFixed(2)}`}
           sub="年化/最大回撤"
           color="neutral"
+          tip="Calmar Ratio：年化回報 / 最大回撤。越高代表回撤控制越好"
         />
         <KpiBlock
           label="最大單筆盈利"
           value={`${largestWin >= 0 ? '+' : ''}${largestWin.toFixed(2)}`}
           color="pos"
+          tip="Largest Winning Trade：單筆最大盈利金額"
         />
         <KpiBlock
           label="最大單筆虧損"
           value={`${largestLoss.toFixed(2)}`}
           color="neg"
+          tip="Largest Losing Trade：單筆最大虧損金額"
         />
         <KpiBlock
           label="盈虧比"
           value={`${winLossRatio.toFixed(2)}`}
           sub="均盈/均虧"
           color="neutral"
+          tip="Payoff Ratio：平均盈利 / 平均虧損。>1 代表每虧 1 元能賺回更多"
         />
         <KpiBlock
           label="期望值"
           value={`${expectancy >= 0 ? '+' : ''}${expectancy.toFixed(2)}`}
           sub="每筆期望 PnL"
           color={expectancy >= 0 ? 'pos' : 'neg'}
+          tip="Expectancy：勝率×均盈 − 敗率×均虧。單筆交易的平均期望盈虧"
         />
         <KpiBlock
           label="平均持倉"
           value={`${avgHoldingBars.toFixed(1)}`}
           sub="根/K線"
           color="neutral"
+          tip="Avg Holding Period：每筆交易平均持有的 K 線數"
         />
         <KpiBlock
           label="交易頻率"
           value={`${tradeFreq.toFixed(2)}`}
           sub="筆/日"
           color="neutral"
+          tip="Trade Frequency：測試區間內平均每天產生的交易筆數"
         />
       </div>
 
@@ -219,6 +233,9 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         </ToggleBtn>
         <ToggleBtn active={showGainDd} onClick={() => setShowGainDd((v) => !v)}>
           漲幅與回撤
+        </ToggleBtn>
+        <ToggleBtn active={showSpread} onClick={() => setShowSpread((v) => !v)}>
+          {showSpread ? '📊' : '🚫'} 策略−基準
         </ToggleBtn>
       </div>
 
@@ -249,6 +266,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         trades={showPnl ? trades : []}
         initialCapital={initialCapital}
         showBuyHold={showBuyHold}
+        showSpread={showSpread}
         theme="dark"
       />
     </div>
