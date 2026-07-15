@@ -1,2 +1,0 @@
-# persistence test
-print('ok')
