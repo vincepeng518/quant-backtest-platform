@@ -40,15 +40,25 @@ async def health():
     ds = "/app/app/services/data_service.py"
     td_size = os.path.getsize(td) if os.path.exists(td) else -1
     ds_has_name = False
+    sample_crypto = None
     if os.path.exists(ds):
         with open(ds) as f:
             ds_has_name = '"name": base' in f.read()
+    # live call to _crypto_symbols to see actual output shape
+    try:
+        from app.services.data_service import DataService
+        syms = await DataService()._crypto_symbols()
+        if syms:
+            sample_crypto = syms[0]
+    except Exception as e:
+        sample_crypto = f"ERR: {e}"
     return {
         "status": "ok",
         "version": "1.0.0",
         "railway_git_commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "none"),
         "test_data_bytes": td_size,
         "ds_symbol_name_patch": ds_has_name,
+        "sample_crypto_symbol": sample_crypto,
     }
 
 
