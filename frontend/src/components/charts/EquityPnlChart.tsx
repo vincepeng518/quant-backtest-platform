@@ -17,6 +17,7 @@ interface EquityPnlChartProps {
   trades?: TradeRecord[];
   initialCapital: number;
   showBuyHold: boolean;
+  showSpread?: boolean;
   theme?: 'light' | 'dark';
 }
 
@@ -41,6 +42,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
   trades = [],
   initialCapital,
   showBuyHold,
+  showSpread = false,
   theme = 'dark',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,6 +102,81 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       axisLabelVisible: true,
       title: '初始資金',
     });
+
+    // ── P1-1: 峰值 / 谷值 / 最大回撤區間標註 ──
+    // 計算權益曲線的歷史峰值與對應最大回撤谷值，用 markers 標出。
+    let peakVal = -Infinity;
+    let peakIdx = -1;
+    let maxDd = 0;
+    let troughIdx = -1;
+    const eqVals = equity.map((d) => d.equity);
+    const runningPeak: number[] = [];
+    for (let i = 0; i < eqVals.length; i++) {
+      if (eqVals[i] > peakVal) {
+        peakVal = eqVals[i];
+        peakIdx = i;
+      }
+      runningPeak.push(peakVal);
+      const dd = (peakVal - eqVals[i]) / (peakVal || 1);
+      if (dd > maxDd) {
+        maxDd = dd;
+        troughIdx = i;
+      }
+    }
+    const markers: any[] = [];
+    if (peakIdx >= 0 && eqData[peakIdx]) {
+      markers.push({
+        time: eqData[peakIdx].time,
+        position: 'aboveBar',
+        color: '#10b981',
+        shape: 'circle',
+        text: '峰值',
+      });
+    }
+    if (troughIdx >= 0 && eqData[troughIdx]) {
+      markers.push({
+        time: eqData[troughIdx].time,
+        position: 'belowBar',
+        color: '#ef4444',
+        shape: 'circle',
+        text: `最大回撤 ${((maxDd) * 100).toFixed(1)}%`,
+      });
+    }
+    if (markers.length > 0) equityLine.setMarkers(markers);
+
+    // ── P2-1: 策略 vs 基準差值曲線 (equity - buyHold) ──
+    let spreadLine: ISeriesApi<'Line'> | null = null;
+    if (showSpread && buyHold.length > 0) {
+      const bhMap = new Map<number, number>(
+        buyHold.map((d) => [d.time as number, d.equity])
+      );
+      const spreadData: LineData[] = eqData
+        .map((d) => {
+          const bh = bhMap.get(d.time as number);
+          return bh != null ? { time: d.time, value: d.value - bh } : null;
+        })
+        .filter((d): d is LineData => d != null);
+      if (spreadData.length > 0) {
+        spreadLine = chart.addLineSeries({
+          color: '#f59e0b',
+          lineWidth: 1,
+          title: '策略−基準',
+          priceLineVisible: false,
+          priceScaleId: 'spread',
+        });
+        spreadLine.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.6 } });
+        spreadLine.setData(spreadData);
+        // 0 基準線
+        spreadLine.createPriceLine({
+          price: 0,
+          color: BH_GRAY,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: false,
+          title: '',
+        });
+      }
+    }
 
     // Buy & Hold overlay (toggled by showBuyHold).
     let bhLine: ISeriesApi<'Line'> | null = null;
@@ -173,6 +250,13 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         const c = hist.value! >= 0 ? GREEN : RED;
         html += `<span style="color:#a3a3a3">單筆</span><span style="color:${c};margin:0 6px">${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}</span>`;
       }
+      if (showSpread && spreadLine) {
+        const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
+        if (sp) {
+          const c = sp.value! >= 0 ? GREEN : RED;
+          html += `<span style="color:#a3a3a3">差值</span><span style="color:${c};margin:0 6px">${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}</span>`;
+        }
+      }
       legendEl.style.display = 'flex';
       legendEl.innerHTML = html;
     };
@@ -190,7 +274,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       chart.unsubscribeCrosshairMove(renderLegend);
       chart.remove();
     };
-  }, [equity, buyHold, trades, initialCapital, showBuyHold, theme]);
+  }, [equity, buyHold, trades, initialCapital, showBuyHold, showSpread, theme]);
 
   return (
     <div className="relative w-full bg-surface">
