@@ -37,6 +37,7 @@ class SymbolInfo(BaseModel):
     exchange: str = ""
     base_asset: str = ""
     quote_asset: str = ""
+    name: str = ""
 
 
 # ── Strategy ──
