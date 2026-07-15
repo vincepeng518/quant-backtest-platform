@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "id": "c531b2d59d1d",
+    "name": "persist_test",
+    "description": "persistence e2e",
+    "category": "test",
+    "filename": "c531b2d59d1d.py",
+    "created_at": "2026-07-15T15:45:16.150216"
+  }
+]
