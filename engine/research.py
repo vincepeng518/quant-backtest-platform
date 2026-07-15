@@ -123,8 +123,8 @@ def signal_profile(df: pd.DataFrame, strategy_cls: type[StrategyBase], params: d
         counts[s] = counts.get(s, 0) + 1
     longs = signals.count("buy")
     shorts = signals.count("sell")
-    total = longs + shorts
-    lsm = (longs / total) if total else 0.0
+    # True long/short ratio (longs per short); guard against divide-by-zero.
+    lsm = (longs / shorts) if shorts else 0.0
     # entry timing: price percentile within trailing 50-bar window AT each signal's time
     timing = []
     roll = df["close"].rolling(50)

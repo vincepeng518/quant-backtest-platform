@@ -7,13 +7,13 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { useResearchStore } from '@/stores/useResearchStore';
 import { api } from '@/lib/api';
-import type { StrategyTemplate } from '@/types/api';
+import type { StrategyTemplate, ResearchResult } from '@/types/api';
 
 export default function ResearchPage() {
   const s = useResearchStore();
   const [templates, setTemplates] = useState<StrategyTemplate[]>([]);
   useEffect(() => { api.getTemplates().then(setTemplates).catch(() => setTemplates([])); }, []);
-  const r = s.result?.summary ?? {};
+  const r = (s.result?.summary ?? {}) as Partial<ResearchResult['summary']>;
   return (
     <PageShell eyebrow="Research / explore" title="市場與策略研究"
       subtitle="回測前哨：裸 K 線統計探索（波動/Hurst/regime/相關性）與輕量策略信號剖析。">
@@ -47,7 +47,7 @@ export default function ResearchPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-accent border-b border-border/10 pb-4">Market Profile</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 font-mono text-sm">
             <M label="Hurst" v={r.hurst} d={3} />
-            <M label="Correlation(BTC)" v={r.correlation} d={3} />
+            <M label="Correlation(BTC)" v={r.correlation ?? undefined} d={3} />
             <M label="Ann. Vol" v={r.returns_stats?.annualized_vol} d={3} suffix="%" />
             <M label="Skew" v={r.returns_stats?.skew} d={3} />
             <M label="Kurtosis" v={r.returns_stats?.kurtosis} d={3} />
@@ -62,6 +62,21 @@ export default function ResearchPage() {
             <M label="Long/Short Ratio" v={r.long_short_ratio} d={3} />
             <M label="Entry Percentile" v={r.entry_timing?.mean_percentile} d={3} />
             <M label="Fwd Return(5)" v={r.signal_forward_return?.mean} d={4} suffix="%" />
+          </div>
+          <div className="border-t border-border/10 pt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary mb-3">Signal Distribution</h3>
+            <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-sm">
+              {r.signal_counts && Object.entries(r.signal_counts).length > 0 ? (
+                Object.entries(r.signal_counts).map(([action, count]) => (
+                  <div key={action}>
+                    <dt className="text-textSecondary text-xs uppercase">{action}</dt>
+                    <dd className="text-lg font-bold">{count}</dd>
+                  </div>
+                ))
+              ) : (
+                <span className="text-textSecondary">No signals emitted</span>
+              )}
+            </dl>
           </div>
         </Card>
       )}
