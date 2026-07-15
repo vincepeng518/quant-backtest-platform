@@ -66,6 +66,7 @@ class BacktestResult:
     drawdown_curve: list[float] = field(default_factory=list)
     buy_hold_curve: list[float] = field(default_factory=list)
     timestamps: list[pd.Timestamp] = field(default_factory=list)
+    position_status: list[dict] = field(default_factory=list)
 
 
 class Backtester:
@@ -285,6 +286,8 @@ class Backtester:
         returns = np.diff(equity) / np.array(equity[:-1])
         returns = returns[~np.isnan(returns) & ~np.isinf(returns)]
 
+        position_status = self._build_position_status(trades)
+
         return BacktestResult(
             total_trades=len(trades),
             winning_trades=len(winners),
@@ -308,7 +311,43 @@ class Backtester:
             drawdown_curve=dd,
             buy_hold_curve=buy_hold_curve or [],
             timestamps=timestamps or [],
+            position_status=position_status,
         )
+
+    @staticmethod
+    def _to_unix(value: Any) -> Optional[int]:
+        """Convert a timestamp (pd.Timestamp / str / int / float) to unix seconds."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, (int, float)):
+                return int(value)
+            ts = pd.Timestamp(value)
+            if ts is pd.NaT:
+                return None
+            return int(ts.timestamp())
+        except Exception:
+            return None
+
+    @staticmethod
+    def _build_position_status(trades: list[Trade]) -> list[dict]:
+        """Derive a sorted list of {time, state} segments from trades.
+
+        For each trade we emit a segment marking the entry with the trade's
+        direction (long/short) and the exit with 'flat'. Segments are sorted
+        by time so the frontend can render colored blocks (long=green,
+        short=red, flat=transparent) aligned to the X axis.
+        """
+        segments: list[dict] = []
+        for t in trades:
+            entry_ts = Backtester._to_unix(t.entry_time)
+            if entry_ts is not None:
+                segments.append({"time": entry_ts, "state": t.direction})
+            exit_ts = Backtester._to_unix(t.exit_time)
+            if exit_ts is not None:
+                segments.append({"time": exit_ts, "state": "flat"})
+        segments.sort(key=lambda seg: seg["time"])
+        return segments
 
     @staticmethod
     def _sharpe(returns: np.ndarray, rf: float = 0.02) -> float:

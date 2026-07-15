@@ -121,3 +121,70 @@ def test_trade_defaults():
     assert t.direction == "long"
     assert t.exit_reason == ""
     assert t.holding_bars == 0
+
+
+def test_position_status_from_trades():
+    """Each trade yields an entry (direction) and exit (flat) segment.
+
+    Segments must be sorted by time and carry correct states.
+    """
+    trades = [
+        Trade(
+            entry_time=pd.Timestamp("2024-01-01"),
+            entry_price=100.0,
+            size=1.0,
+            exit_time=pd.Timestamp("2024-01-02"),
+            exit_price=110.0,
+            pnl=1000.0,
+            direction="long",
+        ),
+        Trade(
+            entry_time=pd.Timestamp("2024-01-02"),
+            entry_price=110.0,
+            size=1.0,
+            exit_time=pd.Timestamp("2024-01-03"),
+            exit_price=95.0,
+            pnl=-500.0,
+            direction="short",
+        ),
+    ]
+    result = _make_result(trades)
+    ps = result.position_status
+
+    # 2 trades -> 2 entry + 2 exit = 4 segments
+    assert len(ps) == 4
+
+    # sorted ascending by time (unix seconds)
+    times = [seg["time"] for seg in ps]
+    assert times == sorted(times)
+
+    # states in chronological order: long, flat (overlap handled by sort),
+    # short, flat
+    states = [seg["state"] for seg in ps]
+    assert states[0] == "long"
+    assert "flat" in states
+    assert "short" in states
+    assert all(s in ("long", "short", "flat") for s in states)
+
+
+def test_position_status_no_trades_is_empty():
+    result = _make_result([])
+    assert result.position_status == []
+
+
+def test_position_status_skips_missing_exit_time():
+    """A trade with no exit_time omits the 'flat' segment."""
+    trades = [
+        Trade(
+            entry_time=pd.Timestamp("2024-01-01"),
+            entry_price=100.0,
+            size=1.0,
+            exit_time=None,
+            direction="long",
+        ),
+    ]
+    result = _make_result(trades)
+    ps = result.position_status
+    assert len(ps) == 1
+    assert ps[0]["state"] == "long"
+    assert ps[0]["time"] == int(pd.Timestamp("2024-01-01").timestamp())

@@ -158,4 +158,5 @@ class BacktestService:
                 }
                 for t in r.trades
             ],
+            "position_status": r.position_status if hasattr(r, "position_status") else [],
         }
