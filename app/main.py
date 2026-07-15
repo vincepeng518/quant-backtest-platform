@@ -37,12 +37,18 @@ async def app_exception_handler(request: Request, exc: AppException):
 async def health():
     import os
     td = "/app/data/providers/test_data.py"
-    size = os.path.getsize(td) if os.path.exists(td) else -1
+    ds = "/app/app/services/data_service.py"
+    td_size = os.path.getsize(td) if os.path.exists(td) else -1
+    ds_has_name = False
+    if os.path.exists(ds):
+        with open(ds) as f:
+            ds_has_name = '"name": base' in f.read()
     return {
         "status": "ok",
         "version": "1.0.0",
         "railway_git_commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "none"),
-        "test_data_bytes": size,
+        "test_data_bytes": td_size,
+        "ds_symbol_name_patch": ds_has_name,
     }
 
 
