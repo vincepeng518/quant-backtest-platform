@@ -45,6 +45,14 @@ class DataService:
         if cached is not None:
             return pd.DataFrame(cached)
 
+        # 自定义分钟级周期（如 40m 非 Binance 原生间隔）：从 1m 基础数据重采样
+        minutes = self._custom_minutes(timeframe)
+        if minutes is not None:
+            base = await self._fetch_base(symbol, start_date, end_date, source)
+            if base is None or len(base) == 0:
+                return pd.DataFrame()
+            return self._resample_to_minutes(base, minutes)
+
         # 自动识别 TradFi 符号 (yfinance/Yahoo ticker)，即使 route 未传 source 也走 Yahoo
         if source != "csv" and source != "test" and self._is_tradfi(symbol):
             source = "tradfi"
@@ -78,6 +86,61 @@ class DataService:
                 logger.info("Falling back to CSV for %s", symbol)
                 data = self.csv_loader.load(symbol)
         return data if data is not None else pd.DataFrame()
+
+    @staticmethod
+    def _custom_minutes(timeframe: str) -> Optional[int]:
+        """Return minutes if timeframe is a custom minute interval that needs resampling.
+
+        Binance natively supports 1m/5m/15m/30m/1h/4h/1d. Anything else
+        expressed as `<N>m` (e.g. 40m) is resampled from 1m base data.
+        """
+        native = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w"}
+        if timeframe in native:
+            return None
+        if timeframe.endswith("m") and timeframe[:-1].isdigit():
+            n = int(timeframe[:-1])
+            if n >= 1:
+                return n
+        return None
+
+    async def _fetch_base(self, symbol: str, start_date: str, end_date: str, source: str) -> Optional[pd.DataFrame]:
+        """Fetch 1m base OHLCV (used as the resample source for custom intervals)."""
+        # Route tradfi/test through their normal paths; resampling only applies to crypto.
+        if self._is_tradfi(symbol):
+            return await self._try_fetch(self.tradfi, symbol, "1m", start_date, end_date)
+        if source == "csv" or source == "test":
+            data = self.csv_loader.load(symbol)
+            if data is None or len(data) < 5000:
+                from data.providers.test_data import generate_test_data
+                gen = generate_test_data(symbol.replace("/", "_"))
+                if gen is not None and len(gen) > 0:
+                    data = gen
+            return data
+        # default bingx -> binance fallback
+        data = await self._try_fetch(self.bingx, symbol, "1m", start_date, end_date)
+        if data is None or len(data) == 0:
+            data = await self._try_fetch(self.binance, symbol, "1m", start_date, end_date)
+        if data is None or len(data) == 0:
+            data = self.csv_loader.load(symbol)
+        return data
+
+    @staticmethod
+    def _resample_to_minutes(df: pd.DataFrame, minutes: int) -> pd.DataFrame:
+        """Aggregate 1m bars into N-minute OHLCV (shared open, max high, min low,
+        last close, sum volume), anchored to the start of each N-minute window."""
+        out = df.set_index("timestamp").sort_index()
+        rule = f"{minutes}min"
+        agg = out.resample(rule, label="left", closed="left").agg(
+            {
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            }
+        )
+        agg = agg.dropna(subset=["open", "close"]).reset_index()
+        return agg
 
     @staticmethod
     def _is_tradfi(symbol: str) -> bool:
