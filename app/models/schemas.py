@@ -204,3 +204,73 @@ class OptimizeResultOut(BaseModel):
     best_score: float = 0.0
     trials: list[dict] = []
     grid: dict | None = None  # 2D grid matrix, populated only when param_space has exactly 2 range params
+
+
+# ── Admin / Operator panel ──
+
+class CredentialStatus(BaseModel):
+    """Masked view of an external/exchange credential — NEVER exposes plaintext secret."""
+    name: str
+    kind: str  # exchange | data_source | infra
+    configured: bool
+    masked_value: str = ""   # e.g. "sk-****abcd" or "set" / "unset"
+    updated_at: str | None = None
+
+
+class MonitoredSymbol(BaseModel):
+    symbol: str
+    market: str = "crypto"
+    exchange: str = ""
+    description: str = ""
+    pinned: bool = False
+    added_at: str = ""
+
+
+class TaskHistoryItem(BaseModel):
+    task_id: str
+    kind: str            # backtest | optimize | analysis
+    status: str
+    created_at: str
+    symbol: str | None = None
+    timeframe: str | None = None
+    strategy: str | None = None
+    score: float | None = None
+    detail: str = ""
+
+
+class UsageStat(BaseModel):
+    metric: str
+    value: float | int
+
+
+class SiteConfig(BaseModel):
+    """Editable site-level defaults owned by the operator (solo SaaS)."""
+    default_timeframe: str = "1h"
+    default_symbol: str = "BTC/USDT"
+    default_source: str = "test"
+    default_initial_capital: float = 100_000.0
+    default_commission: float = 0.001
+    default_slippage: float = 0.0005
+    max_position_pct: float = 1.0
+    risk_guard_daily_loss_pct: float = 0.0   # 0 = disabled
+    risk_guard_max_drawdown_pct: float = 0.0  # 0 = disabled
+    maintenance_mode: bool = False
+    updated_at: str = ""
+
+    model_config = {"extra": "forbid"}
+
+
+class SiteConfigUpdate(BaseModel):
+    """Partial update — only provided fields are changed."""
+    default_timeframe: str | None = None
+    default_symbol: str | None = None
+    default_source: str | None = None
+    default_initial_capital: float | None = None
+    default_commission: float | None = None
+    default_slippage: float | None = None
+    max_position_pct: float | None = None
+    risk_guard_daily_loss_pct: float | None = None
+    risk_guard_max_drawdown_pct: float | None = None
+    maintenance_mode: bool | None = None
+
+    model_config = {"extra": "forbid"}

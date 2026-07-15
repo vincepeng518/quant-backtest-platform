@@ -1,0 +1,13 @@
+{
+  "default_timeframe": "4h",
+  "default_symbol": "BTC/USDT",
+  "default_source": "test",
+  "default_initial_capital": 100000.0,
+  "default_commission": 0.001,
+  "default_slippage": 0.0005,
+  "max_position_pct": 1.0,
+  "risk_guard_daily_loss_pct": 0.0,
+  "risk_guard_max_drawdown_pct": 0.0,
+  "maintenance_mode": true,
+  "updated_at": "2026-07-15T14:35:18.719458+00:00"
+}

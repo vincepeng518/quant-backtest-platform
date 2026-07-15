@@ -166,6 +166,63 @@ export interface MonitorStats {
   };
 }
 
+// ── Admin / Operator panel ──
+export interface CredentialStatus {
+  name: string;
+  kind: string;
+  configured: boolean;
+  masked_value: string;
+  updated_at?: string | null;
+}
+
+export interface MonitoredSymbol {
+  symbol: string;
+  market: string;
+  exchange?: string;
+  description?: string;
+  pinned: boolean;
+  added_at: string;
+}
+
+export interface TaskHistoryItem {
+  task_id: string;
+  kind: string;
+  status: string;
+  created_at: string;
+  symbol?: string | null;
+  timeframe?: string | null;
+  strategy?: string | null;
+  score?: number | null;
+  detail: string;
+}
+
+export interface UsageStat {
+  metric: string;
+  value: number;
+}
+
+export interface SiteConfig {
+  default_timeframe: string;
+  default_symbol: string;
+  default_source: string;
+  default_initial_capital: number;
+  default_commission: number;
+  default_slippage: number;
+  max_position_pct: number;
+  risk_guard_daily_loss_pct: number;
+  risk_guard_max_drawdown_pct: number;
+  maintenance_mode: boolean;
+  updated_at: string;
+}
+
+export interface AdminOverview {
+  watchlist: MonitoredSymbol[];
+  credentials: CredentialStatus[];
+  task_history: TaskHistoryItem[];
+  usage: UsageStat[];
+  config: SiteConfig;
+}
+
 export interface ResearchResult {
   task_id: string;
   status: string;
