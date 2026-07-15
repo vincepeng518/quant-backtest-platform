@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.schemas import StrategyTemplate, UserStrategyUpload, UserStrategyMeta
 from app.services import strategy_service as ss
+from app.core.auth import auth_required
+from app.core.sandbox import check_strategy_code
 
 router = APIRouter(prefix="/api/strategy", tags=["strategy"])
 
@@ -43,7 +45,10 @@ async def get_templates():
 
 
 @router.post("/upload", status_code=201)
-async def upload(payload: UserStrategyUpload):
+async def upload(payload: UserStrategyUpload, _: None = Depends(auth_required)):
+    ok, err = check_strategy_code(payload.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Strategy rejected: {err}")
     r = ss.upload_strategy(payload.model_dump())
     if "error" in r and r.get("code") == "SYNTAX_ERROR":
         raise HTTPException(status_code=400, detail=r["error"])
@@ -51,12 +56,12 @@ async def upload(payload: UserStrategyUpload):
 
 
 @router.get("/user", response_model=list[UserStrategyMeta])
-async def list_user():
+async def list_user(_: None = Depends(auth_required)):
     return ss.list_user_strategies()
 
 
 @router.get("/user/{sid}")
-async def get_user(sid: str):
+async def get_user(sid: str, _: None = Depends(auth_required)):
     r = ss.get_user_strategy(sid)
     if "error" in r:
         raise HTTPException(status_code=404, detail=r["error"])
@@ -64,7 +69,10 @@ async def get_user(sid: str):
 
 
 @router.put("/user/{sid}")
-async def update_user(sid: str, payload: UserStrategyUpload):
+async def update_user(sid: str, payload: UserStrategyUpload, _: None = Depends(auth_required)):
+    ok, err = check_strategy_code(payload.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Strategy rejected: {err}")
     r = ss.update_strategy(sid, payload.model_dump())
     if "error" in r and r.get("code") == "SYNTAX_ERROR":
         raise HTTPException(status_code=400, detail=r["error"])
@@ -74,7 +82,7 @@ async def update_user(sid: str, payload: UserStrategyUpload):
 
 
 @router.delete("/user/{sid}")
-async def delete_user(sid: str):
+async def delete_user(sid: str, _: None = Depends(auth_required)):
     r = ss.delete_strategy(sid)
     if "error" in r:
         raise HTTPException(status_code=404, detail=r["error"])

@@ -8,6 +8,13 @@ import {
   OptimizeResult,
   MonitorStats,
   ResearchResult,
+  AdminOverview,
+  MonitoredSymbol,
+  CredentialStatus,
+  TaskHistoryItem,
+  UsageStat,
+  SiteConfig,
+  SiteConfigUpdate,
 } from '@/types/api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -103,26 +110,26 @@ export const api = {
   getResearchResults: (id: string) =>
     request<ResearchResult>(`/research/results/${id}`),
 
-  // ── Admin / Operator panel ── (TEMP DISABLED: pending admin UI completion)
-  // getAdminOverview: () =>
-  //   request<AdminOverview>('/admin/overview'),
-  // getWatchlist: () =>
-  //   request<MonitoredSymbol[]>('/admin/watchlist'),
-  // addWatchlist: (item: Partial<MonitoredSymbol>) =>
-  //   request<MonitoredSymbol>('/admin/watchlist', { method: 'POST', body: JSON.stringify(item) }),
-  // removeWatchlist: (symbol: string) =>
-  //   request<{ ok: boolean }>(`/admin/watchlist?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE' }),
-  // toggleWatchlistPin: (symbol: string) =>
-  //   request<{ ok: boolean }>(`/admin/watchlist/pin?symbol=${encodeURIComponent(symbol)}`, { method: 'POST' }),
-  // getCredentials: () =>
-  //   request<CredentialStatus[]>('/admin/credentials'),
-  // getTaskHistory: (limit = 200) =>
-  //   request<TaskHistoryItem[]>(`/admin/tasks?limit=${limit}`),
-  // getUsage: () =>
-  //   request<UsageStat[]>('/admin/usage'),
-  // getSiteConfig: () =>
-  //   request<SiteConfig>('/admin/config'),
-  // updateSiteConfig: (patch: Partial<SiteConfig>) =>
-  //   request<SiteConfig>('/admin/config', { method: 'PATCH', body: JSON.stringify(patch) }),
+  // ── Admin / Operator panel ──
+  getAdminOverview: () =>
+    request<AdminOverview>('/admin/overview'),
+  getWatchlist: () =>
+    request<MonitoredSymbol[]>('/admin/watchlist'),
+  addWatchlist: (item: Partial<MonitoredSymbol>) =>
+    request<MonitoredSymbol>('/admin/watchlist', { method: 'POST', body: JSON.stringify(item) }),
+  removeWatchlist: (symbol: string) =>
+    request<{ ok: boolean }>(`/admin/watchlist?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE' }),
+  toggleWatchlistPin: (symbol: string) =>
+    request<{ ok: boolean }>(`/admin/watchlist/pin?symbol=${encodeURIComponent(symbol)}`, { method: 'POST' }),
+  getCredentials: () =>
+    request<CredentialStatus[]>('/admin/credentials'),
+  getTaskHistory: (limit = 200) =>
+    request<TaskHistoryItem[]>(`/admin/tasks?limit=${limit}`),
+  getUsage: () =>
+    request<UsageStat[]>('/admin/usage'),
+  getSiteConfig: () =>
+    request<SiteConfig>('/admin/config'),
+  updateSiteConfig: (patch: Partial<SiteConfigUpdate>) =>
+    request<SiteConfig>('/admin/config', { method: 'PATCH', body: JSON.stringify(patch) }),
 };
 export default api;

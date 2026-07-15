@@ -129,12 +129,13 @@ export const PriceChart: React.FC<PriceChartProps> = ({
         hour: '2-digit', minute: '2-digit', hour12: false,
       });
       legendEl.style.display = 'flex';
-      legendEl.innerHTML =
-        `<span style="color:#a3a3a3;margin-right:8px">${dateStr}</span>` +
-        `<span style="color:#a3a3a3">O</span><span style="color:${color};margin:0 6px">${fmt(bar.open)}</span>` +
-        `<span style="color:#a3a3a3">H</span><span style="color:${color};margin:0 6px">${fmt(bar.high)}</span>` +
-        `<span style="color:#a3a3a3">L</span><span style="color:${color};margin:0 6px">${fmt(bar.low)}</span>` +
-        `<span style="color:#a3a3a3">C</span><span style="color:${color};margin:0 6px">${fmt(bar.close)}</span>`;
+      legendEl.replaceChildren();
+      const mk = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.textContent = txt; return s; };
+      legendEl.appendChild(mk(dateStr, '#a3a3a3'));
+      legendEl.appendChild(mk('O', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.open), color));
+      legendEl.appendChild(mk('H', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.high), color));
+      legendEl.appendChild(mk('L', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.low), color));
+      legendEl.appendChild(mk('C', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.close), color));
     };
 
     chart.subscribeCrosshairMove(renderLegend);

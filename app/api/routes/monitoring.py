@@ -4,7 +4,9 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
+
+from app.core.auth import auth_required
 
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
@@ -44,7 +46,7 @@ async def push(req: Request):
 
 
 @router.get("/stats")
-async def stats():
+async def stats(_: None = Depends(auth_required)):
     c = _conn()
     try:
         row = c.execute(
