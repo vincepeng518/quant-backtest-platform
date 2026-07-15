@@ -148,6 +148,7 @@ class BacktestResultOut(BaseModel):
     equity_curve: list[dict] = []
     buy_hold_equity: list[dict] = []
     trades: list[TradeRecord] = []
+    position_status: list[dict] = []
 
 
 class TaskStatus(BaseModel):
