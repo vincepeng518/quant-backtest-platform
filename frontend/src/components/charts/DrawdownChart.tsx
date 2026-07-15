@@ -68,7 +68,7 @@ export const DrawdownChart: React.FC<DrawdownChartProps> = ({
 
     chartRef.current = chart;
 
-    // ── 悬停图例 ──
+    // ── 懸停圖例 ──
     const legendEl = legendRef.current;
     const fmt = (n: number) => (n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     const renderLegend = (param: any) => {

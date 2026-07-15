@@ -79,7 +79,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
 
     chartRef.current = chart;
 
-    // ── 悬停图例 ──
+    // ── 懸停圖例 ──
     const legendEl = legendRef.current;
     const fmt = (n: number) => (n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     const renderLegend = (param: any) => {
@@ -88,7 +88,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
       const t = param.time as number;
       const dt = new Date(t * 1000).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
       legendEl.style.display = 'flex';
-      legendEl.innerHTML = `<span style="color:#a3a3a3;margin-right:8px">${dt}</span><span style="color:#3b82f6">权益 ${fmt(sd?.value ?? NaN)}</span>`;
+      legendEl.innerHTML = `<span style="color:#a3a3a3;margin-right:8px">${dt}</span><span style="color:#3b82f6">權益 ${fmt(sd?.value ?? NaN)}</span>`;
     };
     chart.subscribeCrosshairMove(renderLegend);
 

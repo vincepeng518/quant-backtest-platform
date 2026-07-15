@@ -88,7 +88,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
     const equityLine = chart.addLineSeries({
       color: GREEN,
       lineWidth: 2,
-      title: '累计损益',
+      title: '累計損益',
       priceLineVisible: false,
     });
     equityLine.setData(eqData);
@@ -164,14 +164,14 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       if (eq) {
         const up = eq.value! >= initialCapital;
         const c = up ? GREEN : RED;
-        html += `<span style="color:#a3a3a3">权益</span><span style="color:${c};margin:0 6px">${fmt(eq.value!)}</span>`;
+        html += `<span style="color:#a3a3a3">權益</span><span style="color:${c};margin:0 6px">${fmt(eq.value!)}</span>`;
       }
       if (bh) {
         html += `<span style="color:#a3a3a3">B&amp;H</span><span style="color:${BH_GRAY};margin:0 6px">${fmt(bh.value!)}</span>`;
       }
       if (hist) {
         const c = hist.value! >= 0 ? GREEN : RED;
-        html += `<span style="color:#a3a3a3">单笔</span><span style="color:${c};margin:0 6px">${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}</span>`;
+        html += `<span style="color:#a3a3a3">單筆</span><span style="color:${c};margin:0 6px">${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}</span>`;
       }
       legendEl.style.display = 'flex';
       legendEl.innerHTML = html;

@@ -22,7 +22,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: unknown) {
-    // 仅记录, 不向上抛 (避免整页 Application error)
+    // 僅記錄, 不向上拋 (避免整頁 Application error)
     if (typeof console !== 'undefined') {
       console.error('[ErrorBoundary]', error);
     }
