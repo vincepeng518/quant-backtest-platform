@@ -118,13 +118,17 @@ class DataService:
         if self._is_tradfi(symbol):
             return await self._try_fetch(self.tradfi, symbol, "1m", start_date, end_date)
         if source == "csv" or source == "test":
+            # Prefer synthetic data at the *requested* timeframe so test mode
+            # reflects the chosen interval (15m/45m/...), not a stale 1h CSV.
+            from data.providers.test_data import generate_test_data
+            gen = generate_test_data(symbol.replace("/", "_"), timeframe=timeframe)
+            if gen is not None and len(gen) > 0:
+                return gen
+            # Fallback to on-disk CSV if synthetic generation failed
             data = self.csv_loader.load(symbol)
-            if data is None or len(data) < 5000:
-                from data.providers.test_data import generate_test_data
-                gen = generate_test_data(symbol.replace("/", "_"), timeframe=timeframe)
-                if gen is not None and len(gen) > 0:
-                    data = gen
-            return data
+            if data is not None and len(data) > 0:
+                return data
+            return None
         # default bingx -> binance fallback
         data = await self._try_fetch(self.bingx, symbol, "1m", start_date, end_date)
         if data is None or len(data) == 0:
