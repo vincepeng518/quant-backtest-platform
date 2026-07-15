@@ -1,2 +1,6 @@
 .vercel
 .env*
+
+# local frontend env (contains admin bearer token — NEVER commit)
+frontend/.env.local
+frontend/.env*.local
