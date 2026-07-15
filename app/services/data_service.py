@@ -181,7 +181,7 @@ class DataService:
 
     async def get_symbols(self) -> list[dict]:
         # 动态拉取 BingX 全量 USDT 活跃交易对 (支持全币種 + 搜索)
-        cached = cache.get("symbols:all")
+        cached = cache.get("symbols:all:v2")
         if cached and isinstance(cached, dict) and "symbols" in cached:
             return cached["symbols"]  # type: ignore[return-value]
 
@@ -208,7 +208,7 @@ class DataService:
         ]
 
         result = crypto_syms + tradfi_syms
-        cache.set("symbols:all", {"symbols": result}, ttl=3600)
+        cache.set("symbols:all:v2", {"symbols": result}, ttl=3600)
         return result
 
     async def _crypto_symbols(self) -> list[dict]:
