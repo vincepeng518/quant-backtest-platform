@@ -22,8 +22,9 @@ interface EquityPnlChartProps {
   theme?: 'light' | 'dark';
 }
 
-const GREEN = '#089981';
-const RED = '#f23645';
+const STRATEGY = '#2962FF';
+const TV_UP = '#089981';
+const TV_DOWN = '#f23645';
 const BH_GRAY = '#787b86';
 
 const toTs = (raw: any): number => {
@@ -107,7 +108,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       .filter((d) => d.time > 0);
 
     const equityLine = chart.addLineSeries({
-      color: GREEN,
+      color: STRATEGY,
       lineWidth: 2,
       title: '累計損益',
       priceLineVisible: false,
@@ -145,7 +146,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       markers.push({
         time: eqData[peakIdx].time,
         position: 'aboveBar',
-        color: GREEN,
+        color: TV_UP,
         shape: 'circle',
         text: '峰值',
       });
@@ -154,7 +155,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       markers.push({
         time: eqData[troughIdx].time,
         position: 'belowBar',
-        color: RED,
+        color: TV_DOWN,
         shape: 'circle',
         text: `最大回撤 ${((maxDd) * 100).toFixed(1)}%`,
       });
@@ -255,7 +256,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       legendEl.appendChild(mk(dt, '#d1d4dc', '0 8px 0 0'));
       if (eq) {
         const up = eq.value! >= initialCapital;
-        const c = up ? GREEN : RED;
+        const c = up ? TV_UP : TV_DOWN;
         legendEl.appendChild(mk('權益', '#787b86'));
         legendEl.appendChild(mk(fmt(eq.value!), c));
       }
@@ -264,14 +265,14 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         legendEl.appendChild(mk(fmt(bh.value!), BH_GRAY));
       }
       if (hist) {
-        const c = hist.value! >= 0 ? GREEN : RED;
+        const c = hist.value! >= 0 ? TV_UP : TV_DOWN;
         legendEl.appendChild(mk('單筆', '#787b86'));
         legendEl.appendChild(mk(`${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}`, c));
       }
       if (showSpread && spreadLine) {
         const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
         if (sp) {
-          const c = sp.value! >= 0 ? GREEN : RED;
+          const c = sp.value! >= 0 ? TV_UP : TV_DOWN;
           legendEl.appendChild(mk('差值', '#787b86'));
           legendEl.appendChild(mk(`${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}`, c));
         }
@@ -297,7 +298,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
     <div className="relative w-full bg-surface">
       <div
         ref={legendRef}
-        className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs"
+        className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs tabular-nums"
         style={{ display: 'none' }}
       />
       <div ref={containerRef} className="w-full h-[420px]" />

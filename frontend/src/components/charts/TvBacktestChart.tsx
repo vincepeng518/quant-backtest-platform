@@ -191,7 +191,7 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     }).filter(Boolean));
 
     // ── Pane 3: equity ──
-    const strat = eqChart.addLineSeries({ color: '#3b82f6', lineWidth: 2, title: 'Strategy' });
+    const strat = eqChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'Strategy' });
     const eqPoints = equityData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0);
     strat.setData(eqPoints);
     if (buyHoldData.length > 0) {
@@ -319,7 +319,7 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
             {isFullscreen ? '退出' : '⛶'}
           </button>
         </div>
-        <div ref={legendRef} className="pointer-events-none absolute left-4 top-2 z-10 flex flex-wrap font-mono text-xs" style={{ display: 'none' }} />
+        <div ref={legendRef} className="pointer-events-none absolute left-6 top-4 z-10 flex flex-wrap font-mono text-xs tabular-nums" style={{ display: 'none' }} />
         <div ref={priceRef} className="w-full" style={{ paddingTop: 4, paddingBottom: 4 }} />
       </div>
       <div ref={volRef} className="w-full border-t border-[#363c4e]/20" />

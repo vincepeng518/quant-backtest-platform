@@ -19,7 +19,7 @@ export const Button: React.FC<ButtonProps> = ({
       className={twMerge(
         clsx(
           // Base Impeccable elements: no borders, no shadows, smooth duration transition
-          'inline-flex items-center justify-center font-medium transition-colors duration-150 ease-out focus:outline-none disabled:opacity-50 disabled:pointer-events-none rounded',
+          'inline-flex items-center justify-center font-medium transition-colors duration-150 ease-out focus:outline-none disabled:opacity-50 disabled:pointer-events-none rounded active:scale-[0.97]',
           {
             'bg-accent text-white hover:opacity-90': variant === 'primary',
             'bg-surface text-text hover:bg-border/30 dark:hover:bg-border/10': variant === 'secondary',

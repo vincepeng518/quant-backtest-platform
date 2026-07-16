@@ -72,7 +72,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
       rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.1, bottom: 0.1 } },
     });
 
-    const strategyLine = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2, title: 'Strategy' });
+    const strategyLine = chart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'Strategy' });
     strategyLine.setData(
       data.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
         .filter((d) => d.time > 0)
@@ -98,7 +98,7 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
       legendEl.replaceChildren();
       const mk = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.style.fontSize = '11px'; s.textContent = txt; return s; };
       legendEl.appendChild(mk(dt, '#d1d4dc'));
-      legendEl.appendChild(mk(`權益 ${fmt(sd?.value ?? NaN)}`, '#3b82f6'));
+      legendEl.appendChild(mk(`權益 ${fmt(sd?.value ?? NaN)}`, '#2962FF'));
     };
     chart.subscribeCrosshairMove(renderLegend);
 
@@ -117,10 +117,10 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
   }, [data, buyHoldData, theme]);
 
   return (
-    <div className="relative w-full bg-surface p-4 border-t border-[#363c4e]/20">
+    <div className="relative w-full bg-surface p-0 border-t border-[#363c4e]/20">
       <div
         ref={legendRef}
-        className="pointer-events-none absolute left-6 top-6 z-10 hidden items-center font-mono text-xs"
+        className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs tabular-nums"
         style={{ display: 'none' }}
       />
       <div ref={containerRef} className="w-full h-[300px]" />

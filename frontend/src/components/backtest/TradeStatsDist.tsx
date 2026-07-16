@@ -11,7 +11,7 @@ interface TradeStatsDistProps {
 const TV_UP = '#089981';
 const TV_DOWN = '#f23645';
 const TV_NEUTRAL = '#787b86';
-const TV_HOLD = '#3b82f6';
+const TV_HOLD = '#2962FF';
 
 // ── Histogram Bars ──
 const HistBars: React.FC<{
