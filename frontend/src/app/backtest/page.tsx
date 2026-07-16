@@ -19,7 +19,7 @@ import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
-import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fracToPct } from '@/lib/format';
+import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty } from '@/lib/format';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 // Robust to both backend shapes so the chart markers survive format changes.
@@ -236,7 +236,12 @@ function BacktestView() {
         position: 'aboveBar',
         shape: 'circle',
         color: pnl >= 0 ? '#089981' : '#f23645',
-        text: `${((Number(t.pnl_pct) || 0) * 100).toFixed(1)}%`,
+        text: `${(() => {
+          const p = Number(t.pnl_pct);
+          if (!Number.isFinite(p)) return '—';
+          // pnl_pct already *100 from engine
+          return `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
+        })()}`,
       });
     }
     // Append highlight marker if a trade is selected
@@ -784,7 +789,7 @@ function BacktestView() {
                             Number(t.pnl_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'
                           }`}
                         >
-                          {t.pnl_pct != null ? fracToPct(Number(t.pnl_pct)) : '—'}
+                          {t.pnl_pct != null ? safePct(Number(t.pnl_pct)) : '—'}
                         </td>
                         <td className="px-6 py-3 text-textSecondary">{t.exit_reason || '—'}</td>
                         <td className="px-6 py-3 text-right text-textSecondary tabular-nums">
