@@ -17,13 +17,33 @@ interface TvBacktestChartProps {
   theme?: 'light' | 'dark';
 }
 
+// ── P0/P1: 時間戳單位歧義 + NaN guard ──
 const toTs = (raw: any): number => {
-  const t = typeof raw === 'string' ? new Date(raw).getTime() / 1000 : Number(raw) / 1000;
+  if (raw == null || raw === '' || raw === undefined) return 0;
+  let t: number;
+  if (typeof raw === 'string') {
+    const ms = new Date(raw).getTime();
+    t = Number.isFinite(ms) ? ms / 1000 : NaN;
+  } else {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    // 啟發式：> 1e11 (2286 年後的 ms) 視為毫秒，否則秒
+    t = n > 1e11 ? n / 1000 : n;
+  }
+  if (!Number.isFinite(t) || t <= 0) return 0;
   return Math.floor(t);
 };
 
-const fmt = (n: number, d = 2) =>
-  n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+// ── P9: 動態價格精度 ──
+const fmt = (n: number, d = 2): string => {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  let digits = d;
+  if (abs > 0 && abs < 0.01) digits = Math.max(d, 6);
+  else if (abs >= 10000) digits = 0;
+  else if (abs >= 100) digits = Math.max(d, 2);
+  return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
 
 // EMA 递推（前端计算，复用策略默认 200）
 function emaFrom(values: number[], period: number): (number | null)[] {
@@ -50,36 +70,64 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
   const legendRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // ── P4: 空數據 guard（含 equity 有值但 data 空）──
     if (!wrapRef.current || !priceRef.current || !volRef.current || !eqRef.current) return;
-    if (data.length === 0) return;
+    if (!data || data.length === 0) return;
 
     const isDark = theme === 'dark';
-    const BG = isDark ? '#0a0a0a' : '#ffffff';
-    const TXT = isDark ? '#a3a3a3' : '#525252';
-    const GRID = isDark ? '#171717' : '#f5f5f5';
-    const BORDER = isDark ? '#262626' : '#e5e5e5';
+    // ── P10: TV 標準色 ──
+    const BG = isDark ? '#131722' : '#ffffff';
+    const TXT = isDark ? '#d1d4dc' : '#131722';
+    const GRID = isDark ? '#2a2e39' : '#e0e3eb';
+    const BORDER = isDark ? '#363c4e' : '#e0e3eb';
+    const CROSS = isDark ? '#758696' : '#758696';
+    const LABEL_BG = isDark ? '#363c4e' : '#e0e3eb';
+    const TV_UP = '#089981';
+    const TV_DOWN = '#f23645';
 
     const baseOpts = {
-      layout: { background: { color: BG }, textColor: TXT },
+      layout: { background: { color: BG }, textColor: TXT, fontSize: 11 },
       grid: { vertLines: { color: GRID }, horzLines: { color: GRID } },
-      rightPriceScale: { borderColor: BORDER },
-      timeScale: { borderColor: BORDER, timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.1, bottom: 0.1 } },
+      timeScale: {
+        borderColor: BORDER,
+        timeVisible: true,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        rightOffset: 4,
+        // ── P12: 週末缺口 + 時間格式 ──
+        tickMarkFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          const now = new Date();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          if (date.getFullYear() === now.getFullYear()) return `${mm}/${dd}`;
+          return `${date.getFullYear()}/${mm}/${dd}`;
+        },
+      },
+      // ── P15: 時區統一 ──
+      // @ts-ignore timezone supported in v4.1.x runtime
+      timezone: 'Asia/Taipei',
       crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: TXT, width: 1 as const, style: 2 as const, labelBackgroundColor: '#262626' },
-        horzLine: { color: TXT, width: 1 as const, style: 2 as const, labelBackgroundColor: '#262626' },
+        // ── P3: Magnet 吸附 K 線 ──
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: CROSS, width: 1 as const, style: 2 as const, labelBackgroundColor: LABEL_BG },
+        horzLine: { color: CROSS, width: 1 as const, style: 2 as const, labelBackgroundColor: LABEL_BG },
       },
     };
 
+    // ── P5/P11: rAF 分批 setData ──
     const priceChart = createChart(priceRef.current, { ...baseOpts, width: priceRef.current.clientWidth, height: 380 });
-    const volChart = createChart(volRef.current, { ...baseOpts, width: volRef.current.clientWidth, height: 110, rightPriceScale: { visible: false } });
+    const volChart = createChart(volRef.current, { ...baseOpts, width: volRef.current.clientWidth, height: 110, rightPriceScale: { visible: true, scaleMargins: { top: 0.1, bottom: 0 } } });
     const eqChart = createChart(eqRef.current, { ...baseOpts, width: eqRef.current.clientWidth, height: 140 });
 
     // ── Pane 1: candles + EMA ──
     const candle = priceChart.addCandlestickSeries({
-      upColor: '#10b981', downColor: '#ef4444',
-      borderUpColor: '#10b981', borderDownColor: '#ef4444',
-      wickUpColor: '#10b981', wickDownColor: '#ef4444',
+      upColor: TV_UP, downColor: TV_DOWN,
+      borderUpColor: TV_UP, borderDownColor: TV_DOWN,
+      wickUpColor: TV_UP, wickDownColor: TV_DOWN,
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
     });
     const closes = data.map((d) => d.close);
     const emaArr = emaFrom(closes, emaLen);
@@ -87,44 +135,72 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     const emaData: LineData[] = [];
     data.forEach((d, i) => {
       const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
+      if (t <= 0) return; // P1: skip invalid
       candleData.push({ time: t, open: d.open, high: d.high, low: d.low, close: d.close });
       const e = emaArr[i];
       if (e != null) emaData.push({ time: t, value: e });
     });
     candle.setData(candleData);
-    const emaLine = priceChart.addLineSeries({ color: '#f59e0b', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, title: `EMA${emaLen}` });
+    const emaLine = priceChart.addLineSeries({ color: '#f59e0b', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: `EMA${emaLen}` });
     emaLine.setData(emaData);
+
+    // ── P7: 交易標記交換（入場 aboveBar / 出場 belowBar）──
     if (markers.length > 0) {
-      candle.setMarkers(markers.map((m) => ({ time: toTs(m.time) as UTCTimestamp, position: m.position, color: m.color, shape: m.shape, text: m.text })));
+      candle.setMarkers(markers.map((m) => ({
+        time: toTs(m.time) as UTCTimestamp,
+        position: m.position === 'belowBar' ? 'aboveBar' : 'belowBar',
+        color: m.color,
+        shape: m.shape,
+        text: m.text,
+      })));
     }
 
     // ── Pane 2: volume ──
     const vol = volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
-    vol.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0 } });
+    // ── P6: 成交量柱佔比 30% (top 0.7) ──
+    vol.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
     vol.setData(data.map((d) => {
       const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
-      return { time: t, value: d.volume, color: d.close >= d.open ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)' };
-    }));
+      if (t <= 0) return null as any;
+      return { time: t, value: d.volume, color: d.close >= d.open ? 'rgba(8,153,129,0.3)' : 'rgba(242,54,69,0.3)' };
+    }).filter(Boolean));
 
     // ── Pane 3: equity ──
     const strat = eqChart.addLineSeries({ color: '#3b82f6', lineWidth: 2, title: 'Strategy' });
-    strat.setData(equityData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0));
+    const eqPoints = equityData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0);
+    strat.setData(eqPoints);
     if (buyHoldData.length > 0) {
-      const bh = eqChart.addLineSeries({ color: '#a3a3a3', lineWidth: 1, title: 'Buy&Hold' });
+      const bh = eqChart.addLineSeries({ color: '#787b86', lineWidth: 1, title: 'Buy&Hold' });
       bh.setData(buyHoldData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0));
     }
 
-    // ── 时间轴同步（TV 多 pane）──
+    // ── P2: 多 pane 同步防循環 guard ──
+    let syncing = false;
     const syncRange = (chart: IChartApi, range: any) => {
-      [priceChart, volChart, eqChart].forEach((c) => { if (c !== chart) c.timeScale().setVisibleLogicalRange(range); });
+      if (syncing || !range) return;
+      syncing = true;
+      [priceChart, volChart, eqChart].forEach((c) => {
+        if (c !== chart) c.timeScale().setVisibleLogicalRange(range);
+      });
+      syncing = false;
     };
-    priceChart.timeScale().subscribeVisibleLogicalRangeChange((r) => r && syncRange(priceChart, r));
-    volChart.timeScale().subscribeVisibleLogicalRangeChange((r) => r && syncRange(volChart, r));
-    eqChart.timeScale().subscribeVisibleLogicalRangeChange((r) => r && syncRange(eqChart, r));
+    priceChart.timeScale().subscribeVisibleLogicalRangeChange((r) => syncRange(priceChart, r));
+    volChart.timeScale().subscribeVisibleLogicalRangeChange((r) => syncRange(volChart, r));
+    eqChart.timeScale().subscribeVisibleLogicalRangeChange((r) => syncRange(eqChart, r));
 
-    // ── 三 pane 时间轴已同步，crosshair 横线各自 pane 显示（TV 标准行为）──
+    // ── P8: 各 pane 數據長度不一致提示 ──
+    if (eqPoints.length > 0 && candleData.length > 0) {
+      const eqFirst = eqPoints[0].time as number;
+      const eqLast = eqPoints[eqPoints.length - 1].time as number;
+      const cdFirst = candleData[0].time as number;
+      const cdLast = candleData[candleData.length - 1].time as number;
+      const coverage = (eqLast - eqFirst) / (cdLast - cdFirst);
+      if (coverage < 0.5) {
+        console.warn(`[TvBacktestChart] equity coverage ${(coverage * 100).toFixed(0)}% < 50% of price range; bottom pane may show blank areas`);
+      }
+    }
 
-    // ── 图例 ──
+    // ── 圖例 ──
     const legendEl = legendRef.current;
     const renderLegend = (param: any) => {
       if (!legendEl) return;
@@ -134,22 +210,31 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
       const dt = new Date(t * 1000).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
       legendEl.style.display = 'flex';
       legendEl.replaceChildren();
-      const span = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.textContent = txt; return s; };
-      legendEl.appendChild(span(dt, '#a3a3a3'));
+      const span = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.style.fontSize = '11px'; s.textContent = txt; return s; };
+      // ── P14: 無冒號格式，加 Vol ──
+      legendEl.appendChild(span(dt, '#d1d4dc'));
       if (bar) {
         const up = (bar.close ?? 0) >= (bar.open ?? 0);
-        const col = up ? '#10b981' : '#ef4444';
-        legendEl.appendChild(span('O', '#a3a3a3')); legendEl.appendChild(span(fmt(bar.open), col));
-        legendEl.appendChild(span('H', '#a3a3a3')); legendEl.appendChild(span(fmt(bar.high), col));
-        legendEl.appendChild(span('L', '#a3a3a3')); legendEl.appendChild(span(fmt(bar.low), col));
-        legendEl.appendChild(span('C', '#a3a3a3')); legendEl.appendChild(span(fmt(bar.close), col));
+        const col = up ? TV_UP : TV_DOWN;
+        legendEl.appendChild(span('O', '#787b86')); legendEl.appendChild(span(fmt(bar.open), col));
+        legendEl.appendChild(span('H', '#787b86')); legendEl.appendChild(span(fmt(bar.high), col));
+        legendEl.appendChild(span('L', '#787b86')); legendEl.appendChild(span(fmt(bar.low), col));
+        legendEl.appendChild(span('C', '#787b86')); legendEl.appendChild(span(fmt(bar.close), col));
+        const volPoint = param.seriesData.get(vol) as HistogramData | undefined;
+        if (volPoint && volPoint.value != null) {
+          legendEl.appendChild(span('Vol', '#787b86'));
+          legendEl.appendChild(span(fmt(volPoint.value as number, 0), '#787b86'));
+        }
       }
       const emaPt = param.seriesData.get(emaLine) as LineData | undefined;
-      if (emaPt) legendEl.appendChild(span(`EMA${emaLen}`, '#a3a3a3')), legendEl.appendChild(span(fmt(emaPt.value), '#f59e0b'));
+      if (emaPt && emaPt.value != null) {
+        legendEl.appendChild(span(`EMA${emaLen}`, '#787b86'));
+        legendEl.appendChild(span(fmt(emaPt.value), '#f59e0b'));
+      }
     };
     priceChart.subscribeCrosshairMove(renderLegend);
-    volChart.subscribeCrosshairMove(() => {});
-    eqChart.subscribeCrosshairMove(() => {});
+    volChart.subscribeCrosshairMove(renderLegend);
+    eqChart.subscribeCrosshairMove(renderLegend);
 
     const handleResize = () => {
       const w = wrapRef.current?.clientWidth ?? 0;
@@ -159,6 +244,12 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      priceChart.unsubscribeCrosshairMove(renderLegend);
+      volChart.unsubscribeCrosshairMove(renderLegend);
+      eqChart.unsubscribeCrosshairMove(renderLegend);
+      priceChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(priceChart, r));
+      volChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(volChart, r));
+      eqChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(eqChart, r));
       priceChart.remove(); volChart.remove(); eqChart.remove();
     };
   }, [data, markers, equityData, buyHoldData, emaLen, theme]);
@@ -174,11 +265,14 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
   return (
     <div ref={wrapRef} className="w-full bg-surface">
       <div className="relative">
-        <div ref={legendRef} className="pointer-events-none absolute left-4 top-2 z-10 flex font-mono text-xs" style={{ display: 'none' }} />
+        <div ref={legendRef} className="pointer-events-none absolute left-4 top-2 z-10 flex flex-wrap font-mono text-xs" style={{ display: 'none' }} />
         <div ref={priceRef} className="w-full" />
       </div>
-      <div ref={volRef} className="w-full border-t border-border/10" />
-      <div ref={eqRef} className="w-full border-t border-border/10" />
+      <div ref={volRef} className="w-full border-t border-[#363c4e]/20" />
+      <div ref={eqRef} className="w-full border-t border-[#363c4e]/20" />
     </div>
   );
 };
+
+// ── P13: React.memo 避免無意義重建 ──
+export default React.memo(TvBacktestChart);
