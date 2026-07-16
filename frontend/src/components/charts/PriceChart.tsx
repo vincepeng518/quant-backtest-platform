@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, IChartApi, ISeriesApi, UTCTimestamp, CandlestickData, Time } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, UTCTimestamp, CandlestickData, CrosshairMode } from 'lightweight-charts';
 import { ChartData, TradeMarker } from '@/types/chart';
 
 interface PriceChartProps {
@@ -10,7 +10,30 @@ interface PriceChartProps {
   theme?: 'light' | 'dark';
 }
 
-const fmt = (n: number) => (n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+// ── 時間戳單位歧義 + NaN guard（與 TvBacktestChart 一致）──
+const toTs = (raw: any): number => {
+  if (raw == null || raw === '' || raw === undefined) return 0;
+  let t: number;
+  if (typeof raw === 'string') {
+    const ms = new Date(raw).getTime();
+    t = Number.isFinite(ms) ? ms / 1000 : NaN;
+  } else {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    t = n > 1e11 ? n / 1000 : n;
+  }
+  if (!Number.isFinite(t) || t <= 0) return 0;
+  return Math.floor(t);
+};
+
+const fmt = (n: number, d = 2): string => {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  let digits = d;
+  if (abs > 0 && abs < 0.01) digits = Math.max(d, 6);
+  else if (abs >= 10000) digits = 0;
+  return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
 
 export const PriceChart: React.FC<PriceChartProps> = ({
   data,
@@ -26,77 +49,78 @@ export const PriceChart: React.FC<PriceChartProps> = ({
     if (!containerRef.current) return;
 
     const isDark = theme === 'dark';
+    const BG = isDark ? '#131722' : '#ffffff';
+    const TXT = isDark ? '#d1d4dc' : '#131722';
+    const GRID = isDark ? '#2a2e39' : '#e0e3eb';
+    const BORDER = isDark ? '#363c4e' : '#e0e3eb';
+    const CROSS = '#758696';
+    const TV_UP = '#089981';
+    const TV_DOWN = '#f23645';
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 450,
       layout: {
-        background: { color: isDark ? '#0a0a0a' : '#ffffff' },
-        textColor: isDark ? '#a3a3a3' : '#525252',
+        background: { color: BG },
+        textColor: TXT,
+        fontSize: 11,
       },
       grid: {
-        vertLines: { color: isDark ? '#171717' : '#f5f5f5' },
-        horzLines: { color: isDark ? '#171717' : '#f5f5f5' },
+        vertLines: { color: GRID },
+        horzLines: { color: GRID },
       },
       crosshair: {
-        mode: 1, // Magnet mode
-        vertLine: {
-          color: isDark ? '#a3a3a3' : '#525252',
-          width: 1,
-          style: 2, // dashed
-        },
-        horzLine: {
-          color: isDark ? '#a3a3a3' : '#525252',
-          width: 1,
-          style: 2,
-        },
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: CROSS, width: 1, style: 2 },
+        horzLine: { color: CROSS, width: 1, style: 2 },
       },
       timeScale: {
-        borderColor: isDark ? '#262626' : '#e5e5e5',
+        borderColor: BORDER,
         timeVisible: true,
         secondsVisible: false,
-      },
-      leftPriceScale: {
-        visible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        rightOffset: 4,
+        // @ts-ignore timezone supported in v4.1.x runtime
+        timezone: 'Asia/Taipei',
       },
       rightPriceScale: {
-        borderColor: isDark ? '#262626' : '#e5e5e5',
+        borderColor: BORDER,
+        scaleMargins: { top: 0.1, bottom: 0.1 },
       },
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderUpColor: '#10b981',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
+      upColor: TV_UP,
+      downColor: TV_DOWN,
+      borderUpColor: TV_UP,
+      borderDownColor: TV_DOWN,
+      wickUpColor: TV_UP,
+      wickDownColor: TV_DOWN,
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
     });
 
     const formattedData = data
       .filter((d) => d != null)
       .map((d) => {
-        const raw = d.time ?? (d as any).timestamp;
-        const t =
-          typeof raw === 'string'
-            ? Math.floor(new Date(raw).getTime() / 1000)
-            : Math.floor((raw as number) / 1000);
+        const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
+        if (t <= 0) return null as any;
         return {
-          time: t as UTCTimestamp,
+          time: t,
           open: d.open,
           high: d.high,
           low: d.low,
           close: d.close,
         };
       })
-      .filter((d) => Number.isFinite(d.time) && d.time > 0);
+      .filter(Boolean);
 
     candlestickSeries.setData(formattedData);
 
     if (markers.length > 0) {
       const formattedMarkers = markers.map((m) => ({
-        time: m.time as UTCTimestamp,
-        position: m.position,
+        time: toTs(m.time) as UTCTimestamp,
+        position: (m.position === 'belowBar' ? 'aboveBar' : 'belowBar') as 'aboveBar' | 'belowBar',
         color: m.color,
         shape: m.shape,
         text: m.text,
@@ -107,7 +131,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
     candlestickSeriesRef.current = candlestickSeries;
     chartRef.current = chart;
 
-    // ── 懸停圖例 (Crosshair OHLC legend) ──
+    // ── 懸停圖例 ──
     const legendEl = legendRef.current;
     const renderLegend = (param: any) => {
       if (!legendEl) return;
@@ -121,7 +145,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
         return;
       }
       const up = (bar.close ?? 0) >= (bar.open ?? 0);
-      const color = up ? '#10b981' : '#ef4444';
+      const color = up ? TV_UP : TV_DOWN;
       const t = param.time as number;
       const dt = new Date(t * 1000);
       const dateStr = dt.toLocaleString('zh-TW', {
@@ -130,12 +154,12 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       });
       legendEl.style.display = 'flex';
       legendEl.replaceChildren();
-      const mk = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.textContent = txt; return s; };
-      legendEl.appendChild(mk(dateStr, '#a3a3a3'));
-      legendEl.appendChild(mk('O', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.open), color));
-      legendEl.appendChild(mk('H', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.high), color));
-      legendEl.appendChild(mk('L', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.low), color));
-      legendEl.appendChild(mk('C', '#a3a3a3')); legendEl.appendChild(mk(fmt(bar.close), color));
+      const mk = (txt: string, col: string) => { const s = document.createElement('span'); s.style.color = col; s.style.margin = '0 6px'; s.style.fontSize = '11px'; s.textContent = txt; return s; };
+      legendEl.appendChild(mk(dateStr, '#d1d4dc'));
+      legendEl.appendChild(mk('O', '#787b86')); legendEl.appendChild(mk(fmt(bar.open), color));
+      legendEl.appendChild(mk('H', '#787b86')); legendEl.appendChild(mk(fmt(bar.high), color));
+      legendEl.appendChild(mk('L', '#787b86')); legendEl.appendChild(mk(fmt(bar.low), color));
+      legendEl.appendChild(mk('C', '#787b86')); legendEl.appendChild(mk(fmt(bar.close), color));
     };
 
     chart.subscribeCrosshairMove(renderLegend);
@@ -157,7 +181,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
   }, [data, markers, theme]);
 
   return (
-    <div className="relative w-full bg-surface p-4 border-t border-border/10">
+    <div className="relative w-full bg-surface p-4 border-t border-[#363c4e]/20">
       <div
         ref={legendRef}
         className="pointer-events-none absolute left-6 top-6 z-10 hidden items-center font-mono text-xs"
