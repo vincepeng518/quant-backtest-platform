@@ -1,0 +1,71 @@
+{
+  "id": "ffa6707944a6",
+  "kind": "backtest",
+  "label": "BTC/USDT-ma_cross",
+  "created_at": 1784205425.2590108,
+  "config": {
+    "strategy": {
+      "template_id": "ma_cross",
+      "params": {
+        "fast_period": 10,
+        "slow_period": 30
+      },
+      "custom_code": null
+    },
+    "symbol": "BTC/USDT",
+    "market": "crypto",
+    "timeframe": "1h",
+    "source": "binance",
+    "start_date": "",
+    "end_date": "",
+    "initial_capital": 10000.0,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    },
+    "equity": {},
+    "forex": {}
+  },
+  "metrics": {
+    "total_trades": 18,
+    "winning_trades": 7,
+    "losing_trades": 11,
+    "win_rate": 38.88888888888889,
+    "total_pnl": -221.87449822062567,
+    "total_return": -221.87449822062567,
+    "total_return_pct": -3.095129373330037,
+    "max_drawdown": 965.4614679815179,
+    "max_drawdown_pct": 9.654614679815179,
+    "sharpe_ratio": -0.726125488133731,
+    "sortino_ratio": -0.9601470637279526,
+    "profit_factor": 0.8736406542338994,
+    "calmar_ratio": -2.5287168009626084,
+    "largest_loss": -316.4066345056508,
+    "largest_loss_pct": -3.165649169641329,
+    "largest_win": 584.4674976362356,
+    "avg_trade": -12.326361012256982,
+    "avg_winner": 219.1466393020036,
+    "avg_loser": -159.627361212241,
+    "win_loss_ratio": 1.372863885224699,
+    "expectancy": -12.326361012256996,
+    "annual_return_pct": -24.413786347668875,
+    "avg_holding_bars": 32.111111111111114,
+    "trade_freq": 0.43902439024390244
+  }
+}

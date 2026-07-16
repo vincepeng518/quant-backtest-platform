@@ -5,6 +5,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from engine.engines.base import MarketEngine, PositionState
+from engine.execution import ExecutionConfig
 
 
 # Simplified swap table (points per lot, long/short). Wednesday triple swap.
@@ -27,7 +28,9 @@ class ForexEngine(MarketEngine):
         spread_pips: float = 0.0001,   # fractional spread (e.g. 1 pip on EUR/USD)
         contract_size: float = 100_000,
         leverage: float = 30.0,
+        exec_cfg: Optional[ExecutionConfig] = None,
     ) -> None:
+        super().__init__(exec_cfg)
         self.spread = spread_pips
         self.contract_size = contract_size
         self.leverage = leverage

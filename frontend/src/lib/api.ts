@@ -135,5 +135,16 @@ export const api = {
     request<SiteConfig>('/admin/config'),
   updateSiteConfig: (patch: Partial<SiteConfigUpdate>) =>
     request<SiteConfig>('/admin/config', { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  // ── Experiments (Qlib-style Recorder) ──
+  listExperiments: (kind?: string) =>
+    request<any[]>(`/experiments${kind ? `?kind=${kind}` : ''}`),
+  getExperiment: (id: string) => request<any>(`/experiments/${id}`),
+  compareExperiments: (ids: string[]) =>
+    request<any>('/experiments/compare', { method: 'POST', body: JSON.stringify({ ids }) }),
+
+  // ── Indicator validation (TV vs engine) ──
+  validateIndicator: (payload: { symbol: string; timeframe: string; source: string; name: string; period: number; reference: number[] }) =>
+    request<any>('/validate/indicator', { method: 'POST', body: JSON.stringify(payload) }),
 };
 export default api;

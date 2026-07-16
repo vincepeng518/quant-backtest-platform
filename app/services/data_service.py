@@ -312,9 +312,21 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
             fp.write_text(json.dumps(payload, default=str, indent=2))
             ok, detail = git_persist([str(fp)], f"feat(backtest): save {task_id}")
             if not ok:
-                logger.warning("backtest persist skipped: %s", detail)
-        except Exception as _e:
-            logger.warning("backtest persist failed: %s", _e)
+                logger.warning("git persist backtest failed: %s", detail)
+        except Exception as e:
+            logger.warning("backtest persist failed: %s", e)
+
+        # P-improve: record as experiment for horizontal comparison (Qlib-style Recorder)
+        try:
+            from app.services.experiment_store import save_experiment
+            save_experiment(
+                kind="backtest",
+                config=cfg,
+                metrics={k: v for k, v in asdict(result).items() if not isinstance(v, (list, dict))},
+                label=f"{cfg.get('symbol', '?')}-{cfg.get('strategy', {}).get('template_id', '?')}",
+            )
+        except Exception as e:
+            logger.warning("experiment save failed: %s", e)
     except Exception as e:
         logger.exception("Backtest failed")
         store[task_id]["status"] = "error"

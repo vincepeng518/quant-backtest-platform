@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from engine.execution import ExecutionConfig, ExecutionModel
+
 
 @dataclass
 class PositionState:
@@ -85,3 +87,6 @@ class MarketEngine(ABC):
     @property
     def market_type(self) -> str:
         return "base"
+
+    def __init__(self, exec_cfg: Optional[ExecutionConfig] = None) -> None:
+        self.exec_model = ExecutionModel(exec_cfg)

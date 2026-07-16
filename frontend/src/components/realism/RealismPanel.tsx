@@ -17,6 +17,10 @@ export interface RealismState {
   bookSlippage: number;
   makerProbability: number;
   forceLimit: boolean;
+  enableExec?: boolean;
+  execSlippage?: number;
+  execFillProb?: number;
+  execLatency?: number;
 }
 
 export interface RealismHandlers {
@@ -33,6 +37,10 @@ export interface RealismHandlers {
   setBookSlippage: (v: number) => void;
   setMakerProbability: (v: number) => void;
   setForceLimit: (v: boolean) => void;
+  setEnableExec?: (v: boolean) => void;
+  setExecSlippage?: (v: number) => void;
+  setExecFillProb?: (v: number) => void;
+  setExecLatency?: (v: number) => void;
 }
 
 interface Props {
@@ -63,14 +71,10 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
 
       {open && (
         <div className="mt-4 space-y-5">
-          {/* Funding */}
           <div className="rounded-lg border border-border/10 p-4">
             <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={s.enableFunding}
-                onChange={(e) => handlers.setEnableFunding(e.target.checked)}
-              />
+              <input type="checkbox" checked={s.enableFunding}
+                onChange={(e) => handlers.setEnableFunding(e.target.checked)} />
               資金費率 (Funding Rate)
             </label>
             {s.enableFunding && (
@@ -83,14 +87,10 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
             )}
           </div>
 
-          {/* Perpetual */}
           <div className="rounded-lg border border-border/10 p-4">
             <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={s.enablePerp}
-                onChange={(e) => handlers.setEnablePerp(e.target.checked)}
-              />
+              <input type="checkbox" checked={s.enablePerp}
+                onChange={(e) => handlers.setEnablePerp(e.target.checked)} />
               永續合約 / 槓桿強平 (Perpetual)
             </label>
             {s.enablePerp && (
@@ -103,14 +103,10 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
             )}
           </div>
 
-          {/* Exchange */}
           <div className="rounded-lg border border-border/10 p-4">
             <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={s.enableExchange}
-                onChange={(e) => handlers.setEnableExchange(e.target.checked)}
-              />
+              <input type="checkbox" checked={s.enableExchange}
+                onChange={(e) => handlers.setEnableExchange(e.target.checked)} />
               交易所環境 (Maker/Taker + 滑價 + 延遲)
             </label>
             {s.enableExchange && (
@@ -130,6 +126,24 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
                     onChange={(e) => handlers.setForceLimit(e.target.checked)} />
                   Force Limit (maker)
                 </label>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border/10 p-4">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={s.enableExec ?? false}
+                onChange={(e) => handlers.setEnableExec?.(e.target.checked)} />
+              成交真實度 (Execution: 滑點 + 成交概率 + 延遲)
+            </label>
+            {s.enableExec && (
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Input label="Slippage %" type="number" step={0.0005} value={s.execSlippage ?? 0}
+                  onChange={(e) => handlers.setExecSlippage?.(Number(e.target.value))} />
+                <Input label="Fill Prob (limit)" type="number" step={0.05} value={s.execFillProb ?? 1}
+                  onChange={(e) => handlers.setExecFillProb?.(Number(e.target.value))} />
+                <Input label="Latency (ms)" type="number" value={s.execLatency ?? 0}
+                  onChange={(e) => handlers.setExecLatency?.(Number(e.target.value))} />
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from engine.engines.base import MarketEngine, PositionState
+from engine.execution import ExecutionConfig
 
 
 class EquityEngine(MarketEngine):
@@ -24,7 +25,9 @@ class EquityEngine(MarketEngine):
         commission_min: float = 1.0,   # many brokers enforce a min ticket fee
         slippage: float = 0.0002,
         t1_delay: bool = True,
+        exec_cfg: Optional[ExecutionConfig] = None,
     ) -> None:
+        super().__init__(exec_cfg)
         self.commission_pct = commission_pct
         self.commission_min = commission_min
         self.slippage = slippage

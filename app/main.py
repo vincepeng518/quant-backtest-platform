@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin
+from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate
 from app.config import settings
 from app.core.exceptions import AppException
 from app.core.middleware import TimingMiddleware
@@ -53,3 +53,5 @@ app.include_router(arbitrage.router)
 app.include_router(monitoring.router)
 app.include_router(research.router, prefix="/api")
 app.include_router(admin.router)
+app.include_router(experiments.router)
+app.include_router(validate.router)
