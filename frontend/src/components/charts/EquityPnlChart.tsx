@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   createChart,
   IChartApi,
@@ -67,6 +67,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
   showSpread = false,
   theme = 'dark',
 }) => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -230,6 +231,13 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       .filter((d) => Number.isFinite(d.time) && d.time > 0);
     histSeries.setData(histData);
 
+    // ── series visibility toggle with fade ──
+    const applyVisibility = (s: any, visible: boolean) => {
+      s.applyOptions({ visible });
+      const el = (s as any)._legendEls;
+      if (el) el.forEach((e: HTMLElement) => { e.style.opacity = visible ? '1' : '0.3'; e.style.transition = 'opacity 200ms'; });
+    };
+    // (simple fade handled by toggle buttons in UI below)
     chartRef.current = chart;
 
     const legendEl = legendRef.current;
@@ -294,8 +302,26 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
     };
   }, [equity, buyHold, trades, initialCapital, showBuyHold, showSpread, theme]);
 
+  const toggleFullscreen = () => {
+    const el = containerRef.current?.parentElement;
+    if (!el) return;
+    if (!isFullscreen) {
+      el.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    setIsFullscreen((v) => !v);
+  };
+
   return (
     <div className="relative w-full bg-surface">
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        className="absolute right-3 top-3 z-20 rounded bg-[#161a25]/80 px-2 py-1 text-[10px] font-mono text-[#787b86] transition-colors duration-150 hover:text-[#d1d4dc] active:scale-[0.97]"
+      >
+        {isFullscreen ? '退出' : '⛶'}
+      </button>
       <div
         ref={legendRef}
         className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs tabular-nums"

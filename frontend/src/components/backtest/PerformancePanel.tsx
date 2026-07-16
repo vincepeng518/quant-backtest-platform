@@ -232,12 +232,46 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
           tip="Max Drawdown：權益曲線從歷史峰值到谷值的最大跌幅"
         />
         <KpiBlock
+          label="獲利因子 PF"
+          value={safeFmt(profitFactor)}
+          color={profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg'}
+          mega
+          tip="Profit Factor：總毛利 / 總毛損（絕對值）。>1 表示系統盈利，>1.5 優秀"
+        />
+      </div>
+
+      {/* ── Mega KPIs Row 2 ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+        <KpiBlock
           label="勝率 Win Rate"
           value={safePct(winRate, { signed: false })}
           sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
           color={winRate >= 50 ? 'pos' : 'neutral'}
           mega
           tip="Win Rate：獲利交易數 / 總交易數"
+        />
+        <KpiBlock
+          label="期望值 Expectancy"
+          value={safeSigned(expectancy)}
+          sub="每筆期望 PnL"
+          color={expectancy >= 0 ? 'pos' : 'neg'}
+          mega
+          tip="Expectancy：勝率×均盈 − 敗率×均虧。單筆交易的平均期望盈虧"
+        />
+        <KpiBlock
+          label="總交易數 Total Trades"
+          value={safeInt(totalTrades)}
+          sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
+          color="neutral"
+          mega
+          tip="Total Trades：測試區間內產生的所有交易（含未平倉）"
+        />
+        <KpiBlock
+          label="年化回報 Annual"
+          value={safePct(annualReturnPct)}
+          color={annualReturnPct >= 0 ? 'pos' : 'neg'}
+          mega
+          tip="Annualized Return：以測試區間天數年化（CAGR）的複合年增率"
         />
       </div>
 
