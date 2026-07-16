@@ -16,8 +16,16 @@ const config: Config = {
         textSecondary: "rgb(var(--text-secondary) / <alpha-value>)",
         border: "rgb(var(--border) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
-        success: "#10b981",
-        danger: "#ef4444",
+        success: "#089981",
+        danger: "#f23645",
+        tv: {
+          green: "#089981",
+          red: "#f23645",
+          gray: "#787b86",
+          bg: "#131722",
+          text: "#d1d4dc",
+          border: "#363c4e",
+        },
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
