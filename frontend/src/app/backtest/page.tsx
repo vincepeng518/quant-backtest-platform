@@ -108,6 +108,8 @@ function BacktestView() {
   const [fundingInterval, setFundingInterval] = useState(8);
   const [fundingRate, setFundingRate] = useState(0.0001);
 
+  const [market, setMarket] = useState<'crypto' | 'equity' | 'forex'>('crypto');
+
   const [enablePerp, setEnablePerp] = useState(false);
   const [leverage, setLeverage] = useState(10);
   const [maintMargin, setMaintMargin] = useState(0.005);
@@ -301,6 +303,7 @@ function BacktestView() {
         params: paramsConfig,
       },
       symbol,
+      market,
       timeframe,
       source: dataSource,
       start_date: startDate,
@@ -445,14 +448,31 @@ function BacktestView() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Select
+            label="Asset Class"
+            value={market}
+            onChange={(e) => {
+              const m = e.target.value as 'crypto' | 'equity' | 'forex';
+              setMarket(m);
+              // auto-switch data source to the sensible default for this class
+              if (m === 'crypto') setDataSource('bingx');
+              else setDataSource('tradfi');
+            }}
+            options={[
+              { label: 'Crypto (Perp)', value: 'crypto' },
+              { label: 'Equity (Stocks)', value: 'equity' },
+              { label: 'Forex', value: 'forex' },
+            ]}
+          />
           <SymbolSearch
             label="Market Instrument"
             value={symbol}
+            placeholder={market === 'equity' ? 'AAPL, TSLA, NVDA…' : market === 'forex' ? 'EUR/USD, GBP/USD…' : 'BTC/USDT, ETH/USDT…'}
             options={symbols.map((s) => ({ symbol: s.symbol }))}
             onChange={(s) => {
               setSymbol(s);
               const mk = symbols.find((x) => x.symbol === s);
-              const src = mk?.exchange === 'bingx' ? 'bingx' : 'tradfi';
+              const src = market === 'crypto' ? (mk?.exchange === 'bingx' ? 'bingx' : 'bingx') : 'tradfi';
               loadOHLCV(s, timeframe, src);
             }}
           />
@@ -532,20 +552,35 @@ function BacktestView() {
           )}
         </div>
 
-        <RealismPanel
-          state={{
-            enableFunding, fundingInterval, fundingRate,
-            enablePerp, leverage, maintMargin,
-            enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
-            makerProbability, forceLimit,
-          }}
-          handlers={{
-            setEnableFunding, setFundingInterval, setFundingRate,
-            setEnablePerp, setLeverage, setMaintMargin,
-            setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
-            setMakerProbability, setForceLimit,
-          }}
-        />
+        {market === 'crypto' ? (
+          <RealismPanel
+            state={{
+              enableFunding, fundingInterval, fundingRate,
+              enablePerp, leverage, maintMargin,
+              enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
+              makerProbability, forceLimit,
+            }}
+            handlers={{
+              setEnableFunding, setFundingInterval, setFundingRate,
+              setEnablePerp, setLeverage, setMaintMargin,
+              setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
+              setMakerProbability, setForceLimit,
+            }}
+          />
+        ) : (
+          <Card>
+            <div className="flex items-center gap-3 text-sm text-textSecondary">
+              <span className="rounded bg-[#2962FF]/10 px-2 py-1 font-mono text-[#2962FF]">
+                {market === 'equity' ? 'EQUITY' : 'FOREX'}
+              </span>
+              <span>
+                {market === 'equity'
+                  ? 'Cash equities: no leverage, T+1 fill, weekday sessions. Commission 0.05% (min $1).'
+                  : 'FX: 24/5 sessions, spread cost, daily swap (Wed ×3).'}
+              </span>
+            </div>
+          </Card>
+        )}
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/10 pt-4">
           <div className="text-sm font-mono text-textSecondary">
