@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from app.services.data_service import DataService, _optimize_tasks, create_task_id
 from app.services.strategy_service import get_strategy
 from engine.backtester import Backtester
 from engine.optimizer import Optimizer
+
+logger = logging.getLogger(__name__)
 
 
 class OptimizeService:
@@ -120,6 +123,19 @@ class OptimizeService:
                 "trials": [{"params": r["params"], "score": r["score"]} for r in results[:10]],
                 "grid": grid,
             }
+            # P-improve: record optimization as experiment (Qlib-style Recorder)
+            try:
+                from app.services.experiment_store import save_experiment
+                save_experiment(
+                    kind="optimize",
+                    config=config,
+                    metrics={"best_score": results[0]["score"] if results else 0.0,
+                             "algorithm": config.get("algorithm", "grid"),
+                             "n_trials": len(results)},
+                    label=f"opt-{config.get('strategy_id', '?')}-{config.get('symbol', '?')}",
+                )
+            except Exception as e:
+                logger.warning("experiment save failed: %s", e)
         except Exception as e:
             _optimize_tasks[task_id] = {"status": "error", "error": str(e)}
 

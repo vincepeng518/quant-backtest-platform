@@ -7,6 +7,7 @@ import pandas as pd
 from engine.engines.base import MarketEngine, PositionState
 from engine.funding import FundingModel
 from engine.perpetual import PerpSimulator
+from engine.execution import ExecutionConfig
 
 
 class CryptoEngine(MarketEngine):
@@ -20,7 +21,9 @@ class CryptoEngine(MarketEngine):
         funding: Optional[FundingModel] = None,
         perp: Optional[PerpSimulator] = None,
         leverage: float = 1.0,
+        exec_cfg: Optional[ExecutionConfig] = None,
     ) -> None:
+        super().__init__(exec_cfg)
         self.maker_rate = maker_rate
         self.taker_rate = taker_rate
         self.slippage = slippage

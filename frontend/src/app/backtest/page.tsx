@@ -114,6 +114,12 @@ function BacktestView() {
   const [leverage, setLeverage] = useState(10);
   const [maintMargin, setMaintMargin] = useState(0.005);
 
+  // Execution realism (Nautilus / polybot inspired)
+  const [enableExec, setEnableExec] = useState(false);
+  const [execSlippage, setExecSlippage] = useState(0.001);
+  const [execFillProb, setExecFillProb] = useState(0.8);
+  const [execLatency, setExecLatency] = useState(50);
+
   const [enableExchange, setEnableExchange] = useState(false);
   const [makerFee, setMakerFee] = useState(0.0002);
   const [takerFee, setTakerFee] = useState(0.0005);
@@ -340,6 +346,14 @@ function BacktestView() {
         force_limit: forceLimit,
       };
     }
+    if (enableExec) {
+      payload.execution = {
+        entry_slippage_pct: Number(execSlippage),
+        exit_slippage_pct: Number(execSlippage),
+        prob_fill_on_limit: Number(execFillProb),
+        latency_ms: Number(execLatency),
+      };
+    }
 
     runBacktest(payload as any);
   };
@@ -560,12 +574,14 @@ function BacktestView() {
               enablePerp, leverage, maintMargin,
               enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
               makerProbability, forceLimit,
+              enableExec, execSlippage, execFillProb, execLatency,
             }}
             handlers={{
               setEnableFunding, setFundingInterval, setFundingRate,
               setEnablePerp, setLeverage, setMaintMargin,
               setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
               setMakerProbability, setForceLimit,
+              setEnableExec, setExecSlippage, setExecFillProb, setExecLatency,
             }}
           />
         ) : (

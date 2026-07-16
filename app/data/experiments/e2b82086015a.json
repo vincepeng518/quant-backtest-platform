@@ -1,0 +1,13 @@
+{
+  "id": "e2b82086015a",
+  "kind": "backtest",
+  "label": "backtest-e2b82086015a",
+  "created_at": 1784204154.2745495,
+  "config": {
+    "symbol": "BTC"
+  },
+  "metrics": {
+    "total_return_pct": 5.2,
+    "sharpe": 1.1
+  }
+}

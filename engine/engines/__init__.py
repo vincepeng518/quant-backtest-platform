@@ -6,6 +6,23 @@ from engine.engines.base import MarketEngine
 from engine.engines.crypto import CryptoEngine
 from engine.engines.equity import EquityEngine
 from engine.engines.forex import ForexEngine
+from engine.execution import ExecutionConfig
+
+
+def _exec_cfg(config: dict) -> Optional[ExecutionConfig]:
+    """Build ExecutionConfig from config['execution'] if present (else None = legacy)."""
+    ec = config.get("execution")
+    if not ec:
+        return None
+    return ExecutionConfig(
+        slippage_ticks=ec.get("slippage_ticks", 0.0),
+        entry_slippage_pct=ec.get("entry_slippage_pct", 0.0),
+        exit_slippage_pct=ec.get("exit_slippage_pct", 0.0),
+        prob_fill_on_limit=ec.get("prob_fill_on_limit", 1.0),
+        latency_ms=ec.get("latency_ms", 0.0),
+        min_synthetic_book_size=ec.get("min_synthetic_book_size", 0.0),
+        tick_size=ec.get("tick_size", config.get("tick_size", 0.01)),
+    )
 
 
 def build_market_engine(market: str, config: dict) -> Optional[MarketEngine]:
@@ -13,8 +30,9 @@ def build_market_engine(market: str, config: dict) -> Optional[MarketEngine]:
 
     Args:
         market: 'crypto' | 'equity' | 'forex' (anything else -> None = legacy path)
-        config: the full backtest config dict (reads funding/perpetual/exchange sub-configs)
+        config: the full backtest config dict (reads funding/perpetual/exchange/execution sub-configs)
     """
+    exec_cfg = _exec_cfg(config)
     if market == "crypto":
         funding_cfg = config.get("funding") or {}
         perp_cfg = config.get("perpetual") or {}
@@ -43,7 +61,7 @@ def build_market_engine(market: str, config: dict) -> Optional[MarketEngine]:
         taker = exch_cfg.get("taker_fee", 0.0005)
         slip = config.get("slippage", 0.0005)
         lev = float(perp_cfg.get("leverage", config.get("leverage", 1.0)))
-        return CryptoEngine(maker_rate=maker, taker_rate=taker, slippage=slip, funding=funding, perp=perp, leverage=lev)
+        return CryptoEngine(maker_rate=maker, taker_rate=taker, slippage=slip, funding=funding, perp=perp, leverage=lev, exec_cfg=exec_cfg)
 
     if market == "equity":
         eq = config.get("equity") or {}
@@ -52,6 +70,7 @@ def build_market_engine(market: str, config: dict) -> Optional[MarketEngine]:
             commission_min=eq.get("commission_min", 1.0),
             slippage=eq.get("slippage", 0.0002),
             t1_delay=eq.get("t1_delay", True),
+            exec_cfg=exec_cfg,
         )
 
     if market == "forex":
@@ -60,6 +79,7 @@ def build_market_engine(market: str, config: dict) -> Optional[MarketEngine]:
             spread_pips=fx.get("spread_pips", 0.0001),
             contract_size=fx.get("contract_size", 100_000),
             leverage=fx.get("leverage", 30.0),
+            exec_cfg=exec_cfg,
         )
 
     return None

@@ -17,6 +17,7 @@ export const Header: React.FC = () => {
     { name: 'Strategies', path: '/strategies', icon: Code2 },
     { name: 'Data', path: '/data', icon: HardDrive },
     { name: 'History', path: '/history', icon: History },
+    { name: 'Experiments', path: '/experiments', icon: FlaskConical },
     { name: 'Research', path: '/research', icon: FlaskConical },
     { name: 'Admin', path: '/admin', icon: Settings },
   ];

@@ -158,8 +158,15 @@ class Backtester:
 
             if sig.action in ("buy", "sell") and position is None:
                 price = sig.price or current_bar.close
-                slip = _slippage_for(capital, price, direction)
-                fill_price = price * (1 + slip * direction)
+                # Limit orders may not fill (fill probability model)
+                if order_type == "limit" and self.market_engine is not None:
+                    if not self.market_engine.exec_model.will_fill("limit"):
+                        return
+                if self.market_engine is not None:
+                    fill_price = self.market_engine.exec_model.fill_price(price, sig.action, is_entry=True)
+                else:
+                    slip = _slippage_for(capital, price, direction)
+                    fill_price = price * (1 + slip * direction)
                 notional = capital * (self.leverage if self.perp is not None else 1.0)
                 fee = _fee_for(order_type, is_maker, notional if self.market_engine is not None else capital, action=sig.action)
                 size = _size_for(capital, fill_price)
@@ -170,8 +177,16 @@ class Backtester:
                 entry_bar_index = current_bar_index
 
             elif sig.action in ("close",) and position is not None:
-                slip = _slippage_for(capital, current_bar.close, -1 if position.size > 0 else 1)
-                exit_price = current_bar.close * (1 + slip * (-1 if position.size > 0 else 1))
+                if order_type == "limit" and self.market_engine is not None:
+                    if not self.market_engine.exec_model.will_fill("limit"):
+                        return
+                if self.market_engine is not None:
+                    exit_price = self.market_engine.exec_model.fill_price(
+                        current_bar.close, "sell" if position.size > 0 else "buy", is_entry=False
+                    )
+                else:
+                    slip = _slippage_for(capital, current_bar.close, -1 if position.size > 0 else 1)
+                    exit_price = current_bar.close * (1 + slip * (-1 if position.size > 0 else 1))
                 pnl = position.size * (exit_price - position.entry_price)
                 fee = _fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
                 pnl -= fee
