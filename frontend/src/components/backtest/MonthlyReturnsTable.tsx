@@ -66,7 +66,7 @@ export const MonthlyReturnsTable: React.FC<MonthlyReturnsTableProps> = ({
           {rows.map((r) => (
             <tr
               key={r.month}
-              className="border-t border-[#363c4e]/10 hover:bg-white/[0.03] transition-colors"
+              className="border-t border-[#363c4e]/10 hover:bg-white/[0.03] transition-colors duration-150"
             >
               <td className="px-6 py-2.5 text-[#787b86]">{r.month}</td>
               <td

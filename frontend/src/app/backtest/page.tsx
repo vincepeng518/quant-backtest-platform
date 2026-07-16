@@ -19,6 +19,7 @@ import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
+import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fracToPct } from '@/lib/format';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 // Robust to both backend shapes so the chart markers survive format changes.
@@ -627,27 +628,22 @@ function BacktestView() {
                     <td className="px-4 py-2 font-semibold text-text">{r.symbol}</td>
                     {r.status === 'completed' && r.metrics ? (
                       <>
-                        <td className="px-4 py-2 text-right text-[#089981]">{(() => {
-                          const v = Number(r.metrics.total_return_pct);
-                          return Number.isFinite(v) ? `${v.toFixed(2)}%` : '—';
-                        })()}</td>
-                        <td className="px-4 py-2 text-right text-text">{r.metrics.total_trades ?? '—'}</td>
-                        <td className="px-4 py-2 text-right text-text">{(() => {
-                          const v = Number(r.metrics.win_rate);
-                          return Number.isFinite(v) ? `${v.toFixed(1)}` : '—';
-                        })()}</td>
-                        <td className="px-4 py-2 text-right text-text">{(() => {
-                          const v = Number(r.metrics.max_drawdown_pct);
-                          return Number.isFinite(v) ? `${v.toFixed(2)}` : '—';
-                        })()}</td>
-                        <td className="px-4 py-2 text-right text-text">{(() => {
-                          const v = Number(r.metrics.profit_factor);
-                          return Number.isFinite(v) ? v.toFixed(2) : '∞';
-                        })()}</td>
-                        <td className="px-4 py-2 text-right text-[#089981]">{(() => {
-                          const v = Number(r.metrics.annual_return_pct);
-                          return Number.isFinite(v) ? `${v.toFixed(2)}%` : '—';
-                        })()}</td>
+                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.total_return_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'}`}>
+                          {safePct(Number(r.metrics.total_return_pct))}
+                        </td>
+                        <td className="px-4 py-2 text-right text-text tabular-nums">{r.metrics.total_trades ?? '—'}</td>
+                        <td className="px-4 py-2 text-right text-text tabular-nums">
+                          {safePct(Number(r.metrics.win_rate), { signed: false })}
+                        </td>
+                        <td className="px-4 py-2 text-right text-text tabular-nums">
+                          {safePct(Number(r.metrics.max_drawdown_pct), { signed: false })}
+                        </td>
+                        <td className="px-4 py-2 text-right text-text tabular-nums">
+                          {safeFmt(Number(r.metrics.profit_factor))}
+                        </td>
+                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.annual_return_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'}`}>
+                          {safePct(Number(r.metrics.annual_return_pct))}
+                        </td>
                       </>
                     ) : (
                       <td className="px-4 py-2 text-right text-textSecondary" colSpan={6}>
@@ -753,46 +749,46 @@ function BacktestView() {
                     {sortedTrades.map((t: any, i: number) => (
                       <tr
                         key={i}
-                        className={`border-t border-[#363c4e]/10 transition-colors cursor-pointer ${
+                        className={`border-t border-[#363c4e]/10 transition-colors duration-150 cursor-pointer ${
                           selectedTrade?.trade_id === t.trade_id
                             ? 'bg-[#089981]/5'
                             : 'hover:bg-white/[0.02]'
                         }`}
                         onClick={() => setSelectedTrade(selectedTrade?.trade_id === t.trade_id ? null : t)}
                       >
-                        <td className="px-6 py-3 text-textSecondary">{i + 1}</td>
+                        <td className="px-6 py-3 text-textSecondary tabular-nums">{i + 1}</td>
                         <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>
                         <td className={`px-6 py-3 font-semibold ${
-                          t.direction === 'short' ? 'text-danger' : 'text-success'
+                          t.direction === 'short' ? 'text-[#f23645]' : 'text-[#089981]'
                         }`}>
                           {t.direction === 'short' ? '空' : '多'}
                         </td>
-                        <td className="px-6 py-3 text-right text-text">
-                          {Number(t.entry_price).toFixed(2)}
+                        <td className="px-6 py-3 text-right text-text tabular-nums">
+                          {formatPrice(t.entry_price)}
                         </td>
-                        <td className="px-6 py-3 text-right text-text">
-                          {t.exit_price != null ? Number(t.exit_price).toFixed(2) : '—'}
+                        <td className="px-6 py-3 text-right text-text tabular-nums">
+                          {t.exit_price != null ? formatPrice(t.exit_price) : '—'}
                         </td>
-                        <td className="px-6 py-3 text-right text-textSecondary">
-                          {Number(t.size).toFixed(4)}
-                        </td>
-                        <td
-                          className={`px-6 py-3 text-right font-semibold ${
-                            Number(t.pnl) >= 0 ? 'text-success' : 'text-danger'
-                          }`}
-                        >
-                          {Number(t.pnl).toFixed(2)}
+                        <td className="px-6 py-3 text-right text-textSecondary tabular-nums">
+                          {formatQty((t as any).size ?? (t as any).quantity)}
                         </td>
                         <td
-                          className={`px-6 py-3 text-right ${
-                            Number(t.pnl_pct) >= 0 ? 'text-success' : 'text-danger'
+                          className={`px-6 py-3 text-right font-semibold tabular-nums ${
+                            Number(t.pnl) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'
                           }`}
                         >
-                          {t.pnl_pct != null ? `${(Number(t.pnl_pct) * 100).toFixed(2)}%` : '—'}
+                          {safeSigned(Number(t.pnl))}
+                        </td>
+                        <td
+                          className={`px-6 py-3 text-right tabular-nums ${
+                            Number(t.pnl_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'
+                          }`}
+                        >
+                          {t.pnl_pct != null ? fracToPct(Number(t.pnl_pct)) : '—'}
                         </td>
                         <td className="px-6 py-3 text-textSecondary">{t.exit_reason || '—'}</td>
-                        <td className="px-6 py-3 text-right text-textSecondary">
-                          {t.holding_bars != null ? Number(t.holding_bars).toFixed(0) : '—'}
+                        <td className="px-6 py-3 text-right text-textSecondary tabular-nums">
+                          {t.holding_bars != null ? safeInt(Number(t.holding_bars)) : '—'}
                         </td>
                       </tr>
                     ))}

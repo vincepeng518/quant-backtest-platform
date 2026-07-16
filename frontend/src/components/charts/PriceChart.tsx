@@ -181,10 +181,10 @@ export const PriceChart: React.FC<PriceChartProps> = ({
   }, [data, markers, theme]);
 
   return (
-    <div className="relative w-full bg-surface p-4 border-t border-[#363c4e]/20">
+    <div className="relative w-full bg-surface p-0 border-t border-[#363c4e]/20">
       <div
         ref={legendRef}
-        className="pointer-events-none absolute left-6 top-6 z-10 hidden items-center font-mono text-xs"
+        className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs tabular-nums"
         style={{ display: 'none' }}
       />
       <div ref={containerRef} className="w-full h-[450px]" />

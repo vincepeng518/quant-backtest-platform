@@ -4,38 +4,10 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { PerformanceMetrics, EquityPoint, TradeRecord, PositionStatusPoint } from '@/types/api';
 import { EquityPnlChart } from '@/components/charts/EquityPnlChart';
 import { Tooltip } from '@/components/ui/Tooltip';
-
-// ── TV Color System ──
-const TV_UP = '#089981';
-const TV_DOWN = '#f23645';
-const TV_NEUTRAL = '#787b86';
-const TV_BG = '#131722';
-const TV_SURFACE = '#161a25';
-const TV_BORDER = '#363c4e';
-
-// ── Safe formatting (handles Infinity, null, huge numbers) ──
-const safeFmt = (n: number, decimals = 2): string => {
-  if (n == null || !Number.isFinite(n)) return '∞';
-  const abs = Math.abs(n);
-  let d = decimals;
-  if (abs >= 10000) d = 0;
-  else if (abs >= 100) d = Math.max(d, 2);
-  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-};
-const safePct = (n: number): string => {
-  if (n == null || !Number.isFinite(n)) return '—';
-  // Backend may return 0–100 or 0–1 range. Heuristic: >1 means already pct*100
-  const v = Math.abs(n) > 10 ? n : n * 100;
-  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
-};
-const safeSigned = (n: number, decimals = 2): string => {
-  if (n == null || !Number.isFinite(n)) return '—';
-  return `${n >= 0 ? '+' : ''}${safeFmt(n, decimals)}`;
-};
-const safeInt = (n: number): string => {
-  if (n == null || !Number.isFinite(n)) return '∞';
-  return Math.round(n).toLocaleString('en-US');
-};
+import {
+  TV_UP, TV_DOWN,
+  safeFmt, safePct, safeSigned, safeInt,
+} from '@/lib/format';
 
 interface PerformancePanelProps {
   metrics: PerformanceMetrics;
@@ -97,29 +69,28 @@ interface KpiBlockProps {
 const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit', tip, mega, sparkline }) => {
   const colorClass =
     color === 'pos' ? 'text-[#089981]' : color === 'neg' ? 'text-[#f23645]' : 'text-[#d1d4dc]';
-  const valueSize = mega ? 'text-2xl' : 'text-base';
+  const valueSize = mega ? 'text-xl sm:text-2xl' : 'text-sm sm:text-base';
   const subSize = mega ? 'text-xs' : 'text-[10px]';
 
   const inner = (
     <div
-      className={`group relative bg-[#161a25] px-4 py-3 border-t border-[#363c4e]/20 flex flex-col gap-1 select-none card-lift cursor-default ${
-        mega ? 'py-4' : ''
+      className={`group relative bg-[#161a25] px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 ${
+        mega ? 'py-3 sm:py-4' : ''
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 min-w-0">
         <span className="text-[10px] font-medium text-[#787b86] uppercase tracking-wider truncate">
           {label}
         </span>
         {sparkline && <div className="shrink-0">{sparkline}</div>}
       </div>
-      <span className={`${valueSize} font-mono font-semibold tracking-tight ${colorClass}`}>
+      <span className={`${valueSize} font-mono font-semibold tracking-tight tabular-nums truncate ${colorClass}`}>
         {value}
       </span>
       {sub != null && (
-        <span className={`${subSize} font-mono ${colorClass} opacity-70`}>{sub}</span>
+        <span className={`${subSize} font-mono tabular-nums ${colorClass} opacity-70 truncate`}>{sub}</span>
       )}
-      {/* Hover indicator line */}
-      <div className="absolute inset-x-0 top-0 h-px bg-[#363c4e] opacity-0 group-hover:opacity-40 transition-opacity" />
+      <div className="absolute inset-x-0 top-0 h-px bg-[#363c4e] opacity-0 group-hover:opacity-40 transition-opacity duration-150" />
     </div>
   );
 
@@ -131,7 +102,7 @@ const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit
 
 // ── Section Header ──
 const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
-  <div className="col-span-full px-4 pt-4 pb-1">
+  <div className="col-span-full bg-[#161a25] px-4 pt-3 pb-1">
     <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#787b86]">
       {title}
     </span>
@@ -147,7 +118,7 @@ const ToggleBtn: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`px-2.5 py-1 rounded text-[10px] font-mono border transition-colors ${
+    className={`px-2.5 py-1 rounded text-[10px] font-mono border transition-colors duration-150 active:scale-[0.97] ${
       active
         ? 'border-[#089981]/40 bg-[#089981]/10 text-[#089981]'
         : 'border-[#363c4e]/30 text-[#787b86] hover:text-[#d1d4dc]'
@@ -235,10 +206,10 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   return (
     <div className="bg-[#161a25] border-t border-[#363c4e]/10">
       {/* ── Mega KPIs Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
         <KpiBlock
           label="總損益 Net Profit"
-          value={`${safeSigned(netProfit)}`}
+          value={safeSigned(netProfit)}
           sub={safePct(totalReturnPct)}
           color={netProfit >= 0 ? 'pos' : 'neg'}
           mega
@@ -254,7 +225,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         />
         <KpiBlock
           label="最大回撤 Max DD"
-          value={safePct(maxDdPct)}
+          value={safePct(maxDdPct, { signed: false })}
           sub={`${safeFmt(maxDdAmount)} USDT`}
           color="neg"
           mega
@@ -262,7 +233,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         />
         <KpiBlock
           label="勝率 Win Rate"
-          value={safePct(winRate)}
+          value={safePct(winRate, { signed: false })}
           sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
           color={winRate >= 50 ? 'pos' : 'neutral'}
           mega
@@ -271,7 +242,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 回報類 (Returns) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
         <SectionHeader title="回報類 Returns" />
         <KpiBlock
           label="年化回報 Annual Return"
@@ -287,7 +258,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         />
         <KpiBlock
           label="波動率 Volatility"
-          value={`${(volatility * 100).toFixed(2)}%`}
+          value={safePct(Number.isFinite(volatility) && Math.abs(volatility) <= 5 ? volatility * 100 : volatility, { signed: false })}
           color="neutral"
           tip="Volatility：策略日報酬的標準差（年化），衡量波動風險"
         />
@@ -301,7 +272,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 風險類 (Risk) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
         <SectionHeader title="風險類 Risk" />
         <KpiBlock
           label="卡瑪比率 Calmar"
@@ -333,7 +304,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 交易類 (Trades) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
         <SectionHeader title="交易類 Trades" />
         <KpiBlock
           label="總交易數 Total Trades"
