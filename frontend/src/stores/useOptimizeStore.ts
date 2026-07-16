@@ -37,6 +37,8 @@ interface OptimizeStore {
   bookSlippage: number;
   makerProbability: number;
   forceLimit: boolean;
+  algorithm: 'grid' | 'bayesian' | 'genetic';
+  maxTrials: number;
   setStrategy: (id: string, defaultParams?: { name: string; type?: string; min?: number; max?: number; step?: number }[]) => void;
   setMarket: (m: { symbol: string; timeframe: string; source: string }) => void;
   addParam: (name: string) => void;
@@ -92,6 +94,8 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   bookSlippage: 0.0005,
   makerProbability: 0,
   forceLimit: false,
+  algorithm: 'bayesian',
+  maxTrials: 30,
   setStrategy: (id, defaultParams) => set({ strategyId: id, paramSpace: paramsToSpace(defaultParams ?? []) }),
   setMarket: (m) => set(m),
   addParam: (name) =>
@@ -107,6 +111,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
       enablePerp, leverage, maintMargin,
       enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
       makerProbability, forceLimit,
+      algorithm, maxTrials,
     } = get();
     set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] });
     try {
@@ -115,6 +120,8 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
         symbol,
         timeframe,
         source,
+        algorithm,
+        max_trials: maxTrials,
         param_space: paramSpace.map((p) => ({ name: p.name, min: p.min, max: p.max, step: p.step })),
       };
       if (enableFunding) {

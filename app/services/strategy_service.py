@@ -108,11 +108,20 @@ def _syntax_ok(code: str) -> tuple[bool, str]:
     except SyntaxError as e:
         return False, f"SyntaxError: {e.msg} (line {e.lineno})"
 
+def _lookahead_warnings(code: str) -> list[str]:
+    """Static scan for future-data leaks (non-fatal warning)."""
+    try:
+        from engine.lookahead_guard import scan_code
+        return scan_code(code)
+    except Exception:
+        return []
+
 def upload_strategy(payload: dict) -> dict:
     code = payload.get("code", "")
     ok, err = _syntax_ok(code)
     if not ok:
         return {"error": err, "code": "SYNTAX_ERROR"}
+    warnings = _lookahead_warnings(code)
     sid = uuid.uuid4().hex[:12]
     USER_DIR.mkdir(parents=True, exist_ok=True)
     path = USER_DIR / f"{sid}.py"
@@ -137,6 +146,8 @@ def upload_strategy(payload: dict) -> dict:
     except Exception as e:
         meta["status"] = "error"
         meta["error"] = str(e)[:200]
+    if warnings:
+        meta["lookahead_warnings"] = warnings
     return meta
 
 def list_user_strategies() -> list[dict]:
