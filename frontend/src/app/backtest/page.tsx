@@ -199,6 +199,21 @@ function BacktestView() {
   const params = (selectedTemplate?.params as unknown as ParamSpec[]) || [];
 
   // ── TradingView-style entry/exit markers (built from results.trades) ──
+  const [selectedTrade, setSelectedTrade] = useState<any>(null);
+
+  // Highlight marker for a selected trade (from PerformancePanel or blotter)
+  const highlightMarker = useMemo((): TradeMarker | null => {
+    if (!selectedTrade) return null;
+    const pnl = Number(selectedTrade.pnl) || 0;
+    return {
+      time: toUnixSec(selectedTrade.entry_time),
+      position: 'belowBar',
+      shape: 'arrowUp',
+      color: '#f0b90b',
+      text: `★ 選中`,
+    };
+  }, [selectedTrade]);
+
   const markers: TradeMarker[] = useMemo(() => {
     if (!results?.trades) return [];
     const out: TradeMarker[] = [];
@@ -206,25 +221,32 @@ function BacktestView() {
       const dir: string = t.direction || 'long';
       const isShort = dir === 'short' || dir === 'sell';
       const pnl = Number(t.pnl) || 0;
-      // Entry marker: below the bar, arrow for direction, 多/空 label
+      // Entry marker
       out.push({
         time: toUnixSec(t.entry_time),
         position: 'belowBar',
         shape: isShort ? 'arrowDown' : 'arrowUp',
-        color: isShort ? '#ef4444' : '#10b981',
+        color: isShort ? '#f23645' : '#089981',
         text: isShort ? '空' : '多',
       });
-      // Exit marker: above the bar, circle, PnL% label colored by outcome
+      // Exit marker
       out.push({
         time: toUnixSec(t.exit_time),
         position: 'aboveBar',
         shape: 'circle',
-        color: pnl >= 0 ? '#10b981' : '#ef4444',
+        color: pnl >= 0 ? '#089981' : '#f23645',
         text: `${((Number(t.pnl_pct) || 0) * 100).toFixed(1)}%`,
       });
     }
+    // Append highlight marker if a trade is selected
+    if (highlightMarker) {
+      // Remove any existing highlight marker to avoid duplicates
+      const idx = out.findIndex((m) => m.text === '★ 選中');
+      if (idx >= 0) out.splice(idx, 1);
+      out.push(highlightMarker);
+    }
     return out;
-  }, [results]);
+  }, [results, highlightMarker]);
 
   // ── Trade Blotter sort state ──
   type SortKey = 'entry_time' | 'pnl';
@@ -605,16 +627,27 @@ function BacktestView() {
                     <td className="px-4 py-2 font-semibold text-text">{r.symbol}</td>
                     {r.status === 'completed' && r.metrics ? (
                       <>
-                        <td className="px-4 py-2 text-right" style={{ color: Number(r.metrics.total_return_pct) >= 0 ? '#10b981' : '#ef4444' }}>
-                          {(Number(r.metrics.total_return_pct) || 0).toFixed(2)}%
-                        </td>
+                        <td className="px-4 py-2 text-right text-[#089981]">{(() => {
+                          const v = Number(r.metrics.total_return_pct);
+                          return Number.isFinite(v) ? `${v.toFixed(2)}%` : '—';
+                        })()}</td>
                         <td className="px-4 py-2 text-right text-text">{r.metrics.total_trades ?? '—'}</td>
-                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.win_rate) || 0).toFixed(1)}</td>
-                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.max_drawdown_pct) || 0).toFixed(2)}</td>
-                        <td className="px-4 py-2 text-right text-text">{(Number(r.metrics.profit_factor) || 0).toFixed(2)}</td>
-                        <td className="px-4 py-2 text-right" style={{ color: Number(r.metrics.annual_return_pct) >= 0 ? '#10b981' : '#ef4444' }}>
-                          {(Number(r.metrics.annual_return_pct) || 0).toFixed(2)}%
-                        </td>
+                        <td className="px-4 py-2 text-right text-text">{(() => {
+                          const v = Number(r.metrics.win_rate);
+                          return Number.isFinite(v) ? `${v.toFixed(1)}` : '—';
+                        })()}</td>
+                        <td className="px-4 py-2 text-right text-text">{(() => {
+                          const v = Number(r.metrics.max_drawdown_pct);
+                          return Number.isFinite(v) ? `${v.toFixed(2)}` : '—';
+                        })()}</td>
+                        <td className="px-4 py-2 text-right text-text">{(() => {
+                          const v = Number(r.metrics.profit_factor);
+                          return Number.isFinite(v) ? v.toFixed(2) : '∞';
+                        })()}</td>
+                        <td className="px-4 py-2 text-right text-[#089981]">{(() => {
+                          const v = Number(r.metrics.annual_return_pct);
+                          return Number.isFinite(v) ? `${v.toFixed(2)}%` : '—';
+                        })()}</td>
                       </>
                     ) : (
                       <td className="px-4 py-2 text-right text-textSecondary" colSpan={6}>
@@ -675,6 +708,7 @@ function BacktestView() {
               trades={results.trades}
               positionStatus={results.position_status}
               initialCapital={Number(results.config?.initial_capital ?? 100000)}
+              onSelectTrade={setSelectedTrade}
             />
           </Card>
 
@@ -719,7 +753,12 @@ function BacktestView() {
                     {sortedTrades.map((t: any, i: number) => (
                       <tr
                         key={i}
-                        className="border-t border-border/10 hover:bg-white/[0.02] transition-colors"
+                        className={`border-t border-[#363c4e]/10 transition-colors cursor-pointer ${
+                          selectedTrade?.trade_id === t.trade_id
+                            ? 'bg-[#089981]/5'
+                            : 'hover:bg-white/[0.02]'
+                        }`}
+                        onClick={() => setSelectedTrade(selectedTrade?.trade_id === t.trade_id ? null : t)}
                       >
                         <td className="px-6 py-3 text-textSecondary">{i + 1}</td>
                         <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>

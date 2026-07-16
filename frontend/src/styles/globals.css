@@ -12,11 +12,11 @@
 }
 
 .dark {
-  --background: 10 10 10;
-  --surface: 23 23 23;
-  --text: 250 250 250;
-  --text-secondary: 163 163 163;
-  --border: 38 38 38;
+  --background: 19 23 34;
+  --surface: 22 26 37;
+  --text: 209 212 220;
+  --text-secondary: 120 123 134;
+  --border: 54 60 78;
   --accent: 59 130 246;
 }
 
@@ -36,4 +36,29 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ── TV 級微互動 ── */
+.card-lift {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-lift:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+/* 客製化滾動條（TV 風格） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 123, 134, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 123, 134, 0.5);
 }
