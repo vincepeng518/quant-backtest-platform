@@ -240,7 +240,8 @@ class Backtester:
                 side = 1 if position.size > 0 else -1
                 # worst-case wick against the position
                 mark = bar.low if side > 0 else bar.high
-                if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage):
+                if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage,
+                                              notional=abs(position.size) * position.entry_price):
                     liq_price = mark
                     slip = self.slippage
                     exit_price = liq_price
