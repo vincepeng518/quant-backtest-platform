@@ -88,8 +88,15 @@ export default function StrategiesPage() {
       return;
     }
     try {
-      await api.uploadStrategy({ name: form.name, description: form.description, category: 'custom', code: form.code });
+      const res: any = await api.uploadStrategy({ name: form.name, description: form.description, category: 'custom', code: form.code });
       push({ kind: 'success', title: '策略已上傳', message: form.name });
+      if (res && Array.isArray(res.lookahead_warnings) && res.lookahead_warnings.length) {
+        push({
+          kind: 'danger',
+          title: '⚠ 未來函數警告',
+          message: `${res.lookahead_warnings.length} 處疑似使用未來數據，回測可能失真`,
+        });
+      }
       setShowUpload(false);
       setForm({ name: '', description: '', code: SAMPLE });
       load();

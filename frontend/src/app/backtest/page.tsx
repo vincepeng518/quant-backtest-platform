@@ -44,7 +44,7 @@ interface ParamSpec {
 
 function BacktestView() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
-  const { runBacktest, results, status, progress, error } = useBacktestStore();
+  const { runBacktest, results, status, progress, error, lookaheadWarning } = useBacktestStore();
 
   const searchParams = useSearchParams();
   const taskParam = searchParams.get('task');
@@ -306,6 +306,7 @@ function BacktestView() {
       market,
       timeframe,
       source: dataSource,
+      check_lookahead: true,
       start_date: startDate,
       end_date: endDate,
       initial_capital: 10000.0,
@@ -598,6 +599,19 @@ function BacktestView() {
 
         {error && (
           <p className="mt-3 text-sm font-mono text-danger">{error}</p>
+        )}
+
+        {status === 'lookahead_warning' && lookaheadWarning && (
+          <div className="mt-3 rounded-lg border border-[#f23645]/40 bg-[#f23645]/10 p-4 text-sm text-[#f23645]">
+            <p className="font-semibold">⚠ 未來函數偵測（Lookahead Bias）</p>
+            <p className="mt-1 font-mono text-xs">{lookaheadWarning.detail}</p>
+            <ul className="mt-2 list-disc pl-5 space-y-1">
+              {(lookaheadWarning.warnings || []).map((w: string, i: number) => (
+                <li key={i} className="font-mono text-xs">{w}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs opacity-80">此策略疑似使用未來數據，回測結果不可信。請檢查指標是否引用了尚未收盤的 K 線。</p>
+          </div>
         )}
       </Card>
 

@@ -4,10 +4,11 @@ import { useToastStore } from '@/stores/useToastStore';
 import api from '@/lib/api';
 
 interface BacktestStore {
-  status: 'idle' | 'running' | 'completed' | 'error';
+  status: 'idle' | 'running' | 'completed' | 'error' | 'lookahead_warning';
   progress: number;
   results: BacktestResult | null;
   error: string | null;
+  lookaheadWarning: any | null;
   runBacktest: (config: BacktestConfig) => Promise<void>;
   reset: () => void;
 }
@@ -17,6 +18,7 @@ export const useBacktestStore = create<BacktestStore>((set) => ({
   progress: 0,
   results: null,
   error: null,
+  lookaheadWarning: null,
   runBacktest: async (config) => {
     set({ status: 'running', progress: 0, error: null });
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -43,6 +45,11 @@ export const useBacktestStore = create<BacktestStore>((set) => ({
             if (interval) clearInterval(interval);
             set({ status: 'error', error: progressData.error });
             useToastStore.getState().push({ kind: 'danger', title: '回測失敗', message: progressData.error ?? 'unknown' });
+          } else if (progressData.status === 'lookahead_warning') {
+            if (interval) clearInterval(interval);
+            const results = await api.getBacktestResults(task_id);
+            set({ status: 'lookahead_warning', lookaheadWarning: (results as any)?.lookahead_warning ?? null });
+            useToastStore.getState().push({ kind: 'danger', title: '⚠ 未來函數偵測', message: '策略疑似使用未來數據，結果不可信' });
           }
         } catch (err: any) {
           if (interval) clearInterval(interval);

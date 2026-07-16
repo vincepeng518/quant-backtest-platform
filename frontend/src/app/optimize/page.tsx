@@ -46,6 +46,7 @@ function OptimizeView() {
     enablePerp, leverage, maintMargin,
     enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
     makerProbability, forceLimit,
+    algorithm, maxTrials,
     setStrategy, setMarket, addParam, updateParam, removeParam, runOptimization, reset,
   } = useOptimizeStore();
 
@@ -100,6 +101,22 @@ function OptimizeView() {
         <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={SYMBOLS.map((s) => ({ label: s, value: s }))} />
         <Select label="Timeframe" value={timeframe} onChange={(e) => setMarket({ symbol, timeframe: e.target.value, source })} options={TIMEFRAMES.map((t) => ({ label: t, value: t }))} />
         <Select label="Data Source" value={source} onChange={(e) => setMarket({ symbol, timeframe, source: e.target.value })} options={SOURCES} />
+        <Select
+          label="Algorithm"
+          value={algorithm}
+          onChange={(e) => useOptimizeStore.setState({ algorithm: e.target.value as any })}
+          options={[
+            { label: 'Grid Search (brute)', value: 'grid' },
+            { label: 'Bayesian (smart)', value: 'bayesian' },
+            { label: 'Genetic (evolve)', value: 'genetic' },
+          ]}
+        />
+        <Input
+          label="Max Trials"
+          type="number"
+          value={maxTrials}
+          onChange={(e) => useOptimizeStore.setState({ maxTrials: Number(e.target.value) })}
+        />
       </div>
 
       {/* Param space editor */}

@@ -94,6 +94,21 @@ class BacktestService:
         strategy.init(strategy_cfg.get("params", {}))
         bt.set_strategy(strategy)
 
+        # Opt-in lookahead verification (Freqtrade-style guard against future-data leaks)
+        if config.get("check_lookahead"):
+            try:
+                from engine.lookahead_guard import verify_no_lookahead
+                la = verify_no_lookahead(cls, data, params=strategy_cfg.get("params", {}))
+                if la.get("leaked"):
+                    _backtest_tasks[task_id] = {
+                        "status": "completed",
+                        "result": None,
+                        "lookahead_warning": la,
+                    }
+                    return {"task_id": task_id, "status": "running"}
+            except Exception as e:
+                logger.warning("lookahead verify error: %s", e)
+
         _backtest_tasks[task_id] = {"status": "running", "backtester": bt, "config": config}
         asyncio.create_task(_execute_backtest(task_id, bt, _backtest_tasks))
         return {"task_id": task_id, "status": "running"}
@@ -110,7 +125,15 @@ class BacktestService:
             return {"task_id": task_id, "status": "error", "error": "Not found"}
         if task["status"] != "completed":
             return {"task_id": task_id, "status": task["status"], "error": "Not ready"}
+        if task.get("lookahead_warning"):
+            return {
+                "task_id": task_id,
+                "status": "lookahead_warning",
+                "lookahead_warning": task["lookahead_warning"],
+            }
         r = task["result"]
+        if r is None:
+            return {"task_id": task_id, "status": "error", "error": "No result"}
 
         # Build time-aligned equity / buy-hold curves (frontend expects {time, equity})
         def _ts(v):
