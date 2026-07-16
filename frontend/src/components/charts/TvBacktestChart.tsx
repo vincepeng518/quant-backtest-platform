@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   createChart, IChartApi, ISeriesApi, UTCTimestamp,
   CandlestickData, HistogramData, LineData, CrosshairMode,
@@ -68,6 +68,18 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
   const volRef = useRef<HTMLDivElement>(null);
   const eqRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
+  const [barCount, setBarCount] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ── A6.3: 全螢幕 toggle（組件作用域，JSX 可調用）──
+  const toggleFullscreen = () => {
+    if (!wrapRef.current) return;
+    if (!document.fullscreenElement) {
+      wrapRef.current.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     // ── P4: 空數據 guard（含 equity 有值但 data 空）──
@@ -121,6 +133,19 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     const priceChart = createChart(priceRef.current, { ...baseOpts, width: priceRef.current.clientWidth, height: 380 });
     const volChart = createChart(volRef.current, { ...baseOpts, width: volRef.current.clientWidth, height: 110, rightPriceScale: { visible: true, scaleMargins: { top: 0.1, bottom: 0 } } });
     const eqChart = createChart(eqRef.current, { ...baseOpts, width: eqRef.current.clientWidth, height: 140 });
+
+    // ── A6.1: 水印 ──
+    priceChart.applyOptions({
+      // @ts-ignore watermark supported in v4.1.x
+      watermark: {
+        visible: true,
+        text: 'Backtest Lab',
+        color: isDark ? 'rgba(209,212,220,0.06)' : 'rgba(19,23,34,0.04)',
+        fontSize: 48,
+        horzAlign: 'center',
+        vertAlign: 'center',
+      },
+    });
 
     // ── Pane 1: candles + EMA ──
     const candle = priceChart.addCandlestickSeries({
@@ -188,6 +213,16 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     volChart.timeScale().subscribeVisibleLogicalRangeChange((r) => syncRange(volChart, r));
     eqChart.timeScale().subscribeVisibleLogicalRangeChange((r) => syncRange(eqChart, r));
 
+    // ── A6.2: K 線計數器 + B3.3: 極縮隱藏成交量 ──
+    const onRange = (r: any) => {
+      if (!r) return;
+      const count = (r.to - r.from) || 0;
+      setBarCount(Math.max(0, Math.round(count)));
+      // 跨度 > 500 根時隱藏成交量柱（避免合併成色帶）
+      vol.applyOptions({ visible: count < 500 });
+    };
+    priceChart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
+
     // ── P8: 各 pane 數據長度不一致提示 ──
     if (eqPoints.length > 0 && candleData.length > 0) {
       const eqFirst = eqPoints[0].time as number;
@@ -242,14 +277,20 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     };
     window.addEventListener('resize', handleResize);
 
+    // ── A6.3: 全螢幕事件監聽（toggle 函數在組件作用域）──
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('fullscreenchange', onFsChange);
       priceChart.unsubscribeCrosshairMove(renderLegend);
       volChart.unsubscribeCrosshairMove(renderLegend);
       eqChart.unsubscribeCrosshairMove(renderLegend);
       priceChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(priceChart, r));
       volChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(volChart, r));
       eqChart.timeScale().unsubscribeVisibleLogicalRangeChange((r) => syncRange(eqChart, r));
+      priceChart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       priceChart.remove(); volChart.remove(); eqChart.remove();
     };
   }, [data, markers, equityData, buyHoldData, emaLen, theme]);
@@ -263,10 +304,23 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
   }
 
   return (
-    <div ref={wrapRef} className="w-full bg-surface">
+    <div ref={wrapRef} className={`w-full bg-surface ${isFullscreen ? 'fixed inset-0 z-50 bg-surface p-4 overflow-auto' : ''}`}>
       <div className="relative">
+        {/* ── A6.3: 全螢幕按鈕 + A6.2: K 線計數器 ── */}
+        <div className="absolute right-2 top-2 z-20 flex items-center gap-2">
+          <span className="rounded bg-black/30 px-2 py-0.5 font-mono text-[10px] text-[#787b86]">
+            {barCount} bars
+          </span>
+          <button
+            onClick={toggleFullscreen}
+            className="rounded bg-black/30 px-2 py-0.5 font-mono text-[10px] text-[#d1d4dc] hover:bg-black/50"
+            title="全螢幕"
+          >
+            {isFullscreen ? '退出' : '⛶'}
+          </button>
+        </div>
         <div ref={legendRef} className="pointer-events-none absolute left-4 top-2 z-10 flex flex-wrap font-mono text-xs" style={{ display: 'none' }} />
-        <div ref={priceRef} className="w-full" />
+        <div ref={priceRef} className="w-full" style={{ paddingTop: 4, paddingBottom: 4 }} />
       </div>
       <div ref={volRef} className="w-full border-t border-[#363c4e]/20" />
       <div ref={eqRef} className="w-full border-t border-[#363c4e]/20" />

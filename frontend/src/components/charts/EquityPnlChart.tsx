@@ -8,6 +8,7 @@ import {
   UTCTimestamp,
   LineData,
   HistogramData,
+  CrosshairMode,
 } from 'lightweight-charts';
 import { EquityPoint, TradeRecord } from '@/types/api';
 
@@ -21,9 +22,32 @@ interface EquityPnlChartProps {
   theme?: 'light' | 'dark';
 }
 
-const GREEN = '#10b981';
-const RED = '#ef4444';
-const BH_GRAY = '#a3a3a3';
+const GREEN = '#089981';
+const RED = '#f23645';
+const BH_GRAY = '#787b86';
+
+const toTs = (raw: any): number => {
+  if (raw == null || raw === '' || raw === undefined) return 0;
+  let t: number;
+  if (typeof raw === 'string') {
+    const ms = new Date(raw).getTime();
+    t = Number.isFinite(ms) ? ms / 1000 : NaN;
+  } else {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    t = n > 1e11 ? n / 1000 : n;
+  }
+  if (!Number.isFinite(t) || t <= 0) return 0;
+  return Math.floor(t);
+};
+
+const fmt = (n: number, d = 2): string => {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs > 0 && abs < 0.01) return n.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+  if (abs >= 10000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+};
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 const toUnixSec = (v: any): number => {
@@ -32,9 +56,6 @@ const toUnixSec = (v: any): number => {
   const ms = Date.parse(v);
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
 };
-
-const fmt = (n: number) =>
-  n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
   equity,
@@ -49,44 +70,42 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
   const legendRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
-  // Equity line + baseline are stable; rebuild when core data changes.
   useEffect(() => {
     if (!containerRef.current) return;
 
     const isDark = theme === 'dark';
+    const BG = isDark ? '#131722' : '#ffffff';
+    const TXT = isDark ? '#d1d4dc' : '#131722';
+    const GRID = isDark ? '#2a2e39' : '#e0e3eb';
+    const BORDER = isDark ? '#363c4e' : '#e0e3eb';
+    const CROSS = '#758696';
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 420,
-      layout: {
-        background: { color: isDark ? '#0a0a0a' : '#ffffff' },
-        textColor: isDark ? '#a3a3a3' : '#525252',
-      },
-      grid: {
-        vertLines: { color: isDark ? '#171717' : '#f5f5f5' },
-        horzLines: { color: isDark ? '#171717' : '#f5f5f5' },
-      },
+      layout: { background: { color: BG }, textColor: TXT, fontSize: 11 },
+      grid: { vertLines: { color: GRID }, horzLines: { color: GRID } },
       crosshair: {
-        mode: 1, // Magnet mode
-        vertLine: { color: isDark ? '#a3a3a3' : '#525252', width: 1, style: 2 },
-        horzLine: { color: isDark ? '#a3a3a3' : '#525252', width: 1, style: 2 },
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: CROSS, width: 1, style: 2 },
+        horzLine: { color: CROSS, width: 1, style: 2 },
       },
       timeScale: {
-        borderColor: isDark ? '#262626' : '#e5e5e5',
+        borderColor: BORDER,
         timeVisible: true,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        // @ts-ignore timezone supported in v4.1.x runtime
+        timezone: 'Asia/Taipei',
       },
-      rightPriceScale: {
-        borderColor: isDark ? '#262626' : '#e5e5e5',
-      },
+      rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.1, bottom: 0.1 } },
     });
 
     const eqData: LineData[] = equity
-      .map((d) => ({ time: d.time as UTCTimestamp, value: d.equity }))
-      .filter((d) => Number.isFinite(d.time) && d.time > 0);
+      .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
+      .filter((d) => d.time > 0);
 
-    // Main equity line — green by default, with a horizontal baseline at
-    // initial capital so the viewer can read positive/negative at a glance.
     const equityLine = chart.addLineSeries({
       color: GREEN,
       lineWidth: 2,
@@ -98,13 +117,11 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       price: initialCapital,
       color: BH_GRAY,
       lineWidth: 1,
-      lineStyle: 2, // dashed
+      lineStyle: 2,
       axisLabelVisible: true,
       title: '初始資金',
     });
 
-    // ── P1-1: 峰值 / 谷值 / 最大回撤區間標註 ──
-    // 計算權益曲線的歷史峰值與對應最大回撤谷值，用 markers 標出。
     let peakVal = -Infinity;
     let peakIdx = -1;
     let maxDd = 0;
@@ -128,7 +145,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       markers.push({
         time: eqData[peakIdx].time,
         position: 'aboveBar',
-        color: '#10b981',
+        color: GREEN,
         shape: 'circle',
         text: '峰值',
       });
@@ -137,18 +154,17 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       markers.push({
         time: eqData[troughIdx].time,
         position: 'belowBar',
-        color: '#ef4444',
+        color: RED,
         shape: 'circle',
         text: `最大回撤 ${((maxDd) * 100).toFixed(1)}%`,
       });
     }
     if (markers.length > 0) equityLine.setMarkers(markers);
 
-    // ── P2-1: 策略 vs 基準差值曲線 (equity - buyHold) ──
     let spreadLine: ISeriesApi<'Line'> | null = null;
     if (showSpread && buyHold.length > 0) {
       const bhMap = new Map<number, number>(
-        buyHold.map((d) => [d.time as number, d.equity])
+        buyHold.map((d) => [toTs(d.time ?? (d as any).timestamp) as number, d.equity])
       );
       const spreadData: LineData[] = eqData
         .map((d) => {
@@ -166,7 +182,6 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         });
         spreadLine.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.6 } });
         spreadLine.setData(spreadData);
-        // 0 基準線
         spreadLine.createPriceLine({
           price: 0,
           color: BH_GRAY,
@@ -178,7 +193,6 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       }
     }
 
-    // Buy & Hold overlay (toggled by showBuyHold).
     let bhLine: ISeriesApi<'Line'> | null = null;
     if (showBuyHold && buyHold.length > 0) {
       bhLine = chart.addLineSeries({
@@ -189,12 +203,11 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       });
       bhLine.setData(
         buyHold
-          .map((d) => ({ time: d.time as UTCTimestamp, value: d.equity }))
-          .filter((d) => Number.isFinite(d.time) && d.time > 0)
+          .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
+          .filter((d) => d.time > 0)
       );
     }
 
-    // Bottom histogram: one bar per trade at its exit_time, value = pnl.
     const histSeries = chart.addHistogramSeries({
       priceScaleId: 'pnl',
       priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
@@ -210,7 +223,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         return {
           time: t2 as UTCTimestamp,
           value: pnl,
-          color: pnl >= 0 ? GREEN : RED,
+          color: pnl >= 0 ? 'rgba(8,153,129,0.5)' : 'rgba(242,54,69,0.5)',
         };
       })
       .filter((d) => Number.isFinite(d.time) && d.time > 0);
@@ -218,7 +231,6 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
 
     chartRef.current = chart;
 
-    // ── Crosshair OHLC-style legend ──
     const legendEl = legendRef.current;
     const renderLegend = (param: any) => {
       if (!legendEl || !param || !param.time || !param.seriesData) {
@@ -237,31 +249,30 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         hour: '2-digit', minute: '2-digit', hour12: false,
       });
 
-      let html = '';
       legendEl.style.display = 'flex';
       legendEl.replaceChildren();
-      const mk = (txt: string, col: string, gap = '0 6px') => { const s = document.createElement('span'); s.style.color = col; s.style.margin = gap; s.textContent = txt; return s; };
-      legendEl.appendChild(mk(dt, '#a3a3a3', '0 8px 0 0'));
+      const mk = (txt: string, col: string, gap = '0 6px') => { const s = document.createElement('span'); s.style.color = col; s.style.margin = gap; s.style.fontSize = '11px'; s.textContent = txt; return s; };
+      legendEl.appendChild(mk(dt, '#d1d4dc', '0 8px 0 0'));
       if (eq) {
         const up = eq.value! >= initialCapital;
         const c = up ? GREEN : RED;
-        legendEl.appendChild(mk('權益', '#a3a3a3'));
+        legendEl.appendChild(mk('權益', '#787b86'));
         legendEl.appendChild(mk(fmt(eq.value!), c));
       }
       if (bh) {
-        legendEl.appendChild(mk('B&H', '#a3a3a3'));
+        legendEl.appendChild(mk('B&H', '#787b86'));
         legendEl.appendChild(mk(fmt(bh.value!), BH_GRAY));
       }
       if (hist) {
         const c = hist.value! >= 0 ? GREEN : RED;
-        legendEl.appendChild(mk('單筆', '#a3a3a3'));
+        legendEl.appendChild(mk('單筆', '#787b86'));
         legendEl.appendChild(mk(`${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}`, c));
       }
       if (showSpread && spreadLine) {
         const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
         if (sp) {
           const c = sp.value! >= 0 ? GREEN : RED;
-          legendEl.appendChild(mk('差值', '#a3a3a3'));
+          legendEl.appendChild(mk('差值', '#787b86'));
           legendEl.appendChild(mk(`${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}`, c));
         }
       }
