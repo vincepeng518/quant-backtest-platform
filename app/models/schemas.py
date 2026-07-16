@@ -96,8 +96,9 @@ class ExchangeConfig(BaseModel):
 class BacktestConfig(BaseModel):
     strategy: StrategyConfig
     symbol: str
+    market: str = "crypto"  # crypto | equity | forex
     timeframe: str = "1h"
-    source: str = "binance"  # data source: binance | bingx | csv | test
+    source: str = "binance"  # data source: binance | bingx | csv | test | tradfi
     start_date: str = ""
     end_date: str = ""
     initial_capital: float = 100_000.0
@@ -106,6 +107,8 @@ class BacktestConfig(BaseModel):
     funding: FundingConfig = Field(default_factory=FundingConfig)
     perpetual: PerpetualConfig = Field(default_factory=PerpetualConfig)
     exchange: ExchangeConfig = Field(default_factory=ExchangeConfig)
+    equity: dict = Field(default_factory=dict)
+    forex: dict = Field(default_factory=dict)
 
 
 # ── Results ──

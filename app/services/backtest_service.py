@@ -55,6 +55,17 @@ class BacktestService:
             )
         if exch_cfg.get("enabled") and exch_cfg.get("force_limit"):
             kwargs["force_limit"] = True
+
+        # Multi-asset: build MarketEngine from `market` field (crypto/equity/forex)
+        market = (config.get("market") or "crypto").lower()
+        try:
+            from engine.engines import build_market_engine
+            me = build_market_engine(market, config)
+        except Exception:
+            me = None
+        if me is not None:
+            kwargs["market_engine"] = me
+
         bt = Backtester(
             initial_capital=config.get("initial_capital", 100_000),
             commission=config.get("commission", 0.001),
