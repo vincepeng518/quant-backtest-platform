@@ -1,0 +1,75 @@
+{
+  "id": "725a614dff28",
+  "kind": "backtest",
+  "label": "NCCOGOLD2USD-USDT-ma_cross",
+  "created_at": 1784360831.9032047,
+  "config": {
+    "strategy": {
+      "template_id": "ma_cross",
+      "params": {
+        "fast": 10,
+        "slow": 30
+      },
+      "custom_code": null
+    },
+    "symbol": "NCCOGOLD2USD-USDT",
+    "market": "crypto",
+    "timeframe": "1h",
+    "source": "binance",
+    "start_date": "2026-06-01",
+    "end_date": "2026-07-01",
+    "initial_capital": 100000.0,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    },
+    "equity": {},
+    "forex": {},
+    "engine": "replay",
+    "ticks_per_bar": 20,
+    "tick_seed": 7,
+    "exchanges": []
+  },
+  "metrics": {
+    "total_trades": 8,
+    "winning_trades": 4,
+    "losing_trades": 4,
+    "win_rate": 50.0,
+    "total_pnl": -1100.080743248008,
+    "total_return": -1100.080743248008,
+    "total_return_pct": -1.496215512197581,
+    "max_drawdown": 4578.65504382747,
+    "max_drawdown_pct": 4.57865504382747,
+    "sharpe_ratio": -1.0141775203597991,
+    "sortino_ratio": -1.0564562674756415,
+    "profit_factor": 0.8083071270764334,
+    "calmar_ratio": -3.659971978367921,
+    "largest_loss": -2363.9874197625413,
+    "largest_loss_pct": 0.0,
+    "largest_win": 2741.0858517742304,
+    "avg_trade": -137.510092906001,
+    "avg_winner": 1159.6715772023717,
+    "avg_loser": -1434.691763014374,
+    "win_loss_ratio": 0.8083071270764334,
+    "expectancy": -137.5100929060011,
+    "annual_return_pct": -16.757749159021486,
+    "avg_holding_bars": 41.25,
+    "trade_freq": 0.26666666666666666
+  }
+}

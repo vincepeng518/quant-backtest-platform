@@ -15,6 +15,7 @@ from app.utils.cache import cache
 from data.providers.binance import BinanceProvider
 from data.providers.bingx import BingXProvider
 from data.providers.tradfi import TradFiProvider
+from data.providers.bingx_tradfi import BingXTradFiProvider, BINGX_TRADFI_SYMBOLS
 from data.providers.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class DataService:
         self.binance = BinanceProvider()
         self.bingx = BingXProvider()
         self.tradfi = TradFiProvider()
+        self.bingx_tradfi = BingXTradFiProvider()
         self.csv_loader = CSVLoader()
 
     async def get_ohlcv(
@@ -80,6 +82,10 @@ class DataService:
                     data = gen
         elif source == "tradfi":
             data = await self._try_fetch(self.tradfi, symbol, timeframe, start_date, end_date)
+        elif source == "bingx_tradfi":
+            # BingX TradFi contracts (NCCO/NCFX/NCSI/NCSK) via openApi klines.
+            # symbol must be the BingX contract id, e.g. NCCOGOLD2USD-USDT.
+            data = await self._try_fetch(self.bingx_tradfi, symbol, timeframe, start_date, end_date)
         elif source == "binance":
             data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
         else:  # default: bingx
@@ -187,7 +193,22 @@ class DataService:
 
         crypto_syms = await self._crypto_symbols()
 
-        # TradFi 精选列表 (yfinance 不支持 load_markets 全量枚举)
+        # BingX TradFi 精选列表 (来自 BINGX_TRADFI_SYMBOLS 注册表, 含实时状态)
+        from data.providers.bingx_tradfi import BINGX_TRADFI_SYMBOLS
+        tradfi_bingx_syms = [
+            {
+                "symbol": s["symbol"],
+                "market": "tradfi",
+                "exchange": "bingx",
+                "name": s["name"],
+                "category": s["category"],
+                "status": s["status"],
+                "selectable": s["status"] == "active",
+            }
+            for s in BINGX_TRADFI_SYMBOLS
+        ]
+
+        # Yahoo TradFi 精选列表 (股票/指数/外汇ETF)
         tradfi_syms = [
             {"symbol": "AAPL", "market": "tradfi", "exchange": "nasdaq", "name": "Apple"},
             {"symbol": "TSLA", "market": "tradfi", "exchange": "nasdaq", "name": "Tesla"},
@@ -207,7 +228,7 @@ class DataService:
             {"symbol": "BTC-USD", "market": "tradfi", "exchange": "crypto", "name": "Bitcoin (Yahoo)"},
         ]
 
-        result = crypto_syms + tradfi_syms
+        result = crypto_syms + tradfi_bingx_syms + tradfi_syms
         cache.set("symbols:all:v2", {"symbols": result}, ttl=3600)
         return result
 

@@ -1,0 +1,71 @@
+{
+  "id": "de3a25476b67",
+  "kind": "backtest",
+  "label": "NCCOGOLD2USD-USDT-ma_cross",
+  "created_at": 1784360781.9364097,
+  "config": {
+    "strategy": {
+      "template_id": "ma_cross",
+      "params": {
+        "fast": 10,
+        "slow": 30
+      },
+      "custom_code": null
+    },
+    "symbol": "NCCOGOLD2USD-USDT",
+    "market": "crypto",
+    "timeframe": "1h",
+    "source": "binance",
+    "start_date": "2026-06-01",
+    "end_date": "2026-07-01",
+    "initial_capital": 100000.0,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    },
+    "equity": {},
+    "forex": {}
+  },
+  "metrics": {
+    "total_trades": 8,
+    "winning_trades": 3,
+    "losing_trades": 5,
+    "win_rate": 37.5,
+    "total_pnl": 314.12992686458284,
+    "total_return": 314.12992686458284,
+    "total_return_pct": -0.08650875771108257,
+    "max_drawdown": 4464.285971719682,
+    "max_drawdown_pct": 4.464285971719682,
+    "sharpe_ratio": -0.12069550182074563,
+    "sortino_ratio": -0.12924482676397905,
+    "profit_factor": 1.0506626187318255,
+    "calmar_ratio": -0.2346297564031389,
+    "largest_loss": -2039.3007333267317,
+    "largest_loss_pct": -2.000667497460753,
+    "largest_win": 3392.3006890561032,
+    "avg_trade": 39.266240858072855,
+    "avg_winner": 2171.5193558431233,
+    "avg_loser": -1240.0856281329575,
+    "win_loss_ratio": 1.7511043645530426,
+    "expectancy": 39.266240858072706,
+    "annual_return_pct": -1.0474543300585393,
+    "avg_holding_bars": 41.25,
+    "trade_freq": 0.26666666666666666
+  }
+}

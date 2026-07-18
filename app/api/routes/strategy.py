@@ -39,7 +39,7 @@ async def get_templates():
             name=cls.description or name,
             description=cls.__doc__ or "",
             category=getattr(cls, "category", ""),
-            params=[{"name": k, **v} for k, v in params.items()],
+            params=[{"name": k, **(v if isinstance(v, dict) else {"values": v})} for k, v in params.items()],
         ))
     return out
 

@@ -109,6 +109,10 @@ class BacktestConfig(BaseModel):
     exchange: ExchangeConfig = Field(default_factory=ExchangeConfig)
     equity: dict = Field(default_factory=dict)
     forex: dict = Field(default_factory=dict)
+    engine: str = "bar"  # bar | replay (tick-level intrabar execution)
+    ticks_per_bar: int = 20  # replay engine: synthesized ticks per bar
+    tick_seed: int | None = None  # replay engine: reproducible tick path
+    exchanges: list[str] = Field(default_factory=list)  # multi-exchange execution (paper/live)
 
 
 # ── Results ──

@@ -44,6 +44,7 @@ def _ensure_registered() -> None:
         from strategies.technical.engulfing_pullback import EngulfingPullbackStrategy
         from strategies.statistical.chainlink_updown import ChainlinkUpDownStrategy
         from strategies.statistical.polymarket_btc import PolymarketBtcStrategy
+        from strategies.factor import FactorStrategy
 
         register_strategy(MovingAverageCrossStrategy)
         register_strategy(BreakoutStrategy)
@@ -53,6 +54,7 @@ def _ensure_registered() -> None:
         register_strategy(EngulfingPullbackStrategy)
         register_strategy(ChainlinkUpDownStrategy)
         register_strategy(PolymarketBtcStrategy)
+        register_strategy(FactorStrategy)
         load_user_strategies()
 
 

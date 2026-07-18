@@ -7,13 +7,13 @@ import { sectorOf, SECTOR_GROUPS, type Sector } from '@/lib/symbolCatalog';
 interface SymbolSearchProps {
   label?: string;
   value: string;
-  options: { symbol: string }[];
+  options: { symbol: string; status?: string; category?: string }[];
   onChange: (symbol: string) => void;
   placeholder?: string;
 }
 
 const FAV_KEY = 'fav_symbols';
-const SECTORS: string[] = ['主流', 'Meme', 'DeFi', 'AI', 'Layer2', 'TradFi', '其他', '收藏'];
+const SECTORS: string[] = ['fx', 'metal', 'energy', 'index', 'stock', '其他', '收藏'];
 
 export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   label,
@@ -43,7 +43,19 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const allSyms = useMemo(() => options.map((o) => o.symbol), [options]);
+  const allSyms = useMemo(
+    () => options.map((o) => ({ symbol: o.symbol, status: o.status, category: o.category })),
+    [options]
+  );
+
+  const statusBadge = (st?: string) => {
+    if (st === 'paused') return <span className="ml-1 rounded bg-yellow-500/15 px-1 text-[9px] text-yellow-400">暫停</span>;
+    if (st === 'offline') return <span className="ml-1 rounded bg-red-500/15 px-1 text-[9px] text-red-400">下線</span>;
+    if (st === 'not_exist') return <span className="ml-1 rounded bg-gray-500/15 px-1 text-[9px] text-gray-400">無</span>;
+    return null;
+  };
+
+  const isDisabled = (st?: string) => st === 'offline' || st === 'not_exist';
 
   const toggleFav = (s: string) => {
     setFavs((prev) => {
@@ -55,15 +67,15 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
 
   const q = query.trim().toUpperCase();
 
-  const list = useMemo(() => {
-    let pool = allSyms;
-    if (tab === '收藏') pool = favs;
-    else if (tab !== '其他') pool = allSyms.filter((s) => sectorOf(s) === tab);
-    // 其他: 不被任何分類覆蓋的
-    else pool = allSyms.filter((s) => sectorOf(s) === '其他');
+  const list = useMemo((): { symbol: string; status?: string; category?: string }[] => {
+    let pool: { symbol: string; status?: string; category?: string }[] = allSyms;
+    if (tab === '收藏') pool = favs.map((s) => allSyms.find((x) => x.symbol === s)).filter(Boolean) as typeof allSyms;
+    else if (tab !== '其他') pool = allSyms.filter((s) => (s.category || '其他') === tab);
+    else pool = allSyms.filter((s) => !s.category || s.category === '其他');
 
-    if (q) pool = pool.filter((s) => s.includes(q));
-    return Array.from(new Set(pool)).slice(0, 80);
+    if (q) pool = pool.filter((s) => s.symbol.includes(q));
+    const uniq = Array.from(new Set(pool.map((p) => p.symbol))).map((sym) => pool.find((p) => p.symbol === sym)!);
+    return uniq.slice(0, 80);
   }, [allSyms, tab, q, favs]);
 
   const commit = (sym: string) => {
@@ -126,28 +138,33 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
                 </div>
               ) : (
                 list.map((s) => (
-                  <div key={s} className="flex items-center justify-between px-1">
+                  <div key={s.symbol} className="flex items-center justify-between px-1">
                     <button
                       type="button"
-                      onClick={() => commit(s)}
+                      disabled={isDisabled(s.status)}
+                      onClick={() => !isDisabled(s.status) && commit(s.symbol)}
                       className={clsx(
                         'block flex-1 px-2 py-1.5 text-left text-sm hover:bg-accent/10',
-                        s === value ? 'text-accent' : 'text-text'
+                        s.symbol === value ? 'text-accent' : 'text-text',
+                        isDisabled(s.status) && 'cursor-not-allowed opacity-40 hover:bg-transparent'
                       )}
                     >
-                      {s}
-                      <span className="ml-2 text-[10px] text-textSecondary">{sectorOf(s)}</span>
+                      {s.symbol}
+                      {statusBadge(s.status)}
+                      {s.category && s.status === 'active' && (
+                        <span className="ml-1 text-[10px] text-textSecondary">{s.category}</span>
+                      )}
                     </button>
                     <button
                       type="button"
-                      onClick={() => toggleFav(s)}
+                      onClick={() => toggleFav(s.symbol)}
                       title="收藏"
                       className={clsx(
                         'px-2 py-1.5 text-xs',
-                        favs.includes(s) ? 'text-yellow-400' : 'text-textSecondary hover:text-yellow-400'
+                        favs.includes(s.symbol) ? 'text-yellow-400' : 'text-textSecondary hover:text-yellow-400'
                       )}
                     >
-                      {favs.includes(s) ? '★' : '☆'}
+                      {favs.includes(s.symbol) ? '★' : '☆'}
                     </button>
                   </div>
                 ))

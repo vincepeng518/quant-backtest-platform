@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNR 學習 K 線圖解</title>
+<style>
+  body { background:#131722; color:#d1d4dc; font-family:'Noto Sans CJK TC',-apple-system,sans-serif; margin:0; padding:24px; }
+  h1 { color:#fff; font-size:22px; border-bottom:1px solid #2a2e39; padding-bottom:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:20px; margin-top:20px; }
+  .card { background:#1e222d; border:1px solid #2a2e39; border-radius:8px; overflow:hidden; }
+  .card img { width:100%; display:block; background:#fff; }
+  .cap { padding:10px 14px; font-size:14px; color:#b2b5be; }
+  .tag { display:inline-block; background:#2962FF; color:#fff; font-size:11px; padding:2px 8px; border-radius:4px; margin-right:8px; }
+  footer { margin-top:30px; color:#5d606b; font-size:12px; }
+</style>
+</head>
+<body>
+<h1>SNR 學習 K 線圖解（Rick + 原創系列）</h1>
+<div class="grid">
+  <div class="card"><img src="/fig/course1_tested.png"><div class="cap"><span class="tag">原創 EP1</span>TESTED 示意圖</div></div>
+  <div class="card"><img src="/fig/course1_snr.png"><div class="cap"><span class="tag">原創 EP1</span>SNR 示意圖</div></div>
+  <div class="card"><img src="/fig/course1_fresh.png"><div class="cap"><span class="tag">原創 EP1</span>FRESH 示意圖</div></div>
+  <div class="card"><img src="/fig/course2_entry.png"><div class="cap"><span class="tag">原創 EP2</span>ENTRY 示意圖</div></div>
+  <div class="card"><img src="/fig/course2_mtf.png"><div class="cap"><span class="tag">原創 EP2</span>MTF 示意圖</div></div>
+  <div class="card"><img src="/fig/course3_storyline.png"><div class="cap"><span class="tag">原創 EP3</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course4_mtf.png"><div class="cap"><span class="tag">原創 EP4</span>MTF 示意圖</div></div>
+  <div class="card"><img src="/fig/course5_storyline.png"><div class="cap"><span class="tag">原創 EP5</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course6_storyline.png"><div class="cap"><span class="tag">原創 EP6</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course7_storyline.png"><div class="cap"><span class="tag">原創 EP7</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course8_storyline.png"><div class="cap"><span class="tag">原創 EP8</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course9_entry.png"><div class="cap"><span class="tag">原創 EP9</span>ENTRY 示意圖</div></div>
+  <div class="card"><img src="/fig/course10_storyline.png"><div class="cap"><span class="tag">原創 EP10</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course11_storyline.png"><div class="cap"><span class="tag">原創 EP11</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course12_entry.png"><div class="cap"><span class="tag">原創 EP12</span>ENTRY 示意圖</div></div>
+  <div class="card"><img src="/fig/course13_storyline.png"><div class="cap"><span class="tag">原創 EP13</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course14_entry.png"><div class="cap"><span class="tag">原創 EP14</span>ENTRY 示意圖</div></div>
+  <div class="card"><img src="/fig/course15_storyline.png"><div class="cap"><span class="tag">原創 EP15</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course16_storyline.png"><div class="cap"><span class="tag">原創 EP16</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course17_storyline.png"><div class="cap"><span class="tag">原創 EP17</span>STORYLINE 示意圖</div></div>
+  <div class="card"><img src="/fig/course18_storyline.png"><div class="cap"><span class="tag">原創 EP18</span>STORYLINE 示意圖</div></div>
+</div></div>
+  <div class="card"><img src="/fig/fvg_mixed.png"><div class="cap"><span class="tag">Rick FVG</span>雜色 FVG（偏弱，避開）</div></div>
+  <div class="card"><img src="/fig/rick1_classic.png"><div class="cap"><span class="tag">Rick SNR#1</span>經典水平 Type1 vs Type2 水平</div></div>
+  <div class="card"><img src="/fig/rick1_storyline.png"><div class="cap"><span class="tag">Rick SNR#1</span>故事線延續（大時區→小時區）</div></div>
+  <div class="card"><img src="/fig/rick3_storyline.png"><div class="cap"><span class="tag">Rick SNR#3</span>多時區故事線（日→4H→1H→15m）</div></div>
+  <div class="card"><img src="/fig/rick3_fib.png"><div class="cap"><span class="tag">Rick SNR#3</span>斐波那契回測位</div></div>
+  <div class="card"><img src="/fig/rick4_linechart.png"><div class="cap"><span class="tag">Rick SNR#4</span>K 線轉線性圖（去影線畫線）</div></div>
+  <div class="card"><img src="/fig/rick4_entry.png"><div class="cap"><span class="tag">Rick SNR#4</span>進場三要件（水平+收線拒絕+實體守住）</div></div>
+  <div class="card"><img src="/fig/course1_fresh.png"><div class="cap"><span class="tag">原創 SNR#1</span>Fresh 水平（未被觸碰，最強）</div></div>
+  <div class="card"><img src="/fig/course1_tested.png"><div class="cap"><span class="tag">原創 SNR#1</span>Tested 水平（反覆觸碰）</div></div>
+  <div class="card"><img src="/fig/course2_mtf.png"><div class="cap"><span class="tag">原創 SNR#2</span>MTF 多時區共震</div></div>
+</div>
+<footer>K 線圖由 mplfinance 生成 · 對應 Notion SNR 學習筆記</footer>
+</body>
+</html>
