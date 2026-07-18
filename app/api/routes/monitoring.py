@@ -95,8 +95,7 @@ async def rounds(limit: int = 50, _: None = Depends(auth_required)):
 
 import json as _json
 
-_RUNTIME_ENV = os.getenv("RUNTIME_DIR")
-_RUNTIME_DIR = _RUNTIME_ENV if _RUNTIME_ENV and _RUNTIME_ENV.endswith("runtime") else os.getenv("PROJECT_ROOT", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "runtime"))
+_RUNTIME_DIR = os.path.join(os.getenv("PROJECT_ROOT", "/root/Crypto-Backtesting-Lab"), "runtime")
 
 
 @router.get("/strategy")
