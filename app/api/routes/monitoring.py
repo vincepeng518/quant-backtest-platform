@@ -163,11 +163,11 @@ async def grid_run(_: None = Depends(auth_required)):
     """Trigger grid_switcher engine (runs engine/strategies/grid_switcher.py)."""
     import subprocess
     import sys
-    # 兼容 local + Railway: 先試 __file__ 推算, 再試常見 Railway 路徑
+    # 兼容 local + Railway: 直接找 grid_switcher.py 所在的根目錄 (忽略 Railway 注入的錯 PROJECT_ROOT/RUNTIME_DIR)
     candidates = [
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
         "/root/Crypto-Backtesting-Lab",
         "/app",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
     ]
     project_root = next((p for p in candidates if os.path.exists(os.path.join(p, "engine", "strategies", "grid_switcher.py"))), candidates[0])
     script = os.path.join(project_root, "engine", "strategies", "grid_switcher.py")
