@@ -7,6 +7,7 @@ import { MetricsCard } from '@/components/ui/MetricsCard';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { APP_VERSION, APP_VERSION_NOTE } from '@/lib/version';
 import { useDashboard } from '@/lib/dashboard';
 import { useMonitor } from '@/lib/monitor';
 
@@ -290,6 +291,11 @@ export default function Home() {
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </section>
+
+      {/* ── 版本號 (右下角, 灰色) ── */}
+      <div className="fixed bottom-2 right-3 z-50 select-none text-[11px] font-mono text-textMuted/50">
+        {APP_VERSION} · {APP_VERSION_NOTE}
+      </div>
     </div>
   );
 }

@@ -33,7 +33,7 @@ export default function ExperimentsPage() {
     setLoading(true);
     try {
       const data = await api.listExperiments();
-      setExps(data);
+      setExps(data.experiments || []);
     } catch (e) {
       console.error(e);
     } finally {

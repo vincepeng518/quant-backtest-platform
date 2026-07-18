@@ -150,7 +150,7 @@ export const api = {
 
   // ── Experiments (Qlib-style Recorder) ──
   listExperiments: (kind?: string) =>
-    request<any[]>(`/experiments${kind ? `?kind=${kind}` : ''}`),
+    request<any>(`/experiments${kind ? `?kind=${kind}` : ''}`),
   getExperiment: (id: string) => request<any>(`/experiments/${id}`),
   compareExperiments: (ids: string[]) =>
     request<any>('/experiments/compare', { method: 'POST', body: JSON.stringify({ ids }) }),
