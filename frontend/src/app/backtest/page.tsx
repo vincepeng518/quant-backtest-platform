@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useDataStore } from '@/stores/useDataStore';
+import { useDataStore, resolveSource } from '@/stores/useDataStore';
 import { useBacktestStore } from '@/stores/useBacktestStore';
 import api from '@/lib/api';
 import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
@@ -483,11 +483,11 @@ function BacktestView() {
             label="Market Instrument"
             value={symbol}
             placeholder={market === 'equity' ? 'AAPL, TSLA, NVDA…' : market === 'forex' ? 'EUR/USD, GBP/USD…' : 'BTC/USDT, ETH/USDT…'}
-            options={symbols.map((s) => ({ symbol: s.symbol }))}
+            options={symbols.map((s) => ({ symbol: s.symbol, status: s.status, category: s.category }))}
             onChange={(s) => {
               setSymbol(s);
               const mk = symbols.find((x) => x.symbol === s);
-              const src = market === 'crypto' ? (mk?.exchange === 'bingx' ? 'bingx' : 'bingx') : 'tradfi';
+              const src = resolveSource(s, mk?.market);
               loadOHLCV(s, timeframe, src);
             }}
           />

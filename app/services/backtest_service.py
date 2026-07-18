@@ -66,22 +66,39 @@ class BacktestService:
         if me is not None:
             kwargs["market_engine"] = me
 
-        bt = Backtester(
+        # Replay-grade engine (tick-level intrabar execution) when requested
+        engine_kind = config.get("engine", "bar")
+        if engine_kind == "replay":
+            from engine.replay import ReplayBacktester
+            bt_cls = ReplayBacktester
+            kwargs["ticks_per_bar"] = int(config.get("ticks_per_bar", 20))
+            kwargs["tick_seed"] = config.get("tick_seed")
+        else:
+            bt_cls = Backtester
+
+        bt = bt_cls(
             initial_capital=config.get("initial_capital", 100_000),
             commission=config.get("commission", 0.001),
             slippage=config.get("slippage", 0.0005),
             **kwargs,
         )
 
-        # Load data via get_ohlcv (proven working path: handles NCCO->-USDT,
-        # _is_tradfi routing, bingx/binance fallback). Pass source explicitly.
+        # Load data via get_ohlcv. BingX TradFi symbols (NCCO/NCFX/NCSI/NCSK)
+        # auto-route to the bingx_tradfi source unless explicitly overridden
+        # with a non-default source.
         sym = config.get("symbol", "")
+        source = config.get("source", "")
+        if not source or source == "binance":  # binance is the schema default
+            if sym.upper().startswith(("NCCO", "NCFX", "NCSI", "NCSK")):
+                source = "bingx_tradfi"
+            else:
+                source = "bingx"
         data = await self.data_service.get_ohlcv(
             symbol=sym,
             timeframe=config.get("timeframe", "1h"),
             start_date=config.get("start_date", ""),
             end_date=config.get("end_date", ""),
-            source=config.get("source", "bingx"),
+            source=source,
         )
         if data is None or len(data) == 0:
             return {"task_id": task_id, "status": "error", "error": "No data"}

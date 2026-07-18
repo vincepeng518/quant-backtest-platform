@@ -1,0 +1,93 @@
+{
+  "id": "abce04ef3c20",
+  "kind": "backtest",
+  "label": "NCCOGOLD2USD-USDT-factor_driven",
+  "created_at": 1784361891.2110934,
+  "config": {
+    "strategy": {
+      "template_id": "factor_driven",
+      "params": {
+        "factors": [
+          {
+            "name": "momentum",
+            "window": 20,
+            "weight": 1.0
+          },
+          {
+            "name": "mean_reversion",
+            "window": 20,
+            "weight": -0.5
+          },
+          {
+            "name": "rsi",
+            "window": 14,
+            "weight": -0.3
+          }
+        ],
+        "z_window": 60,
+        "entry_threshold": 1.0,
+        "exit_threshold": 0.2
+      },
+      "custom_code": null
+    },
+    "symbol": "NCCOGOLD2USD-USDT",
+    "market": "crypto",
+    "timeframe": "1h",
+    "source": "binance",
+    "start_date": "2026-06-01",
+    "end_date": "2026-07-01",
+    "initial_capital": 100000.0,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    },
+    "equity": {},
+    "forex": {},
+    "engine": "replay",
+    "ticks_per_bar": 20,
+    "tick_seed": 7,
+    "exchanges": []
+  },
+  "metrics": {
+    "total_trades": 11,
+    "winning_trades": 7,
+    "losing_trades": 4,
+    "win_rate": 63.63636363636363,
+    "total_pnl": 4515.301336624444,
+    "total_return": 4515.301336624444,
+    "total_return_pct": 3.551573424598886,
+    "max_drawdown": 1922.8820797009166,
+    "max_drawdown_pct": 1.9228820797009165,
+    "sharpe_ratio": 2.6816436375505726,
+    "sortino_ratio": 15.014137175744745,
+    "profit_factor": 6.874592568360534,
+    "calmar_ratio": 27.510614906333398,
+    "largest_loss": -234.81098492365376,
+    "largest_loss_pct": 0.0,
+    "largest_win": 3790.379481852994,
+    "avg_trade": 410.48193969313127,
+    "avg_winner": 754.8452242542884,
+    "avg_loser": -192.1538082888939,
+    "win_loss_ratio": 3.9283386104917333,
+    "expectancy": 410.48193969313115,
+    "annual_return_pct": 52.8996684049414,
+    "avg_holding_bars": 12.454545454545455,
+    "trade_freq": 0.36666666666666664
+  }
+}

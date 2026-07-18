@@ -1,0 +1,50 @@
+{
+  "id": "8d5a867f5c7c",
+  "kind": "backtest",
+  "label": "NCCOGOLD2USD-USDT-ma_cross",
+  "created_at": 1784360703.6579356,
+  "config": {
+    "symbol": "NCCOGOLD2USD-USDT",
+    "timeframe": "1h",
+    "start_date": "2026-06-01",
+    "end_date": "2026-07-01",
+    "initial_capital": 100000,
+    "engine": "replay",
+    "ticks_per_bar": 20,
+    "tick_seed": 42,
+    "strategy": {
+      "template_id": "ma_cross",
+      "params": {
+        "fast": 10,
+        "slow": 30
+      }
+    },
+    "market": "crypto"
+  },
+  "metrics": {
+    "total_trades": 8,
+    "winning_trades": 3,
+    "losing_trades": 5,
+    "win_rate": 37.5,
+    "total_pnl": -1499.6352974226716,
+    "total_return": -1499.6352974226716,
+    "total_return_pct": -1.8950906171167299,
+    "max_drawdown": 4684.447123297213,
+    "max_drawdown_pct": 4.684447123297213,
+    "sharpe_ratio": -1.2418261434311304,
+    "sortino_ratio": -1.2786561687096603,
+    "profit_factor": 0.7451201878618136,
+    "calmar_ratio": -4.4332617743996074,
+    "largest_loss": -2410.1147510365404,
+    "largest_loss_pct": 0.0,
+    "largest_win": 2631.5679729746075,
+    "avg_trade": -187.45441217783394,
+    "avg_winner": 1461.3535234062529,
+    "avg_loser": -1176.739173528286,
+    "win_loss_ratio": 1.2418669797696893,
+    "expectancy": -187.454412177834,
+    "annual_return_pct": -20.767380365909737,
+    "avg_holding_bars": 41.25,
+    "trade_freq": 0.26666666666666666
+  }
+}

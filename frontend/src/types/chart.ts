@@ -8,6 +8,8 @@ export interface SymbolInfo {
   baseAsset?: string;
   quoteAsset?: string;
   description?: string;
+  status?: 'active' | 'paused' | 'offline' | 'not_exist'; // BingX TradFi availability
+  category?: string; // fx / metal / energy / index / stock
 }
 
 export interface OHLCV {
