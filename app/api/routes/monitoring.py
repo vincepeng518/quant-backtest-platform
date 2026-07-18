@@ -180,7 +180,7 @@ async def grid_run(_: None = Depends(auth_required)):
             cwd=project_root, capture_output=True, text=True, timeout=120, env=env,
         )
         if proc.returncode != 0:
-            return {"ok": False, "error": f"exit={proc.returncode} | {proc.stderr[:400]}"}
+            return {"ok": False, "error": f"exit={proc.returncode} | project_root={project_root} | RUNTIME_DIR={env.get('RUNTIME_DIR')} | {proc.stderr[:300]}"}
         d = _json.load(open(os.path.join(_RUNTIME_DIR, "strategy_status.json")))
         return {
             "ok": True,
