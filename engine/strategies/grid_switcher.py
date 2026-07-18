@@ -35,9 +35,15 @@ try:
 except ImportError:
     yf = None
 
-ROOT = os.getenv("PROJECT_ROOT") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# Railway 實際代碼路徑是 /root/Crypto-Backtesting-Lab (平台注入的 PROJECT_ROOT/RUNTIME_DIR 是錯的, 忽略)
+_CANDIDATE_ROOTS = [
+    "/root/Crypto-Backtesting-Lab",
+    "/app",
+    os.getenv("PROJECT_ROOT") or "",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
+]
+ROOT = next((r for r in _CANDIDATE_ROOTS if r and os.path.exists(os.path.join(r, "engine", "strategies", "grid_switcher.py"))), _CANDIDATE_ROOTS[0])
 DATA_CACHE = os.path.join(ROOT, "research", "btc_usdt_1d.csv")
-# 強制用 ROOT/runtime (Railway 會注入錯誤的 RUNTIME_DIR=/app/runtime, 忽略它)
 RUNTIME_DIR = os.path.join(ROOT, "runtime")
 STATUS_PATH = os.path.join(RUNTIME_DIR, "strategy_status.json")
 SYMBOL = "BTC/USDT"
