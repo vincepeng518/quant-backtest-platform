@@ -66,7 +66,13 @@ export const api = {
   getMonitorRounds: (limit = 50) =>
     request<{ rounds: any[]; count: number }>(`/monitoring/rounds?limit=${limit}`),
   getStrategyStatus: () =>
-    request<{ status: any; orders: any[]; count: number }>('/monitoring/strategy'),
+    request<{ status: any; orders: any[]; count: number }>("/monitoring/strategy"),
+  getGridStatus: () =>
+    request<any>("/monitoring/grid"),
+  runGrid: () =>
+    request<{ ok: boolean; grid_mode?: string; confidence?: number; reason?: string; error?: string }>("/monitoring/grid/run", { method: "POST" }),
+  getGridHistory: (limit = 30) =>
+    request<{ signals: any[]; count: number }>(`/monitoring/grid-history?limit=${limit}`),
 
   uploadStrategy: (payload: StrategyPayload) =>
     request<UserStrategy>('/strategy/upload', {

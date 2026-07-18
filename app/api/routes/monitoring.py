@@ -134,3 +134,67 @@ async def strategy_status(_: None = Depends(auth_required)):
     orders.reverse()
 
     return {"status": status, "orders": orders, "count": len(orders)}
+
+
+@router.get("/grid")
+async def grid_status(_: None = Depends(auth_required)):
+    """Current grid switcher signal from runtime/strategy_status.json."""
+    status_path = os.path.join(_RUNTIME_DIR, "strategy_status.json")
+    if not os.path.exists(status_path):
+        return {"available": False, "grid_mode": "flat"}
+    try:
+        d = _json.load(open(status_path))
+        return {
+            "available": True,
+            "grid_mode": d.get("grid_mode", "flat"),
+            "confidence": d.get("confidence", 0),
+            "reason": d.get("reason", ""),
+            "indicators": d.get("indicators", {}),
+            "last_close": d.get("last_close"),
+            "updated_at": d.get("updated_at"),
+        }
+    except Exception:
+        return {"available": False, "grid_mode": "flat"}
+
+
+@router.post("/grid/run")
+async def grid_run(_: None = Depends(auth_required)):
+    """Trigger grid_switcher engine (runs engine/strategies/grid_switcher.py)."""
+    import subprocess
+    import sys
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    script = os.path.join(project_root, "engine", "strategies", "grid_switcher.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, script],
+            cwd=project_root, capture_output=True, text=True, timeout=120,
+        )
+        if proc.returncode != 0:
+            return {"ok": False, "error": proc.stderr[:500]}
+        d = _json.load(open(os.path.join(_RUNTIME_DIR, "strategy_status.json")))
+        return {
+            "ok": True,
+            "grid_mode": d.get("grid_mode"),
+            "confidence": d.get("confidence"),
+            "reason": d.get("reason"),
+            "updated_at": d.get("updated_at"),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:500]}
+
+
+@router.get("/grid-history")
+async def grid_history(limit: int = 30, _: None = Depends(auth_required)):
+    """Grid signal history (runtime/grid_signals.jsonl)."""
+    path = os.path.join(_RUNTIME_DIR, "grid_signals.jsonl")
+    rows = []
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        rows.append(_json.loads(line))
+                    except Exception:
+                        pass
+    return {"signals": rows[-limit:], "count": len(rows)}
