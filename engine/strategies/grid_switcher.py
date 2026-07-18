@@ -35,10 +35,10 @@ try:
 except ImportError:
     yf = None
 
-# Railway 實際代碼路徑是 /root/Crypto-Backtesting-Lab (平台注入的 PROJECT_ROOT/RUNTIME_DIR 是錯的, 忽略)
+# Railway container 實際代碼在 /app (Docker WORKDIR), local/shell 在 /root/Crypto-Backtesting-Lab
 _CANDIDATE_ROOTS = [
-    "/root/Crypto-Backtesting-Lab",
     "/app",
+    "/root/Crypto-Backtesting-Lab",
     os.getenv("PROJECT_ROOT") or "",
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
 ]
