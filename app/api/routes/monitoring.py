@@ -162,8 +162,13 @@ async def grid_run(_: None = Depends(auth_required)):
     """Trigger grid_switcher engine (runs engine/strategies/grid_switcher.py)."""
     import subprocess
     import sys
-    # 用當前檔案絕對路徑推算 project root (不依賴 env, 兼容 local/Railway)
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    # 兼容 local + Railway: 先試 __file__ 推算, 再試常見 Railway 路徑
+    candidates = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
+        "/root/Crypto-Backtesting-Lab",
+        "/app",
+    ]
+    project_root = next((p for p in candidates if os.path.exists(os.path.join(p, "engine", "strategies", "grid_switcher.py"))), candidates[0])
     script = os.path.join(project_root, "engine", "strategies", "grid_switcher.py")
     env = dict(os.environ)
     env["PROJECT_ROOT"] = project_root
@@ -174,7 +179,7 @@ async def grid_run(_: None = Depends(auth_required)):
             cwd=project_root, capture_output=True, text=True, timeout=120, env=env,
         )
         if proc.returncode != 0:
-            return {"ok": False, "error": proc.stderr[:500]}
+            return {"ok": False, "error": f"exit={proc.returncode} | {proc.stderr[:400]}"}
         d = _json.load(open(os.path.join(_RUNTIME_DIR, "strategy_status.json")))
         return {
             "ok": True,
