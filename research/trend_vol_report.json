@@ -1,0 +1,192 @@
+{
+  "sample_range": [
+    "2023-03-20",
+    "2026-07-18"
+  ],
+  "n_samples": 1217,
+  "default": {
+    "pct_thr": 20,
+    "atr_thr": 0.03,
+    "n_flat": 32,
+    "n_trend": 80,
+    "flat_precision": 0.5,
+    "flat_recall": 0.026402640264026403,
+    "trend_acc": 0.4125
+  },
+  "best": {
+    "pct_thr": 35,
+    "atr_thr": 0.025,
+    "n_flat": 31,
+    "n_trend": 80,
+    "flat_precision": 0.7741935483870968,
+    "flat_recall": 0.039603960396039604,
+    "trend_acc": 0.4125
+  },
+  "top5": [
+    {
+      "pct_thr": 35,
+      "atr_thr": 0.025,
+      "n_flat": 31,
+      "n_trend": 80,
+      "flat_precision": 0.7741935483870968,
+      "flat_recall": 0.039603960396039604,
+      "trend_acc": 0.4125,
+      "score": 0.5933467741935483
+    },
+    {
+      "pct_thr": 40,
+      "atr_thr": 0.025,
+      "n_flat": 37,
+      "n_trend": 80,
+      "flat_precision": 0.7567567567567568,
+      "flat_recall": 0.0462046204620462,
+      "trend_acc": 0.4125,
+      "score": 0.5846283783783783
+    },
+    {
+      "pct_thr": 30,
+      "atr_thr": 0.025,
+      "n_flat": 23,
+      "n_trend": 80,
+      "flat_precision": 0.7391304347826086,
+      "flat_recall": 0.028052805280528052,
+      "trend_acc": 0.4125,
+      "score": 0.5758152173913043
+    },
+    {
+      "pct_thr": 10,
+      "atr_thr": 0.035,
+      "n_flat": 50,
+      "n_trend": 80,
+      "flat_precision": 0.72,
+      "flat_recall": 0.0594059405940594,
+      "trend_acc": 0.4125,
+      "score": 0.5662499999999999
+    },
+    {
+      "pct_thr": 25,
+      "atr_thr": 0.025,
+      "n_flat": 21,
+      "n_trend": 80,
+      "flat_precision": 0.7142857142857143,
+      "flat_recall": 0.024752475247524754,
+      "trend_acc": 0.4125,
+      "score": 0.5633928571428571
+    }
+  ],
+  "squeeze_release": {
+    "n_flat": 188,
+    "n_trend": 301,
+    "flat_precision": 0.4627659574468085,
+    "flat_recall": 0.14356435643564355,
+    "trend_acc": 0.5149501661129569
+  },
+  "miss_cases_default": {
+    "flat_breakout": [
+      {
+        "date": "2024-02-23",
+        "close": 50744.0,
+        "signal": "flat",
+        "fwd_ret_pct": 23.03,
+        "bbw_pctile": 15.0,
+        "atr_eff_pct": 2.98
+      },
+      {
+        "date": "2024-02-24",
+        "close": 51568.0,
+        "signal": "flat",
+        "fwd_ret_pct": 18.54,
+        "bbw_pctile": 18.3,
+        "atr_eff_pct": 2.87
+      },
+      {
+        "date": "2025-10-05",
+        "close": 123482.0,
+        "signal": "flat",
+        "fwd_ret_pct": -8.67,
+        "bbw_pctile": 1.7,
+        "atr_eff_pct": 2.16
+      }
+    ],
+    "wrong_direction": [
+      {
+        "date": "2023-04-14",
+        "close": 30467.0,
+        "signal": "long",
+        "fwd_ret_pct": -5.48,
+        "bbw_pctile": 75.0,
+        "atr_eff_pct": 3.26
+      },
+      {
+        "date": "2023-06-14",
+        "close": 25129.0,
+        "signal": "short",
+        "fwd_ret_pct": 6.83,
+        "bbw_pctile": 55.0,
+        "atr_eff_pct": 3.53
+      },
+      {
+        "date": "2023-07-13",
+        "close": 31454.0,
+        "signal": "long",
+        "fwd_ret_pct": -5.07,
+        "bbw_pctile": 95.0,
+        "atr_eff_pct": 2.86
+      }
+    ]
+  },
+  "miss_cases_squeeze": {
+    "flat_breakout": [
+      {
+        "date": "2023-04-08",
+        "close": 27938.0,
+        "signal": "flat",
+        "fwd_ret_pct": 8.72,
+        "bb_inside_kc": true,
+        "atr_eff_pct": 3.58
+      },
+      {
+        "date": "2023-06-19",
+        "close": 26844.0,
+        "signal": "flat",
+        "fwd_ret_pct": 13.72,
+        "bb_inside_kc": true,
+        "atr_eff_pct": 3.24
+      },
+      {
+        "date": "2023-08-12",
+        "close": 29430.0,
+        "signal": "flat",
+        "fwd_ret_pct": -9.54,
+        "bb_inside_kc": true,
+        "atr_eff_pct": 1.94
+      }
+    ],
+    "wrong_direction": [
+      {
+        "date": "2023-03-23",
+        "close": 28295.0,
+        "signal": "long",
+        "fwd_ret_pct": -3.66,
+        "bb_inside_kc": false,
+        "atr_eff_pct": 4.85
+      },
+      {
+        "date": "2023-04-14",
+        "close": 30467.0,
+        "signal": "long",
+        "fwd_ret_pct": -5.48,
+        "bb_inside_kc": false,
+        "atr_eff_pct": 3.26
+      },
+      {
+        "date": "2023-04-15",
+        "close": 30295.0,
+        "signal": "long",
+        "fwd_ret_pct": -6.77,
+        "bb_inside_kc": false,
+        "atr_eff_pct": 3.13
+      }
+    ]
+  }
+}
