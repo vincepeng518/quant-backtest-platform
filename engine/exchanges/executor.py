@@ -47,9 +47,17 @@ class ExchangeExecutor:
         if name in self._ccxt:
             return self._ccxt[name]
         import ccxt
+        import os
 
         ex = getattr(ccxt, name)()
         ex.timeout = 20_000
+        # inject API keys for live mode exchanges that need them
+        if name.lower() == "mexc":
+            ak = os.getenv("MEXC_ACCESS_KEY")
+            sk = os.getenv("MEXC_SECRET_KEY")
+            if ak and sk:
+                ex.apiKey = ak
+                ex.secret = sk
         self._ccxt[name] = ex
         return ex
 
