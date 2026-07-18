@@ -180,7 +180,11 @@ async def grid_run(_: None = Depends(auth_required)):
         )
         if proc.returncode != 0:
             return {"ok": False, "error": f"exit={proc.returncode} | project_root={project_root} | RUNTIME_DIR={env.get('RUNTIME_DIR')} | {proc.stderr[:300]}"}
-        d = _json.load(open(os.path.join(_RUNTIME_DIR, "strategy_status.json")))
+        import os as _os
+        status_file = _os.path.join(_RUNTIME_DIR, "strategy_status.json")
+        if not _os.path.exists(status_file):
+            return {"ok": False, "error": f"status_file missing: {status_file} | _RUNTIME_DIR={_RUNTIME_DIR} | exists_runtime={_os.path.exists(_RUNTIME_DIR)} | grid_switcher_stdout={proc.stdout[:200]}"}
+        d = _json.load(open(status_file))
         return {
             "ok": True,
             "grid_mode": d.get("grid_mode"),
