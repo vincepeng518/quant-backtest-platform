@@ -797,7 +797,7 @@ function BacktestView() {
               disabled={notionState?.loading}
               className="rounded bg-surface px-3 py-1.5 text-xs font-medium border border-border/40 hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
             >
-              {notionState?.loading ? '推送中…' : '推到 Notion'}
+              {notionState?.loading ? '推送中…' : '推到回測庫'}
             </button>
             {notionState?.msg && (
               <span className="text-xs font-mono text-textSecondary">{notionState.msg}</span>
