@@ -61,6 +61,10 @@ export const api = {
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
   getBacktestHistory: () => request<any[]>('/backtest/history'),
   getMonitorStats: () => request<MonitorStats>('/monitoring/stats'),
+  getMonitorTrades: (limit = 50) =>
+    request<{ trades: any[]; count: number }>(`/monitoring/trades?limit=${limit}`),
+  getMonitorRounds: (limit = 50) =>
+    request<{ rounds: any[]; count: number }>(`/monitoring/rounds?limit=${limit}`),
 
   uploadStrategy: (payload: StrategyPayload) =>
     request<UserStrategy>('/strategy/upload', {
@@ -146,5 +150,7 @@ export const api = {
   // ── Indicator validation (TV vs engine) ──
   validateIndicator: (payload: { symbol: string; timeframe: string; source: string; name: string; period: number; reference: number[] }) =>
     request<any>('/validate/indicator', { method: 'POST', body: JSON.stringify(payload) }),
+  pushBacktestToNotion: (payload: { task_id: string; symbol: string; strategy: string; timeframe: string }) =>
+    request<{ ok: boolean; notion_configured: boolean }>('/backtest/push-notion', { method: 'POST', body: JSON.stringify(payload) }),
 };
 export default api;

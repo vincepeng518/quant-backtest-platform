@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.schemas import BacktestConfig, BacktestResultOut, TaskStatus
 from app.services.backtest_service import BacktestService
@@ -163,3 +165,27 @@ async def get_results(task_id: str):
             trades=d.get("trades", []),
         )
     raise HTTPException(status_code=404, detail="task not found")
+
+
+class PushNotionRequest(BaseModel):
+    task_id: str
+    symbol: str = ""
+    strategy: str = ""
+    timeframe: str = ""
+
+
+@router.post("/push-notion")
+async def push_notion(req: PushNotionRequest):
+    """推送回測結果到 Notion ATM 頁。若未設 NOTION_ATM_PAGE_ID 則靜默跳過。"""
+    from app.services.notion_service import push as push_notion_svc
+    fp = BACKTESTS_DIR / f"{req.task_id}.json"
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="task not found")
+    d = json.loads(fp.read_text())
+    ok = push_notion_svc(
+        {"metrics": d.get("metrics", {}), "trades": d.get("trades", [])},
+        req.symbol or d.get("config", {}).get("symbol", "?"),
+        req.strategy or d.get("config", {}).get("strategy", {}).get("template_id", "?"),
+        req.timeframe or d.get("config", {}).get("timeframe", "?"),
+    )
+    return {"ok": ok, "notion_configured": bool(os.getenv("NOTION_ATM_PAGE_ID"))}

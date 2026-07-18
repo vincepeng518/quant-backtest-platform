@@ -36,12 +36,12 @@ const modules = [
     metric: 'BASIS',
   },
   {
-    name: 'Analysis',
-    path: '/analysis',
-    icon: TrendingUp,
-    tag: '穩健性分析',
-    desc: '樣本內外對比、過擬合檢測與回測一致性診斷，驗證策略在未知行情下的真實邊際。',
-    metric: 'ROBUST',
+    name: 'Monitoring',
+    path: '/monitoring',
+    icon: GitCompareArrows,
+    tag: 'predict.fun 監控',
+    desc: '影子交易實時戰績、輪次明細與異常報警。本機守護進程自動重連，數據不假死。',
+    metric: 'SHADOW',
   },
 ];
 
@@ -217,7 +217,7 @@ export default function Home() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
             核心模塊
           </h2>
-          <span className="font-mono text-xs text-textSecondary">04 / workflows</span>
+          <span className="font-mono text-xs text-textSecondary">05 / workflows</span>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">

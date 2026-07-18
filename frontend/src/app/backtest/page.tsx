@@ -42,6 +42,14 @@ interface ParamSpec {
   values?: string[];
 }
 
+const FACTOR_CN: Record<string, string> = {
+  momentum: '動量',
+  mean_reversion: '均值回歸',
+  volatility: '波動率',
+  rsi: 'RSI',
+  roc: '變動率',
+};
+
 function BacktestView() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
   const { runBacktest, results, status, progress, error, lookaheadWarning } = useBacktestStore();
@@ -209,6 +217,26 @@ function BacktestView() {
 
   // ── TradingView-style entry/exit markers (built from results.trades) ──
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
+  const [notionState, setNotionState] = useState<{ loading: boolean; msg: string } | null>(null);
+
+  const pushToNotion = async () => {
+    if (!results?.task_id) return;
+    setNotionState({ loading: true, msg: '推送中…' });
+    try {
+      const r = await api.pushBacktestToNotion({
+        task_id: results.task_id,
+        symbol: results.config?.symbol ?? symbol,
+        strategy: results.config?.strategy?.template_id ?? selectedStrategy,
+        timeframe: results.config?.timeframe ?? timeframe,
+      });
+      setNotionState({
+        loading: false,
+        msg: r.ok ? '✓ 已推送到 Notion ATM 頁' : (r.notion_configured ? '✗ 推送失敗' : '⚠ 未設定 NOTION_ATM_PAGE_ID'),
+      });
+    } catch (e: any) {
+      setNotionState({ loading: false, msg: `✗ ${e?.message || 'error'}` });
+    }
+  };
 
   // Highlight marker for a selected trade (from PerformancePanel or blotter)
   const highlightMarker = useMemo((): TradeMarker | null => {
@@ -539,11 +567,15 @@ function BacktestView() {
             onChange={(e) => setEndDate(e.target.value)}
           />
 
-          {params.map((p) =>
-            p.type === 'choice' || p.values ? (
+          {params.map((p) => {
+            const isWeight = p.name.startsWith('w_');
+            const label = isWeight
+              ? `權重 · ${FACTOR_CN[p.name.slice(2)] || p.name.slice(2)}`
+              : p.name;
+            return p.type === 'choice' || p.values ? (
               <Select
                 key={p.name}
-                label={p.name}
+                label={label}
                 value={paramValues[p.name] ?? ''}
                 onChange={(e) =>
                   setParamValues({ ...paramValues, [p.name]: e.target.value })
@@ -553,7 +585,7 @@ function BacktestView() {
             ) : (
               <Input
                 key={p.name}
-                label={p.name}
+                label={label}
                 type="number"
                 value={paramValues[p.name] ?? ''}
                 min={p.min}
@@ -563,8 +595,8 @@ function BacktestView() {
                   setParamValues({ ...paramValues, [p.name]: e.target.value })
                 }
               />
-            )
-          )}
+            );
+          })}
         </div>
 
         {market === 'crypto' ? (
@@ -757,6 +789,18 @@ function BacktestView() {
             />
             {noteKey && (
               <span className="font-mono text-[10px] text-textSecondary">已存本機 · {noteKey}</span>
+            )}
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={pushToNotion}
+              disabled={notionState?.loading}
+              className="rounded bg-surface px-3 py-1.5 text-xs font-medium border border-border/40 hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+            >
+              {notionState?.loading ? '推送中…' : '推到 Notion'}
+            </button>
+            {notionState?.msg && (
+              <span className="text-xs font-mono text-textSecondary">{notionState.msg}</span>
             )}
           </div>
         </div>
