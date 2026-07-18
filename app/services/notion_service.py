@@ -1,8 +1,9 @@
-"""Push backtest results to Notion (ATM 頁 / 回測紀錄).
+"""Push backtest results to Notion (回測紀錄庫, NOT ATM 策略庫).
 
-Uses NOTION_TOKEN (from /root/.env) + NOTION_ATM_PAGE_ID (target page).
+Uses NOTION_TOKEN (from /root/.env) + NOTION_BACKTEST_PAGE_ID (target page).
 Appends a heading + metric bullets + trade table as children blocks.
-If NOTION_ATM_PAGE_ID unset, push() is a no-op (caller decides whether to warn).
+If NOTION_BACKTEST_PAGE_ID unset, push() is a no-op (caller decides whether to warn).
+IMPORTANT: ATM 是特定策略回測庫, 此模組推的是獨立「回測紀錄庫」, 不污染 ATM.
 """
 from __future__ import annotations
 
@@ -78,8 +79,9 @@ def _row(text: str) -> dict:
 
 
 def push(result: dict, symbol: str, strategy: str, timeframe: str) -> bool:
-    """Append backtest summary to the ATM page. Returns success bool."""
-    page_id = os.getenv("NOTION_ATM_PAGE_ID")
+    """Append backtest summary to the BACKTEST RECORDS page (NOT ATM strategy lib).
+    Uses NOTION_BACKTEST_PAGE_ID. If unset, no-op."""
+    page_id = os.getenv("NOTION_BACKTEST_PAGE_ID")
     headers = _headers()
     if not page_id or not headers or httpx is None:
         return False

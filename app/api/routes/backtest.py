@@ -188,4 +188,4 @@ async def push_notion(req: PushNotionRequest):
         req.strategy or d.get("config", {}).get("strategy", {}).get("template_id", "?"),
         req.timeframe or d.get("config", {}).get("timeframe", "?"),
     )
-    return {"ok": ok, "notion_configured": bool(os.getenv("NOTION_ATM_PAGE_ID"))}
+    return {"ok": ok, "notion_configured": bool(os.getenv("NOTION_BACKTEST_PAGE_ID"))}
