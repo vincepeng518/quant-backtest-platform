@@ -294,7 +294,7 @@ export default function Home() {
 
       {/* ── 版本號 (右下角, 灰色) ── */}
       <div className="fixed bottom-2 right-3 z-50 select-none text-[11px] font-mono text-textMuted/50">
-        {APP_VERSION} · {APP_VERSION_NOTE}
+        {APP_VERSION}
       </div>
     </div>
   );
