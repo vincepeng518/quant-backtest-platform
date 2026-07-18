@@ -91,3 +91,46 @@ async def rounds(limit: int = 50, _: None = Depends(auth_required)):
     finally:
         c.close()
     return {"rounds": [dict(r) for r in rows], "count": len(rows)}
+
+
+import json as _json
+
+_RUNTIME_DIR = os.getenv("RUNTIME_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "runtime"))
+
+
+@router.get("/strategy")
+async def strategy_status(_: None = Depends(auth_required)):
+    """External strategy live status + order history.
+
+    Strategy script writes runtime/strategy_status.json (summary) and
+    appends to runtime/orders.jsonl (one JSON object per line per fill).
+    """
+    status_path = os.path.join(_RUNTIME_DIR, "strategy_status.json")
+    orders_path = os.path.join(_RUNTIME_DIR, "orders.jsonl")
+
+    status = {"running": False, "available": False}
+    if os.path.exists(status_path):
+        try:
+            with open(status_path) as f:
+                status = _json.load(f)
+                status["available"] = True
+        except Exception:
+            status = {"running": False, "available": True, "error": "bad json"}
+
+    orders: list[dict] = []
+    if os.path.exists(orders_path):
+        try:
+            with open(orders_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            orders.append(_json.loads(line))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    # newest first
+    orders.reverse()
+
+    return {"status": status, "orders": orders, "count": len(orders)}

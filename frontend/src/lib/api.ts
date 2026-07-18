@@ -65,6 +65,8 @@ export const api = {
     request<{ trades: any[]; count: number }>(`/monitoring/trades?limit=${limit}`),
   getMonitorRounds: (limit = 50) =>
     request<{ rounds: any[]; count: number }>(`/monitoring/rounds?limit=${limit}`),
+  getStrategyStatus: () =>
+    request<{ status: any; orders: any[]; count: number }>('/monitoring/strategy'),
 
   uploadStrategy: (payload: StrategyPayload) =>
     request<UserStrategy>('/strategy/upload', {
