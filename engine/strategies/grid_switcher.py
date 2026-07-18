@@ -37,8 +37,8 @@ except ImportError:
 
 ROOT = os.getenv("PROJECT_ROOT") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 DATA_CACHE = os.path.join(ROOT, "research", "btc_usdt_1d.csv")
-_runtime_env = os.getenv("RUNTIME_DIR")
-RUNTIME_DIR = _runtime_env if _runtime_env and _runtime_env.endswith("runtime") else os.path.join(ROOT, "runtime")
+# 強制用 ROOT/runtime (Railway 會注入錯誤的 RUNTIME_DIR=/app/runtime, 忽略它)
+RUNTIME_DIR = os.path.join(ROOT, "runtime")
 STATUS_PATH = os.path.join(RUNTIME_DIR, "strategy_status.json")
 SYMBOL = "BTC/USDT"
 

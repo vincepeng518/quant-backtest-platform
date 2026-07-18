@@ -95,6 +95,7 @@ async def rounds(limit: int = 50, _: None = Depends(auth_required)):
 
 import json as _json
 
+# 強制 PROJECT_ROOT/runtime (Railway 注入錯誤的 RUNTIME_DIR=/app/runtime, 忽略)
 _RUNTIME_DIR = os.path.join(os.getenv("PROJECT_ROOT", "/root/Crypto-Backtesting-Lab"), "runtime")
 
 
