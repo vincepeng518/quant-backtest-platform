@@ -85,17 +85,38 @@ async def run_live(cfg: MonitorConfig) -> None:
 
     # 背景任務: 每 60s 把監控統計推送到回測平台後端 (首頁展示用)
     push_task = asyncio.create_task(_push_loop(cfg))
-    try:
-        await feed.run()
-    except KeyboardInterrupt:
-        logging.info("[LIVE] stopped by user")
-    finally:
-        push_task.cancel()
-        eng.close()
+
+    # 自愈重連: WS / GraphQL 任一網路中斷不該讓守護進程靜默死掉
+    backoff = 1
+    while True:
         try:
-            pfs.close()
-        except Exception:
-            pass
+            await feed.run()
+            break  # feed.run() 正常返回 (極少見) -> 退出
+        except asyncio.CancelledError:
+            raise
+        except KeyboardInterrupt:
+            logging.info("[LIVE] stopped by user")
+            break
+        except Exception as e:
+            logging.error("[LIVE] feed crashed: %s — reconnect in %ss", e, backoff)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60)  # 指數退避上限 60s
+            # 重新建一個 feed（舊的可能已壞）
+            try:
+                feed = BinanceWsFeed(cfg.binance_symbol)
+                feed.on_tick(on_tick)
+            except Exception:
+                pass
+    try:
+        push_task.cancel()
+        await push_task
+    except Exception:
+        pass
+    eng.close()
+    try:
+        pfs.close()
+    except Exception:
+        pass
 
 
 async def _push_loop(cfg: MonitorConfig) -> None:

@@ -45,12 +45,17 @@ class ArbConfig:
     allocation_pct: float = 0.5
     leverage: float = 1.0
     entry_threshold: float = 0.003   # |basis| to open legs
-    exit_threshold: float = 0.001    # |basis| to flatten
+    exit_threshold: float = 0.001    # |basis| to flatten (basis mode)
+    # locked mode: hold the paired position until basis reaches unlock_threshold
+    # (or crosses zero / reverses sign), i.e. "lock" the spread until it resolves.
+    mode: str = "basis"              # "basis" | "locked"
+    unlock_threshold: float = 0.01   # |basis| to unlock in locked mode
     # realism
     funding: Optional[Any] = None
     perp: Optional[Any] = None
     long_exchange: Optional[Any] = None
     short_exchange: Optional[Any] = None
+    _entry_basis_sign: Optional[float] = None  # runtime: sign of basis at entry (locked mode)
 
 
 @dataclass
@@ -156,29 +161,59 @@ class ArbitrageEngine:
                 capital -= (lc + sc)
                 long_entry_bar = ts
                 short_entry_bar = ts
+                cfg._entry_basis_sign = 1.0 if basis > 0 else -1.0
                 in_trade = True
 
             # Exit
-            elif in_trade and abs(basis) <= cfg.exit_threshold:
-                if long_pos is not None and short_pos is not None:
-                    lp, lf = _close_leg(long_pos, Lc, cfg.long_exchange, long_entry_bar, ts, capital)
-                    sp, sf = _close_leg(short_pos, Sc, cfg.short_exchange, short_entry_bar, ts, capital)
-                    leg_pnl = lp + sp
-                    capital += leg_pnl
-                    trade = Trade(
-                        entry_time=long_entry_bar or ts,
-                        entry_price=long_pos.entry_price,
-                        size=abs(long_pos.size),
-                        exit_time=ts,
-                        exit_price=Sc,
-                        pnl=leg_pnl,
-                        pnl_pct=leg_pnl / (cfg.initial_capital * cfg.allocation_pct) * 100,
-                        funding_paid=lf + sf,
-                    )
-                    trades.append(trade)
-                long_pos = short_pos = None
-                long_entry_bar = short_entry_bar = None
-                in_trade = False
+            elif in_trade and long_pos is not None and short_pos is not None:
+                if cfg.mode == "locked":
+                    # Lock the paired position: only flatten when the spread
+                    # either blows past unlock_threshold (resolved) or reverses
+                    # sign (the arb thesis is invalidated).
+                    unlock = abs(basis) >= cfg.unlock_threshold
+                    reversed_sign = (cfg._entry_basis_sign is not None
+                                     and (basis > 0) != (cfg._entry_basis_sign > 0)
+                                     and abs(basis) >= cfg.exit_threshold)
+                    if unlock or reversed_sign:
+                        lp, lf = _close_leg(long_pos, Lc, cfg.long_exchange, long_entry_bar, ts, capital)
+                        sp, sf = _close_leg(short_pos, Sc, cfg.short_exchange, short_entry_bar, ts, capital)
+                        leg_pnl = lp + sp
+                        capital += leg_pnl
+                        trade = Trade(
+                            entry_time=long_entry_bar or ts,
+                            entry_price=long_pos.entry_price,
+                            size=abs(long_pos.size),
+                            exit_time=ts,
+                            exit_price=Sc,
+                            pnl=leg_pnl,
+                            pnl_pct=leg_pnl / (cfg.initial_capital * cfg.allocation_pct) * 100,
+                            funding_paid=lf + sf,
+                        )
+                        trades.append(trade)
+                        long_pos = short_pos = None
+                        long_entry_bar = short_entry_bar = None
+                        in_trade = False
+                        cfg._entry_basis_sign = None
+                else:  # basis mode
+                    if abs(basis) <= cfg.exit_threshold:
+                        lp, lf = _close_leg(long_pos, Lc, cfg.long_exchange, long_entry_bar, ts, capital)
+                        sp, sf = _close_leg(short_pos, Sc, cfg.short_exchange, short_entry_bar, ts, capital)
+                        leg_pnl = lp + sp
+                        capital += leg_pnl
+                        trade = Trade(
+                            entry_time=long_entry_bar or ts,
+                            entry_price=long_pos.entry_price,
+                            size=abs(long_pos.size),
+                            exit_time=ts,
+                            exit_price=Sc,
+                            pnl=leg_pnl,
+                            pnl_pct=leg_pnl / (cfg.initial_capital * cfg.allocation_pct) * 100,
+                            funding_paid=lf + sf,
+                        )
+                        trades.append(trade)
+                        long_pos = short_pos = None
+                        long_entry_bar = short_entry_bar = None
+                        in_trade = False
 
             # MTM
             mtm = 0.0

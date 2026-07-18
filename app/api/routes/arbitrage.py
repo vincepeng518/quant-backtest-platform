@@ -34,6 +34,8 @@ class ArbRunRequest(BaseModel):
     leverage: float = 1.0
     entry_threshold: float = 0.003
     exit_threshold: float = 0.001
+    mode: str = "basis"
+    unlock_threshold: float = 0.01
     funding_enabled: bool = False
     funding_interval_hours: int = 8
     funding_rate: float = 0.0001
@@ -99,6 +101,8 @@ async def run_arbitrage(req: ArbRunRequest):
         leverage=req.leverage,
         entry_threshold=req.entry_threshold,
         exit_threshold=req.exit_threshold,
+        mode=req.mode,
+        unlock_threshold=req.unlock_threshold,
         funding=funding,
         long_exchange=_build_exchange(req.long_exchange),
         short_exchange=_build_exchange(req.short_exchange),
