@@ -38,6 +38,11 @@ class FactorStrategy(StrategyBase):
             {"name": "mean_reversion", "window": 20, "weight": -0.5},
             {"name": "rsi", "window": 14, "weight": -0.3},
         ]
+        # UI 權重覆寫: w_<factor> 滑桿 (0~1 正, 負號=反向). 前端用 w_ 前綴傳。
+        for f in self.factors:
+            wk = f"w_{f['name']}"
+            if wk in params and params[wk] is not None:
+                f["weight"] = float(params[wk])
         self.z_window = int(params.get("z_window", 60))
         self.entry_threshold = float(params.get("entry_threshold", 1.0))
         self.exit_threshold = float(params.get("exit_threshold", 0.2))
@@ -108,8 +113,12 @@ class FactorStrategy(StrategyBase):
         }
 
     def get_params_space(self) -> dict[str, Any]:
-        return {
+        space = {
             "z_window": [30, 60, 120],
             "entry_threshold": [0.5, 1.0, 1.5, 2.0],
             "exit_threshold": [0.0, 0.2, 0.5],
         }
+        # 每個因子權重滑桿 (前端渲染成 0~1 step 0.05, 允許負值反向)
+        for fname in FACTOR_REGISTRY:
+            space[f"w_{fname}"] = [-1.0, -0.5, 0.0, 0.5, 1.0]
+        return space

@@ -122,10 +122,13 @@ async def run_live(cfg: MonitorConfig) -> None:
 async def _push_loop(cfg: MonitorConfig) -> None:
     """定時把 review() 摘要推送到回測平台後端 /api/monitoring/push。"""
     from monitoring.review import review
+    from monitoring.alert import alert
     backend = os.getenv("MONITOR_BACKEND_URL",
                         "https://affectionate-alignment-production-6d7e.up.railway.app")
     key = os.getenv("MONITOR_PUSH_KEY", "quant-monitor-local")
     import httpx
+    last_resolved = -1
+    stale_minutes = 0
     while True:
         try:
             await asyncio.sleep(60)
@@ -139,12 +142,24 @@ async def _push_loop(cfg: MonitorConfig) -> None:
                 if r.status_code == 200:
                     logging.info("[PUSH] monitoring stats pushed (resolved=%s)",
                                  rep.get("shadow", {}).get("resolved"))
+                    # 異常檢測: resolved 停滯
+                    resolved = rep.get("shadow", {}).get("resolved", 0)
+                    if last_resolved >= 0 and resolved == last_resolved:
+                        stale_minutes += 1
+                        if stale_minutes == 30:  # 連續 30 分鐘無新增 -> 報警
+                            alert("影子交易停滯", f"resolved 卡在 {resolved} 已 30 分鐘未變。feed 可能假死。")
+                    else:
+                        if last_resolved >= 0 and resolved > last_resolved:
+                            stale_minutes = 0
+                        last_resolved = resolved
                 else:
                     logging.warning("[PUSH] failed %s: %s", r.status_code, r.text[:80])
+                    alert("推送失敗", f"Railway 回傳 {r.status_code}。監控數據未上傳。")
         except asyncio.CancelledError:
             break
         except Exception as e:
             logging.warning("[PUSH] loop error: %s", e)
+            alert("推送異常", str(e)[:200])
             await asyncio.sleep(30)
 
 
