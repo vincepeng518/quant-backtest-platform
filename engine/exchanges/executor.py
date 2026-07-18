@@ -58,6 +58,12 @@ class ExchangeExecutor:
             if ak and sk:
                 ex.apiKey = ak
                 ex.secret = sk
+        if name.lower() == "bingx":
+            ak = os.getenv("BINGX_API_KEY")
+            sk = os.getenv("BINGX_API_SECRET")
+            if ak and sk:
+                ex.apiKey = ak
+                ex.secret = sk
         self._ccxt[name] = ex
         return ex
 

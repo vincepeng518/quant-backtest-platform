@@ -12,6 +12,8 @@ export default function MonitoringPage() {
   const [stats, setStats] = useState<any>(null);
   const [trades, setTrades] = useState<any[]>([]);
   const [rounds, setRounds] = useState<any[]>([]);
+  const [strategy, setStrategy] = useState<any>(null);
+  const [showOrders, setShowOrders] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,14 +21,16 @@ export default function MonitoringPage() {
     setLoading(true);
     setError(null);
     try {
-      const [s, t, r] = await Promise.all([
+      const [s, t, r, st] = await Promise.all([
         api.getMonitorStats(),
         api.getMonitorTrades(50),
         api.getMonitorRounds(50),
+        api.getStrategyStatus(),
       ]);
       setStats(s);
       setTrades(t.trades || []);
       setRounds(r.rounds || []);
+      setStrategy(st);
     } catch (e: any) {
       setError(e?.message || '監控數據載入失敗');
     } finally {
@@ -45,6 +49,10 @@ export default function MonitoringPage() {
 
   const d = stats?.data;
   const sh = d?.shadow || {};
+  const st = strategy?.status || {};
+  const pnl = Number(st.pnl ?? 0);
+  const retPct = Number(st.return_pct ?? 0);
+  const orders = strategy?.orders || [];
 
   return (
     <PageShell
@@ -58,6 +66,59 @@ export default function MonitoringPage() {
         </span>
         <button onClick={load} className="text-xs text-textSecondary hover:text-text">刷新</button>
       </div>
+
+      {/* ── 策略實時狀態 ── */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <span className={`rounded-full px-3 py-1 text-xs font-mono ${st.available ? (st.running ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning') : 'bg-danger/10 text-danger'}`}>
+              {st.available ? (st.running ? '● 運行中' : '● 已停止') : '● 無策略'}
+            </span>
+            <span className="text-sm text-textSecondary">{st.strategy || '—'}</span>
+            {st.symbol && <span className="text-xs font-mono text-textSecondary">{st.symbol}</span>}
+          </div>
+          {st.available && (
+            <button onClick={() => setShowOrders(v => !v)} className="text-xs text-textSecondary hover:text-text">
+              {showOrders ? '隱藏訂單歷史' : `訂單歷史 (${orders.length})`}
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <MetricsCard label="目前損益" value={pnl.toFixed(2)} color={pnl >= 0 ? 'positive' : 'negative'} />
+          <MetricsCard label="收益率" value={`${retPct >= 0 ? '+' : ''}${retPct.toFixed(2)}%`} color={retPct >= 0 ? 'positive' : 'negative'} />
+          <MetricsCard label="持倉" value={st.position ? `${st.position.side || ''} ${st.position.size ?? ''}` : '—'} />
+        </div>
+        {showOrders && (
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full text-sm font-mono">
+              <thead>
+                <tr className="text-left text-xs uppercase text-textSecondary border-t border-border/10">
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Symbol</th>
+                  <th className="px-4 py-3">Side</th>
+                  <th className="px-4 py-3 text-right">Price</th>
+                  <th className="px-4 py-3 text-right">Qty</th>
+                  <th className="px-4 py-3 text-right">PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-6 text-center text-textSecondary">尚無訂單</td></tr>
+                ) : orders.map((o: any, i: number) => (
+                  <tr key={i} className="border-t border-border/10 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-textSecondary">{String(o.time || o.ts || '').slice(0, 19)}</td>
+                    <td className="px-4 py-3 text-text">{o.symbol || '—'}</td>
+                    <td className={`px-4 py-3 ${o.side === 'buy' || o.side === 'BUY' ? 'text-success' : 'text-danger'}`}>{o.side}</td>
+                    <td className="px-4 py-3 text-right text-text">{Number(o.price ?? 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-text">{Number(o.qty ?? 0).toFixed(4)}</td>
+                    <td className={`px-4 py-3 text-right font-semibold ${Number(o.pnl ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>{o.pnl != null ? Number(o.pnl).toFixed(2) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       {stats?.available ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
