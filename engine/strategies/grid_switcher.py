@@ -35,9 +35,9 @@ try:
 except ImportError:
     yf = None
 
-ROOT = os.getenv("PROJECT_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.getenv("PROJECT_ROOT") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 DATA_CACHE = os.path.join(ROOT, "research", "btc_usdt_1d.csv")
-RUNTIME_DIR = os.path.join(ROOT, "runtime")
+RUNTIME_DIR = os.getenv("RUNTIME_DIR") or os.path.join(ROOT, "runtime")
 STATUS_PATH = os.path.join(RUNTIME_DIR, "strategy_status.json")
 SYMBOL = "BTC/USDT"
 
