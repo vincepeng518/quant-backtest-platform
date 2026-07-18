@@ -162,7 +162,8 @@ async def grid_run(_: None = Depends(auth_required)):
     """Trigger grid_switcher engine (runs engine/strategies/grid_switcher.py)."""
     import subprocess
     import sys
-    project_root = os.getenv("PROJECT_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    # 用當前檔案絕對路徑推算 project root (不依賴 env, 兼容 local/Railway)
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     script = os.path.join(project_root, "engine", "strategies", "grid_switcher.py")
     env = dict(os.environ)
     env["PROJECT_ROOT"] = project_root
