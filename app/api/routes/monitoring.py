@@ -95,8 +95,8 @@ async def rounds(limit: int = 50, _: None = Depends(auth_required)):
 
 import json as _json
 
-# 強制 PROJECT_ROOT/runtime (Railway 注入錯誤的 RUNTIME_DIR=/app/runtime, 忽略)
-_RUNTIME_DIR = os.path.join(os.getenv("PROJECT_ROOT", "/root/Crypto-Backtesting-Lab"), "runtime")
+# Railway container 代碼在 /app (忽略平台注入的錯 RUNTIME_DIR=/app/runtime 其實是對的, 但要匹配 grid_switcher)
+_RUNTIME_DIR = os.path.join(os.getenv("PROJECT_ROOT", "/app"), "runtime")
 
 
 @router.get("/strategy")
