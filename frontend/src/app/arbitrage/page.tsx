@@ -18,12 +18,14 @@ const VENUES = [
 ];
 
 function ArbView() {
+  const [mode, setMode] = useState<'basis' | 'locked'>('basis');
   const [longVenue, setLongVenue] = useState('bingx');
   const [shortVenue, setShortVenue] = useState('binance');
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [timeframe, setTimeframe] = useState('1h');
   const [entryThreshold, setEntryThreshold] = useState(0.003);
   const [exitThreshold, setExitThreshold] = useState(0.001);
+  const [unlockThreshold, setUnlockThreshold] = useState(0.01);
   const [leverage, setLeverage] = useState(1);
   const [fundingEnabled, setFundingEnabled] = useState(false);
   const [useExchangeFees, setUseExchangeFees] = useState(true);
@@ -47,6 +49,8 @@ function ArbView() {
         leverage,
         entry_threshold: Number(entryThreshold),
         exit_threshold: Number(exitThreshold),
+        mode,
+        unlock_threshold: Number(unlockThreshold),
         funding_enabled: fundingEnabled,
         long_exchange: { enabled: useExchangeFees },
         short_exchange: { enabled: useExchangeFees },
@@ -71,10 +75,15 @@ function ArbView() {
       title="跨所套利"
       subtitle="雙邊持倉捕捉同一資產在不同交易所的價差與資金費率差。合約級手續費（maker/taker）與 funding 實景建模。"
     >
+      <div className="mb-4 flex gap-2">
+        <button onClick={() => setMode('basis')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${mode === 'basis' ? 'bg-accent text-white' : 'bg-surface text-textSecondary hover:text-text'}`}>Basis Arbitrage</button>
+        <button onClick={() => setMode('locked')} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${mode === 'locked' ? 'bg-accent text-white' : 'bg-surface text-textSecondary hover:text-text'}`}>Locked Arbitrage</button>
+      </div>
+
       <Card>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">配置</h2>
-          <span className="font-mono text-xs text-textSecondary">Basis Arbitrage</span>
+          <span className="font-mono text-xs text-textSecondary">{mode === 'locked' ? 'Locked Spread' : 'Basis Arbitrage'}</span>
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -104,6 +113,9 @@ function ArbView() {
               Venue Fees
             </label>
           </div>
+          {mode === 'locked' && (
+            <Input label="Unlock Threshold" type="number" step={0.001} value={unlockThreshold} onChange={(e) => setUnlockThreshold(Number(e.target.value))} />
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-border/10 pt-4">
