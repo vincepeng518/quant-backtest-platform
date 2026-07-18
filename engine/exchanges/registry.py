@@ -40,6 +40,11 @@ EXCHANGE_REGISTRY: dict[str, ExchangeSpec] = {
         book_base_slippage=0.0004, maker_probability=0.30, min_tick=0.01,
         notes="Low maker rebate",
     ),
+    "mexc": ExchangeSpec(
+        name="MEXC", maker_fee=0.001, taker_fee=0.001, latency_ms=130.0,
+        book_base_slippage=0.0005, maker_probability=0.30, min_tick=0.01,
+        notes="White-listed IP 109.123.230.98; spot maker/taker 0.1%",
+    ),
 }
 
 
