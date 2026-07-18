@@ -154,6 +154,16 @@ def write_status(sig: GridSignal, close: float, df: pd.DataFrame):
     }
     with open(STATUS_PATH, "w") as f:
         json.dump(status, f, indent=2, ensure_ascii=False)
+    # 追加歷史
+    hist_line = {
+        "time": status["updated_at"],
+        "grid_mode": sig.mode,
+        "confidence": sig.confidence,
+        "close": round(float(close), 2),
+        "reason": sig.reason,
+    }
+    with open(os.path.join(RUNTIME_DIR, "grid_signals.jsonl"), "a") as f:
+        f.write(json.dumps(hist_line, ensure_ascii=False) + "\n")
     return status
 
 

@@ -67,6 +67,33 @@ export default function StrategiesPage() {
   const push = useToastStore((s) => s.push);
   const router = useRouter();
 
+  // grid switcher state
+  const [grid, setGrid] = useState<any>(null);
+  const [gridHist, setGridHist] = useState<any[]>([]);
+  const [gridRunning, setGridRunning] = useState(false);
+
+  const loadGrid = () => {
+    api.getGridStatus().then(setGrid).catch(() => {});
+    api.getGridHistory(20).then((d: any) => setGridHist(d.signals || [])).catch(() => {});
+  };
+
+  const runGridNow = async () => {
+    setGridRunning(true);
+    try {
+      const r: any = await api.runGrid();
+      if (r.ok) {
+        push({ kind: 'success', title: '網格信號已更新', message: `${r.grid_mode?.toUpperCase()} (${Math.round((r.confidence||0)*100)}%)` });
+        loadGrid();
+      } else {
+        push({ kind: 'danger', title: '執行失敗', message: r.error || 'unknown' });
+      }
+    } catch (e: any) {
+      push({ kind: 'danger', title: '執行失敗', message: String(e?.message ?? e) });
+    } finally {
+      setGridRunning(false);
+    }
+  };
+
   const load = () => {
     Promise.all([api.getTemplates(), api.listUserStrategies()])
       .then(([t, u]) => {
@@ -80,7 +107,7 @@ export default function StrategiesPage() {
       });
   };
 
-  useEffect(load, []);
+  useEffect(() => { load(); loadGrid(); }, []);
 
   const submit = async () => {
     if (!form.name.trim() || !form.code.trim()) {
@@ -119,6 +146,76 @@ export default function StrategiesPage() {
 
   return (
     <div className="space-y-12 pb-12">
+      {/* Grid Switcher — 日線趨勢狀態判定 */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text">網格切換引擎 (Grid Switcher)</h2>
+          <button
+            onClick={runGridNow}
+            disabled={gridRunning}
+            className="px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {gridRunning ? '執行中…' : '手動觸發'}
+          </button>
+        </div>
+        <div className="bg-surface border border-border/10 rounded-lg p-5 space-y-4">
+          {grid?.available ? (
+            <>
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className={`px-3 py-1 rounded-full text-sm font-mono font-bold ${
+                  grid.grid_mode === 'long' ? 'bg-success/15 text-success' :
+                  grid.grid_mode === 'short' ? 'bg-danger/15 text-danger' :
+                  grid.grid_mode === 'range' ? 'bg-accent/15 text-accent' :
+                  'bg-border/20 text-textSecondary'
+                }`}>
+                  {grid.grid_mode?.toUpperCase()}
+                </span>
+                <span className="text-sm text-textSecondary">信心 {Math.round((grid.confidence||0)*100)}%</span>
+                <span className="text-sm text-textSecondary">收盤 ${grid.last_close?.toLocaleString()}</span>
+                <span className="text-xs text-textSecondary ml-auto">{grid.updated_at}</span>
+              </div>
+              <p className="text-sm text-textSecondary">{grid.reason}</p>
+              {grid.indicators && Object.keys(grid.indicators).length > 0 && (
+                <div className="flex gap-4 text-xs font-mono text-textSecondary">
+                  {Object.entries(grid.indicators).map(([k, v]) => (
+                    <span key={k}>{k}: {String(v)}</span>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-textSecondary">尚無信號 — 點擊「手動觸發」運行引擎</p>
+          )}
+        </div>
+        {gridHist.length > 0 && (
+          <div className="bg-surface border border-border/10 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-text mb-2">信號歷史</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="text-textSecondary border-b border-border/10">
+                    <th className="text-left py-1 pr-3">時間</th>
+                    <th className="text-left py-1 pr-3">模式</th>
+                    <th className="text-left py-1 pr-3">信心</th>
+                    <th className="text-right py-1">收盤</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gridHist.slice().reverse().map((s, i) => (
+                    <tr key={i} className="border-b border-border/5">
+                      <td className="py-1 pr-3 text-textSecondary">{s.time?.slice(5, 16)}</td>
+                      <td className="py-1 pr-3">{s.grid_mode?.toUpperCase()}</td>
+                      <td className="py-1 pr-3">{Math.round((s.confidence||0)*100)}%</td>
+                      <td className="py-1 text-right">${s.close?.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text">內建策略模板</h2>
