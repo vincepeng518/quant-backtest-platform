@@ -162,12 +162,15 @@ async def grid_run(_: None = Depends(auth_required)):
     """Trigger grid_switcher engine (runs engine/strategies/grid_switcher.py)."""
     import subprocess
     import sys
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    project_root = os.getenv("PROJECT_ROOT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     script = os.path.join(project_root, "engine", "strategies", "grid_switcher.py")
+    env = dict(os.environ)
+    env["PROJECT_ROOT"] = project_root
+    env["RUNTIME_DIR"] = os.path.join(project_root, "runtime")
     try:
         proc = subprocess.run(
             [sys.executable, script],
-            cwd=project_root, capture_output=True, text=True, timeout=120,
+            cwd=project_root, capture_output=True, text=True, timeout=120, env=env,
         )
         if proc.returncode != 0:
             return {"ok": False, "error": proc.stderr[:500]}
