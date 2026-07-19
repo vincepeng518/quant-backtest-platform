@@ -157,7 +157,7 @@ def main():
         "walk_forward": wf_res,
         "monte_carlo": mc_res,
     }
-    fname = f"opt_{name}_{date}.json"
+    fname = f"opt_{name}_{os.path.splitext(os.path.basename(csv_path))[0]}_{date}.json"
     fpath = os.path.join(hist_dir, fname)
     with open(fpath, "w") as f:
         json.dump(rep, f, ensure_ascii=False, indent=2, default=str)
