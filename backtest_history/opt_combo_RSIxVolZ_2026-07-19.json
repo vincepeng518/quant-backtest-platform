@@ -7,10 +7,10 @@
     "n_sims": 500
   },
   "best_params": {
-    "rsi_window": 30,
-    "rsi_ob": 70,
-    "rsi_os": 40,
-    "vz_window": 40,
+    "rsi_window": 5,
+    "rsi_ob": 80,
+    "rsi_os": 20,
+    "vz_window": 25,
     "vz_th": 3.0
   },
   "best_score": 0.0,
