@@ -59,16 +59,20 @@ function OptimizeView() {
 
   // P8: dynamically list builtin templates + user-uploaded strategies
   useEffect(() => {
-    Promise.all([api.getTemplates(), api.listUserStrategies()])
+    Promise.allSettled([api.getTemplates(), api.listUserStrategies()])
       .then(([t, u]) => {
-        const builtin = (t as any[]).map((x) => ({ label: x.name, value: x.id }));
-        const user = (u as any[]).map((s) => ({ label: `我的：${s.name}`, value: `user_${s.id}` }));
+        const builtin = t.status === 'fulfilled'
+          ? (t.value as any[]).map((x) => ({ label: x.name, value: x.id }))
+          : [];
+        const user = u.status === 'fulfilled'
+          ? (u.value as any[]).map((s) => ({ label: `我的：${s.name}`, value: `user_${s.id}` }))
+          : [];
         const merged = [...user, ...builtin.filter((b) => !user.some((x) => x.value === b.value))];
-        setStrategyOptions(merged);
-        setTemplates(t as any[]);
-        setUserStrategies(u as any[]);
-      })
-      .catch(() => {/* keep fallback */});
+        // 如果 API 都失敗, 用 fallback (但優先真實數據)
+        setStrategyOptions(merged.length ? merged : FALLBACK_STRATEGIES);
+        if (t.status === 'fulfilled') setTemplates(t.value as any[]);
+        if (u.status === 'fulfilled') setUserStrategies(u.value as any[]);
+      });
   }, []);
 
   // Resolve a strategy's template params (for param-space rebuild on switch).
