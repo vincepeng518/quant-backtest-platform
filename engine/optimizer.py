@@ -161,12 +161,15 @@ class Optimizer:
     def _random_sample(self, space: dict) -> dict:
         s = {}
         for k, p in space.items():
-            if p["type"] == "range":
+            t = p["type"]
+            if t in ("range", "int"):
                 val = np.random.uniform(p["min"], p["max"])
-                if p.get("step", 1) >= 1:
+                if t == "int" or p.get("step", 1) >= 1:
                     val = int(round(val))
                 s[k] = val
-            elif p["type"] == "choice":
+            elif t == "float":
+                s[k] = float(np.random.uniform(p["min"], p["max"]))
+            elif t == "choice":
                 s[k] = np.random.choice(p["values"])
         return s
 
@@ -204,7 +207,7 @@ class Optimizer:
     def _params_to_vector(self, params: dict, space: dict) -> list:
         vec = []
         for k, p in space.items():
-            if p["type"] == "range":
+            if p["type"] in ("range", "int", "float"):
                 vec.append((params[k] - p["min"]) / (p["max"] - p["min"] + 1e-9))
             elif p["type"] == "choice":
                 vec.append(p["values"].index(params[k]) / max(len(p["values"]) - 1, 1))
@@ -213,9 +216,17 @@ class Optimizer:
     def _vector_to_params(self, vec: list, space: dict) -> dict:
         params, idx = {}, 0
         for k, p in space.items():
-            if p["type"] == "range":
-                params[k] = vec[idx] * (p["max"] - p["min"]) + p["min"]
-            elif p["type"] == "choice":
+            t = p["type"]
+            if t in ("range", "int", "float"):
+                val = vec[idx] * (p["max"] - p["min"]) + p["min"]
+                if t == "int":
+                    val = int(round(val))
+                elif t == "float":
+                    val = float(val)
+                elif p.get("step", 1) >= 1:
+                    val = int(round(val))
+                params[k] = val
+            elif t == "choice":
                 i = int(round(vec[idx] * (len(p["values"]) - 1)))
                 params[k] = p["values"][max(0, min(i, len(p["values"]) - 1))]
             idx += 1

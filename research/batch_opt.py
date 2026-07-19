@@ -14,9 +14,11 @@ HIST = os.path.join(PROJ, "backtest_history")
 
 def strat_py(name: str) -> str:
     # name like breakout -> strategies/technical/breakout.py
+    # combo_IchxVolZ -> strategies/combo_IchxVolZ.py (直接在 strategies/)
     cand = [
         os.path.join(STRAT_DIR, "technical", f"{name}.py"),
-        os.path.join(STRAT_DIR, "combo", f"{name}.py"),
+        os.path.join(STRAT_DIR, f"combo_{name}.py"),
+        os.path.join(STRAT_DIR, f"{name}.py"),
     ]
     for c in cand:
         if os.path.exists(c):
