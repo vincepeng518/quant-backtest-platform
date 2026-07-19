@@ -124,7 +124,12 @@ def _calc_metrics(records: list) -> dict:
     # Sortino: 只用下行波動 (負收益 std)
     downside = arr[arr < 0]
     dstd = downside.std(ddof=1) if len(downside) > 1 else 0.0
-    sortino = float((mean / dstd) * np.sqrt(n)) if dstd > 0 else (0.0 if mean >= 0 else float('-inf'))
+    if dstd > 0:
+        sortino = float((mean / dstd) * np.sqrt(n))
+    elif mean > 0:
+        sortino = None  # 無下行風險且盈利 -> 無限大, 顯示 None
+    else:
+        sortino = 0.0
     # Max Drawdown (累積 PnL 峰值回撤)
     cum = np.cumsum(arr)
     peak = np.maximum.accumulate(cum)
@@ -140,7 +145,7 @@ def _calc_metrics(records: list) -> dict:
     pf = float(gains / losses) if losses > 0 else (float("inf") if gains > 0 else 0.0)
     return {
         "sharpe": round(sharpe, 3),
-        "sortino": round(sortino, 3) if sortino != float('-inf') else None,
+        "sortino": round(sortino, 3) if sortino is not None else None,
         "calmar": round(calmar, 3) if calmar is not None else None,
         "annual_return": round(annual_return, 2),
         "max_drawdown": round(max_dd, 2),
