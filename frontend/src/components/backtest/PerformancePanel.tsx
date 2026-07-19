@@ -203,6 +203,14 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
     [onSelectTrade]
   );
 
+  // ── 進階風險指標 (純前端, 從 equity + trades 算) ──
+  const adv = useMemo(() => calcAdvRisk(equity, trades), [equity, trades]);
+
+  const fmtPct = (v: number | null, d = 2): string =>
+    v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`;
+  const fmtNum = (v: number | null, d = 3): string =>
+    v == null ? '—' : v.toFixed(d);
+
   return (
     <div className="bg-[#161a25] border-t border-[#363c4e]/10">
       {/* ── Mega KPIs Row ── */}
@@ -387,6 +395,27 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         />
       </div>
 
+      {/* ── 進階風險指標 (用戶指定 13 項) ── */}
+      <div className="border-t border-[#363c4e]/10 px-4 py-4">
+        <p className="text-xs text-textSecondary mb-2 font-medium">進階風險指標 · Advanced Risk Metrics</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-px bg-[#363c4e]/20">
+          <KpiBlock label="短期勝率 <24K" value={adv.tfWinShort == null ? '—' : `${adv.tfWinShort.toFixed(1)}%`} color={adv.tfWinShort == null ? 'neutral' : adv.tfWinShort >= 50 ? 'pos' : 'neg'} tip="持有 <24 根 K 線的交易勝率" />
+          <KpiBlock label="中期勝率 24-96K" value={adv.tfWinMid == null ? '—' : `${adv.tfWinMid.toFixed(1)}%`} color={adv.tfWinMid == null ? 'neutral' : adv.tfWinMid >= 50 ? 'pos' : 'neg'} tip="持有 24-96 根 K 線的交易勝率" />
+          <KpiBlock label="長期勝率 >96K" value={adv.tfWinLong == null ? '—' : `${adv.tfWinLong.toFixed(1)}%`} color={adv.tfWinLong == null ? 'neutral' : adv.tfWinLong >= 50 ? 'pos' : 'neg'} tip="持有 >96 根 K 線的交易勝率" />
+          <KpiBlock label="最大回撤天數" value={`${adv.maxDdDays}`} sub="天" color="neutral" tip="資金曲線連續處於回撤狀態的最長天數" />
+          <KpiBlock label="恢復因子" value={fmtNum(adv.recoveryFactor)} color={adv.recoveryFactor == null ? 'neutral' : adv.recoveryFactor >= 1 ? 'pos' : 'neg'} tip="期末權益 / 區間最低權益 (越高恢復越快)" />
+          <KpiBlock label="偏度 Skew" value={fmtNum(adv.skew)} color={adv.skew == null ? 'neutral' : adv.skew > 0 ? 'pos' : 'neg'} tip="收益分布偏度：正=右偏(偶有暴利)，負=左偏(偶有暴虧)" />
+          <KpiBlock label="峰度 Kurt" value={fmtNum(adv.kurt)} color={adv.kurt == null ? 'neutral' : adv.kurt > 0 ? 'neg' : 'pos'} tip="超額峰度：正=肥尾(極端風險高)" />
+          <KpiBlock label="VaR 95%" value={adv.var95 == null ? '—' : safePct(adv.var95 * 100)} color="neg" tip="每日收益 95% 置信度的歷史 VaR (最大單日虧損分位)" />
+          <KpiBlock label="CVaR 95%" value={adv.cvar95 == null ? '—' : safePct(adv.cvar95 * 100)} color="neg" tip="VaR 95% 條件下平均虧損 (尾部期望)" />
+          <KpiBlock label="VaR 99%" value={adv.var99 == null ? '—' : safePct(adv.var99 * 100)} color="neg" tip="每日收益 99% 置信度的歷史 VaR" />
+          <KpiBlock label="CVaR 99%" value={adv.cvar99 == null ? '—' : safePct(adv.cvar99 * 100)} color="neg" tip="VaR 99% 條件下平均虧損 (極端尾部期望)" />
+          <KpiBlock label="最差月份" value={fmtPct(adv.worstMonth)} color="neg" tip="月度收益最低的一個月" />
+          <KpiBlock label="最佳月份" value={fmtPct(adv.bestMonth)} color="pos" tip="月度收益最高的一個月" />
+          <KpiBlock label="正報酬月比例" value={adv.posMonthPct == null ? '—' : `${adv.posMonthPct.toFixed(1)}%`} color={adv.posMonthPct == null ? 'neutral' : adv.posMonthPct >= 50 ? 'pos' : 'neg'} tip="正報酬月份佔所有有交易月份的比例" />
+        </div>
+      </div>
+
       {/* ── Legend / Control Panel ── */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-[#363c4e]/10">
         <ToggleBtn active={showEquity} onClick={() => setShowEquity((v) => !v)}>
@@ -448,3 +477,135 @@ const toUnixSec = (v: any): number => {
   const ms = Date.parse(v);
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
 };
+
+// ── 進階風險指標 (純前端計算, 來源: equity curve + trades) ──
+interface AdvRisk {
+  tfWinShort: number | null;
+  tfWinMid: number | null;
+  tfWinLong: number | null;
+  maxDdDays: number;
+  recoveryFactor: number | null;
+  skew: number | null;
+  kurt: number | null;
+  var95: number | null;
+  cvar95: number | null;
+  var99: number | null;
+  cvar99: number | null;
+  worstMonth: number | null;
+  bestMonth: number | null;
+  posMonthPct: number | null;
+}
+
+function calcAdvRisk(equity: EquityPoint[], trades: TradeRecord[]): AdvRisk {
+  const empty: AdvRisk = {
+    tfWinShort: null, tfWinMid: null, tfWinLong: null,
+    maxDdDays: 0, recoveryFactor: null, skew: null, kurt: null,
+    var95: null, cvar95: null, var99: null, cvar99: null,
+    worstMonth: null, bestMonth: null, posMonthPct: null,
+  };
+  if (!equity || equity.length < 3) return empty;
+
+  // 日收益率 (從 equity 差分)
+  const eq = equity.map((e) => Number(e.equity) || 0).filter((v) => v > 0);
+  const rets: number[] = [];
+  for (let i = 1; i < eq.length; i++) {
+    const prev = eq[i - 1];
+    if (prev > 0) rets.push((eq[i] - prev) / prev);
+  }
+  const n = rets.length;
+
+  // 偏度 / 峰度
+  let skew: number | null = null, kurt: number | null = null;
+  if (n >= 3) {
+    const mean = rets.reduce((a, b) => a + b, 0) / n;
+    const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+    const std = Math.sqrt(variance);
+    if (std > 0) {
+      const m3 = rets.reduce((a, b) => a + ((b - mean) / std) ** 3, 0) / n;
+      const m4 = rets.reduce((a, b) => a + ((b - mean) / std) ** 4, 0) / n;
+      skew = m3;
+      kurt = m4 - 3; // excess kurtosis
+    }
+  }
+
+  // VaR / CVaR (歷史模擬法, 用負收益分位)
+  const negRets = rets.filter((r) => r < 0).sort((a, b) => a - b);
+  const quantile = (arr: number[], q: number): number | null => {
+    if (arr.length === 0) return null;
+    const idx = Math.floor(q * arr.length);
+    return arr[Math.min(idx, arr.length - 1)];
+  };
+  const meanArr = (arr: number[], start: number): number => {
+    const sub = arr.slice(start);
+    return sub.length ? sub.reduce((a, b) => a + b, 0) / sub.length : 0;
+  };
+  const var95 = negRets.length ? quantile(negRets, 0.05) : null;
+  const var99 = negRets.length ? quantile(negRets, 0.01) : null;
+  const cvar95 = negRets.length ? meanArr(negRets, Math.floor(0.05 * negRets.length)) : null;
+  const cvar99 = negRets.length ? meanArr(negRets, Math.floor(0.01 * negRets.length)) : null;
+
+  // 最大回撤持續天數 (equity drawdown 連續 >0 最長期間, 按 timestamp 差算天)
+  let maxDdDays = 0;
+  let curDays = 0;
+  let prevT = 0;
+  for (let i = 0; i < equity.length; i++) {
+    const e = equity[i];
+    const dd = Number(e.drawdown) || 0;
+    const t = Number(e.timestamp) || Number(e.time) || 0;
+    if (dd > 0) {
+      if (prevT > 0 && t > prevT) {
+        curDays += Math.max(1, Math.round((t - prevT) / 86400));
+      } else {
+        curDays += 1;
+      }
+      maxDdDays = Math.max(maxDdDays, curDays);
+    } else {
+      curDays = 0;
+    }
+    prevT = t;
+  }
+
+  // 恢復因子 (期末/最低點, 或 peak/trough)
+  const minEq = Math.min(...eq);
+  const lastEq = eq[eq.length - 1];
+  const recoveryFactor = minEq > 0 ? lastEq / minEq : null;
+
+  // 時間週期勝率 (按 trades holding_bars 分桶: <24短 / 24-96中 / >96長)
+  const bucketWin = (lo: number, hi: number): number | null => {
+    const sub = trades.filter((t) => {
+      const hb = Number((t as any).holding_bars ?? 0);
+      return hb >= lo && hb < hi;
+    });
+    if (sub.length === 0) return null;
+    const wins = sub.filter((t) => Number((t as any).pnl ?? (t as any).pnl_pct ?? 0) > 0).length;
+    return (wins / sub.length) * 100;
+  };
+  const tfWinShort = bucketWin(0, 24);
+  const tfWinMid = bucketWin(24, 96);
+  const tfWinLong = bucketWin(96, Infinity);
+
+  // 月度收益 (equity 按月聚合)
+  const monthMap = new Map<string, number>();
+  for (let i = 1; i < equity.length; i++) {
+    const t = Number(equity[i].timestamp) || Number(equity[i].time) || 0;
+    const d = new Date(t * 1000);
+    if (!Number.isFinite(d.getTime())) continue;
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    const prev = eq[i - 1];
+    const cur = eq[i];
+    monthMap.set(key, (monthMap.get(key) ?? 0) + (prev > 0 ? (cur - prev) / prev : 0));
+  }
+  const months = Array.from(monthMap.values());
+  let worstMonth: number | null = null, bestMonth: number | null = null, posMonthPct: number | null = null;
+  if (months.length > 0) {
+    worstMonth = Math.min(...months) * 100;
+    bestMonth = Math.max(...months) * 100;
+    posMonthPct = (months.filter((m) => m > 0).length / months.length) * 100;
+  }
+
+  return {
+    tfWinShort, tfWinMid, tfWinLong, maxDdDays, recoveryFactor,
+    skew, kurt, var95, cvar95, var99, cvar99,
+    worstMonth, bestMonth, posMonthPct,
+  };
+}
