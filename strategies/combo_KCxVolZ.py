@@ -53,7 +53,8 @@ class Combo_KCxVolZ(StrategyBase):
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)
 
-    def get_params_space(self) -> dict:
+    @staticmethod
+    def get_params_space() -> dict:
         return {
             "kc_window": {"type": "int", "min": 10, "max": 40, "default": 20},
             "kc_mult": {"type": "float", "min": 1.0, "max": 3.0, "default": 2.0},

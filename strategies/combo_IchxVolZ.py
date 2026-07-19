@@ -53,7 +53,8 @@ class Combo_IchxVolZ(StrategyBase):
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)
 
-    def get_params_space(self) -> dict:
+    @staticmethod
+    def get_params_space() -> dict:
         return {
             "tenkan": {"type": "int", "min": 7, "max": 20, "default": 9},
             "kijun": {"type": "int", "min": 20, "max": 40, "default": 26},
