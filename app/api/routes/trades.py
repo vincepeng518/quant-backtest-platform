@@ -15,6 +15,18 @@ from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
+# symbol 簡化映射 (與 bot/trade_bot.py 同步)
+SYMBOL_MAP = {
+    "NCCOGOLD2USD-USDT": "GOLD-USDT",
+}
+
+
+def norm_sym(sym):
+    if not sym:
+        return sym
+    return SYMBOL_MAP.get(sym, sym)
+
+
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 
 REPO = "vincepeng518/quant-backtest-platform"
@@ -69,5 +81,6 @@ async def get_trades():
         })
         for rec in snap.get("records", []):
             rec["_snapshot"] = n
+            rec["symbol"] = norm_sym(rec.get("symbol"))
             records.append(rec)
     return {"total": len(records), "snapshots": snapshots, "records": records}

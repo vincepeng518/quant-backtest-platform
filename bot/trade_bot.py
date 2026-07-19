@@ -60,6 +60,17 @@ def _call(path: str, params: dict | None = None) -> dict:
     return r.json()
 
 
+# symbol 簡化映射 (BingX 長名 -> 好讀)
+SYMBOL_MAP = {
+    "NCCOGOLD2USD-USDT": "GOLD-USDT",
+}
+
+def norm_sym(sym: str | None) -> str | None:
+    if not sym:
+        return sym
+    return SYMBOL_MAP.get(sym, sym)
+
+
 def fetch_positions() -> list:
     try:
         d = _call("/openApi/swap/v2/user/positions").get("data", [])
@@ -114,7 +125,7 @@ def build_snapshot() -> dict:
 
     recs = []
     for p in positions:
-        sym = p.get("symbol")
+        sym = norm_sym(p.get("symbol"))
         pside = p.get("positionSide")  # LONG/SHORT
         avg = float(p.get("avgPrice", 0) or 0)
         lev = float(p.get("leverage", 0) or 0)
@@ -144,7 +155,7 @@ def build_snapshot() -> dict:
 
     # 近期已實現 PnL 單獨列 (已平倉歷史)
     for r in realized:
-        sym = r.get("symbol")
+        sym = norm_sym(r.get("symbol"))
         inc = float(r.get("income", 0) or 0)
         t = int(r.get("time", 0) or 0)
         recs.append({
