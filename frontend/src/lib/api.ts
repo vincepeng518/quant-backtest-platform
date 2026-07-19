@@ -173,5 +173,8 @@ export const api = {
     request<any>('/validate/indicator', { method: 'POST', body: JSON.stringify(payload) }),
   pushBacktestToNotion: (payload: { task_id: string; symbol: string; strategy: string; timeframe: string }) =>
     request<{ ok: boolean; notion_configured: boolean }>('/backtest/push-notion', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // ── Trades (BingX auto journal, persisted on GitHub) ──
+  getTrades: () => request<any>('/trades'),
 };
 export default api;
