@@ -104,7 +104,17 @@ async def get_trades():
             except Exception:
                 pass
     metrics = _calc_metrics(records)
-    return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics}
+    fees_total = None
+    if snapshots:
+        latest_file = snapshots[-1]["file"]
+        latest_obj = _gh_get(latest_file)
+        if latest_obj and "content" in latest_obj:
+            try:
+                latest_snap = json.loads(base64.b64decode(latest_obj["content"]).decode("utf-8"))
+                fees_total = latest_snap.get("fees_total")
+            except Exception:
+                pass
+    return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics, "fees_total": fees_total}
 
 
 def _calc_metrics(records: list) -> dict:

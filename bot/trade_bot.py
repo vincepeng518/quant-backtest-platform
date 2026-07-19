@@ -203,6 +203,7 @@ def build_snapshot() -> dict:
 
     # 2) 歷史成交 (私有 allOrders, FILLED 且有 avgPrice -> 完整開平價)
     seen_keys = set()
+    fees_total = 0.0
     for o in orders:
         if o.get("status") != "FILLED":
             continue
@@ -211,6 +212,12 @@ def build_snapshot() -> dict:
         avg = float(o.get("avgPrice", 0) or 0)
         if avg <= 0:  # 無價格不記 (過濾不完整數據)
             continue
+        # 過濾: 無實際盈虧變動的單 (策略: pnl != 0 才記)
+        rpnl = float(o.get("profit", 0) or 0)
+        if rpnl == 0:
+            continue
+        # 手續費累加 (另計上板)
+        fees_total += float(o.get("commission", 0) or 0)
         # 去重: 同一 symbol+side+positionSide+time 只記一次
         key = (sym, o.get("side"), pside, o.get("time"))
         if key in seen_keys:
@@ -224,7 +231,7 @@ def build_snapshot() -> dict:
             "exitPrice": avg,           # 歷史成交有完整價格
             "leverage": _parse_lev(o.get("leverage")),
             "unrealizedProfit": 0.0,
-            "realizedProfit": float(o.get("profit", 0) or 0),
+            "realizedProfit": rpnl,
             "pnlRatio": 0.0,
             "positionValue": float(o.get("cumQuote", 0) or 0),
             "liquidationPrice": 0.0,
@@ -237,6 +244,7 @@ def build_snapshot() -> dict:
         "source": "bingx-ccxt+orders",
         "repo": REPO,
         "count": len(recs),
+        "fees_total": round(fees_total, 4),
         "records": recs,
     }
 
