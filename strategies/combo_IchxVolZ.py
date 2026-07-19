@@ -16,41 +16,30 @@ class Combo_IchxVolZ(StrategyBase):
     category = "combo"
 
     def init(self, params: dict) -> None:
-        self._h: list[float] = []
-        self._l: list[float] = []
-        self._c: list[float] = []
-        self._v: list[float] = []
         self.ten = int(params.get("tenkan", 9))
         self.kij = int(params.get("kijun", 26))
         self.sen = int(params.get("senkou", 52))
         self.vz_n = int(params.get("vz_window", 20))
         self.vz_th = float(params.get("vz_th", 1.5))
-
-    def _ichimoku(self):
-        h = pd.Series(self._h); l = pd.Series(self._l); c = pd.Series(self._c)
-        tenk = (h.rolling(self.ten).max() + h.rolling(self.ten).min()) / 2
-        kij = (h.rolling(self.kij).max() + h.rolling(self.kij).min()) / 2
-        senk = (h.rolling(self.sen).max() + h.rolling(self.sen).min()) / 2
-        spanA = (tenk + senk) / 2
-        return spanA
-
-    def _volz(self):
-        v = pd.Series(self._v)
-        m = v.rolling(self.vz_n).mean(); sd = v.rolling(self.vz_n).std()
-        return (v - m) / sd
+        # 預分配 numpy 陣列 (增量 append O(1), 不每次重建 list→array)
+        cap = 100000
+        self._h = np.empty(cap); self._l = np.empty(cap)
+        self._c = np.empty(cap); self._v = np.empty(cap)
+        self._i = 0
 
     def next(self, bar: Bar):
-        self._h.append(bar.high); self._l.append(bar.low)
-        self._c.append(bar.close); self._v.append(bar.volume)
-        n = len(self._c)
+        i = self._i
+        self._h[i] = bar.high; self._l[i] = bar.low
+        self._c[i] = bar.close; self._v[i] = bar.volume
+        self._i += 1
+        n = self._i
         if n < self.sen + 2:
             return None
-        # O(1) 增量: 只算最新視窗, 不重建整條 pandas
-        hi = np.array(self._h); lo = np.array(self._l)
+        # O(1) 切片 (視圖, 不複製整條)
+        hi = self._h[:n]; lo = self._l[:n]; v = self._v[:n]
         tenk = (hi[-self.ten:].max() + lo[-self.ten:].min()) / 2
         senk = (hi[-self.sen:].max() + lo[-self.sen:].min()) / 2
         spanA = (tenk + senk) / 2
-        v = np.array(self._v)
         m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
         z = (v[-1] - m) / (sd + 1e-9)
         c = bar.close
