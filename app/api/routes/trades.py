@@ -27,8 +27,8 @@ def norm_sym(sym):
     m = _re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
     if m:
         return f"{m.group(1)}/{m.group(2)}"
-    # 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
-    m = _re.match(r"^NC(CO|SK|SI)(.+?)2USD-USDT$", s)
+    # 商品/股票/股指: NC{CO|SK|SI}[數字]<NAME>2USD-USDT → NAME (前導數字如 1OILWTI 去掉)
+    m = _re.match(r"^NC(CO|SK|SI)\d*(.+?)2USD-USDT$", s)
     if m:
         return m.group(2)
     # TradFi 變體: NC<NAME>-USDT → NAME (無 2USD 後綴, 例 NCOILWTI-USDT → OILWTI)

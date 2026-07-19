@@ -41,8 +41,8 @@ function simplifySymbol(raw: string | undefined | null): string {
   // 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
   let m = s.match(/^NCFX(\w+?)2(\w+)-USDT$/);
   if (m) return `${m[1]}/${m[2]}`;
-  // 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
-  m = s.match(/^NC(CO|SK|SI)(.+?)2USD-USDT$/);
+  // 商品/股票/股指: NC{CO|SK|SI}[數字]<NAME>2USD-USDT → NAME (前導數字去掉)
+  m = s.match(/^NC(CO|SK|SI)\d*(.+?)2USD-USDT$/);
   if (m) return m[2];
   // TradFi 變體: NC<NAME>-USDT → NAME (無 2USD 後綴, 例 NCOILWTI-USDT → OILWTI)
   m = s.match(/^NC(\w+)-USDT$/);
