@@ -82,7 +82,7 @@ async def update_user(sid: str, payload: UserStrategyUpload, _: None = Depends(a
 
 
 @router.delete("/user/{sid}")
-async def delete_user(sid: str):  # TEMP: auth disabled for cleanup
+async def delete_user(sid: str, _: None = Depends(auth_required)):
     r = ss.delete_strategy(sid)
     if "error" in r:
         raise HTTPException(status_code=404, detail=r["error"])
