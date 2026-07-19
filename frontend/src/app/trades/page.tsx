@@ -84,14 +84,18 @@ export default function TradesPage() {
 
   const now = Date.now();
   const filtered = useMemo(() => {
-    if (range === 'all') return records;
-    return records.filter((r) => {
-      const t = (r.ts ?? 0) / 1000;
-      const diff = now / 1000 - t;
-      if (range === 'day') return diff <= 86400;
-      if (range === 'month') return diff <= 86400 * 30;
-      return true;
-    });
+    let list = records;
+    if (range !== 'all') {
+      list = records.filter((r) => {
+        const t = (r.ts ?? 0) / 1000;
+        const diff = now / 1000 - t;
+        if (range === 'day') return diff <= 86400;
+        if (range === 'month') return diff <= 86400 * 30;
+        return true;
+      });
+    }
+    // 開倉時間降冪: 新的在上 (ts 為毫秒)
+    return [...list].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
   }, [records, range, now]);
 
   const stats = useMemo(() => {
