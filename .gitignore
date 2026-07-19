@@ -23,6 +23,7 @@ frontend/package-lock.json
 
 # runtime backtest result dumps (never commit)
 backtests/*.json
+research/backtest_history/
 __pycache__/
 *.pyc
 
