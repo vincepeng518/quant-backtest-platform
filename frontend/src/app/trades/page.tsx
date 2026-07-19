@@ -34,6 +34,21 @@ function fmt(n: number, d = 2): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
+// BingX symbol 簡化 (與 bot 規則同步) — 防禦層, 避免後端漏簡化
+function simplifySymbol(raw: string | undefined | null): string {
+  if (!raw) return raw ?? '';
+  let s = raw.trim().replace(':USDT', '').replace(':USDC', '');
+  // 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
+  let m = s.match(/^NCFX(\w+?)2(\w+)-USDT$/);
+  if (m) return `${m[1]}/${m[2]}`;
+  // 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
+  m = s.match(/^NC(CO|SK|SI)(.+?)2USD-USDT$/);
+  if (m) return m[2];
+  // Crypto: 去尾部 -USDT
+  if (s.endsWith('-USDT')) return s.slice(0, -len('-USDT'));
+  return s;
+}
+
 // journalit 風格: 盈虧 -> 綠/紅階層 class
 function heatClass(pnl: number): string {
   if (pnl === 0) return 'heat-empty';
@@ -48,6 +63,7 @@ function heatClass(pnl: number): string {
 export default function TradesPage() {
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const [feesTotal, setFeesTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
@@ -57,6 +73,7 @@ export default function TradesPage() {
       .then((d: any) => {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
+        setFeesTotal(d.fees_total ?? null);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
@@ -171,6 +188,17 @@ export default function TradesPage() {
         </Card>
       </div>
 
+      {/* 手續費總和 (另計, 不併入 P/L) */}
+      {feesTotal != null && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <Card className="p-4 col-span-2 md:col-span-1">
+            <p className="text-xs text-textSecondary font-mono mb-1">手續費總和 (Fees)</p>
+            <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
+            <p className="text-xs text-textSecondary font-mono">不計入 P/L 面板</p>
+          </Card>
+        </div>
+      )}
+
       {/* 多空 + 連續 (第二排) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <Card className="p-4">
@@ -275,7 +303,7 @@ export default function TradesPage() {
                   const p = pnlOf(r);
                   return (
                     <tr key={i} className="border-b border-border/10 hover:bg-surface/40">
-                      <td className="px-3 py-2 text-text">{r.symbol}</td>
+                      <td className="px-3 py-2 text-text">{simplifySymbol(r.symbol)}</td>
                       <td className="px-3 py-2 text-textSecondary">{r.side}</td>
                       <td className="px-3 py-2 text-right text-text">{r.avgPrice ? fmt(r.avgPrice) : '—'}</td>
                       <td className="px-3 py-2 text-right text-text">{r.exitPrice ? fmt(r.exitPrice) : '—'}</td>
