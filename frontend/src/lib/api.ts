@@ -35,7 +35,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (ADMIN_TOKEN) headers['Authorization'] = `Bearer ${ADMIN_TOKEN}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout 防卡死轉圈
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout (Railway cold start + GitHub fetch)
 
   try {
     const response = await fetch(`${BASE_URL}${path}`, {

@@ -73,22 +73,8 @@ async def get_trades():
     """回傳所有交易記錄 (扁平化) + 來源快照列表。"""
     import base64
     names = _list_files()
-    records = []
-    snapshots = []
-    for n in sorted(names):
-        obj = _gh_get(n)
-        if not obj or "content" not in obj:
-            continue
-        try:
-            content = base64.b64decode(obj["content"]).decode("utf-8")
-            snap = json.loads(content)
-        except Exception:
-            continue
-        snapshots.append({
-            "file": n,
-            "generated_at": snap.get("generated_at"),
-            "count": snap.get("count"),
-        })
+    # snapshots: 只列檔名 (不抓全部內容, 避免 N 次 GitHub 下載拖慢)
+    snapshots = [{"file": n} for n in sorted(names)]
     # 只取最新快照的 records (當前持倉狀態, 不攤平歷史 snapshot 避免重複/舊單)
     records = []
     if snapshots:
