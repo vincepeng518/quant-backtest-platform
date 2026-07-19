@@ -95,14 +95,16 @@ export default function StrategiesPage() {
   };
 
   const load = () => {
-    Promise.all([api.getTemplates(), api.listUserStrategies()])
+    setLoading(true);
+    Promise.allSettled([api.getTemplates(), api.listUserStrategies()])
       .then(([t, u]) => {
-        setTemplates(t as any[]);
-        setUser(u as unknown as UserMeta[]);
-        setLoading(false);
-      })
-      .catch((e) => {
-        push({ kind: 'danger', title: '載入失敗', message: String(e?.message ?? e) });
+        if (t.status === 'fulfilled') setTemplates(t.value as any[]);
+        else push({ kind: 'danger', title: '載入模板失敗', message: String(t.reason?.message ?? t.reason) });
+        if (u.status === 'fulfilled') setUser(u.value as unknown as UserMeta[]);
+        // 401 (未登入 admin) 不報錯，只顯空「我的策略」
+        else if ((u.reason as any)?.status !== 401) {
+          push({ kind: 'danger', title: '載入策略失敗', message: String(u.reason?.message ?? u.reason) });
+        }
         setLoading(false);
       });
   };
