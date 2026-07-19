@@ -37,3 +37,6 @@ monitoring/shadow.db.selftest
 
 # strategy runtime status (external script output, not source)
 runtime/
+
+# trade bot local snapshots (persisted to GitHub trades/ via API)
+trades/
