@@ -1,0 +1,56 @@
+"""pull_csv.py — 全部走 BingX (優先)。
+- 加密 (BTC/ETH/SOL/HYPE): ccxt bingx()
+- TradFi (GOLD): BingXTradFiProvider (NCCOGOLD2USD-USDT)
+週期: 15m/30m/1h/4h/1d (BingX 不支援 45m)
+存: data/csv/<SYM>_<TF>.csv (覆蓋既有)
+"""
+from __future__ import annotations
+import os, sys, asyncio
+import pandas as pd
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ccxt
+from data.providers.bingx_tradfi import BingXTradFiProvider
+
+PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CSV_DIR = os.path.join(PROJ, "data", "csv")
+os.makedirs(CSV_DIR, exist_ok=True)
+
+CRYPTO = [("HYPE/USDT", "HYPE_USDT"), ("BTC/USDT", "BTC_USDT"),
+          ("ETH/USDT", "ETH_USDT"), ("SOL/USDT", "SOL_USDT")]
+TFS = ["15m", "30m", "1h", "4h", "1d"]
+
+async def main():
+    ex = ccxt.bingx()
+    # 1) 加密貨幣 via ccxt
+    for sym, tag in CRYPTO:
+        for tf in TFS:
+            fname = f"{tag}_{tf}.csv"
+            fpath = os.path.join(CSV_DIR, fname)
+            try:
+                ohlcv = ex.fetch_ohlcv(sym, tf, limit=1500)
+                if not ohlcv:
+                    print(f"FAIL {sym} {tf}")
+                    continue
+                df = pd.DataFrame(ohlcv, columns=["timestamp","open","high","low","close","volume"])
+                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+                df.to_csv(fpath, index=False)
+                print(f"OK {fname} bars={len(df)}")
+            except Exception as e:
+                print(f"FAIL {sym} {tf}: {str(e)[:50]}")
+    # 2) GOLD via TradFi
+    tradfi = BingXTradFiProvider()
+    for tf in TFS:
+        fname = f"GOLD_USDT_{tf}.csv"
+        fpath = os.path.join(CSV_DIR, fname)
+        try:
+            df = await tradfi.fetch_ohlcv("NCCOGOLD2USD-USDT", tf, limit=1000)
+            if df is None or len(df) == 0:
+                print(f"FAIL GOLD {tf}")
+                continue
+            df.to_csv(fpath, index=False)
+            print(f"OK {fname} bars={len(df)}")
+        except Exception as e:
+            print(f"FAIL GOLD {tf}: {str(e)[:50]}")
+
+if __name__ == "__main__":
+    asyncio.run(main())

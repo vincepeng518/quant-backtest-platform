@@ -45,18 +45,21 @@ def load_csv(csv_path: str) -> pd.DataFrame:
 
 
 def _space_from_ps(ps: dict, n_pts: int = 3) -> dict:
-    """把 get_params_space() 轉成 Optimizer 的 choice 格式, 每參數 n_pts 點。"""
-    space = {}
+    """把 get_params_space() 轉成 Optimizer 接受的格式 (備用)。
+
+    策略直接回傳 {'min'/'max'/'step' (range) 或 'values' (choice)} 的格式,
+    Optimizer 原生就認得, 故這裡基本直透。"""
+    space: dict = {}
     for k, v in ps.items():
-        mn, mx = float(v["min"]), float(v["max"])
-        is_int = v.get("type") == "int"
-        if is_int:
-            step = max(1.0, (mx - mn) / (n_pts - 1))
-            pts = [int(round(mn + i * step)) for i in range(n_pts)]
-        else:
-            step = (mx - mn) / (n_pts - 1)
-            pts = [mn + i * step for i in range(n_pts)]
-        space[k] = {"type": "choice", "values": pts}
+        if "values" in v:
+            space[k] = {"type": "choice", "values": list(v["values"])}
+        elif "min" in v and "max" in v:
+            space[k] = {
+                "type": "range",
+                "min": float(v["min"]),
+                "max": float(v["max"]),
+                "step": float(v.get("step", 1)),
+            }
     return space
 
 
@@ -109,19 +112,15 @@ def main():
     df = load_csv(csv_path)
     print(f"  bars={len(df)}, cols={list(df.columns)}")
 
-    ps = cls.get_params_space()
-    space = _space_from_ps(ps, n_pts=3)
-    total = 1
-    for v in space.values():
-        total *= len(v["values"])
-    print(f"  grid combos={total} (bayesian ~25 eval)")
+    ps = cls().get_params_space()
+    print(f"  params={list(ps.keys())} (bayesian ~25 eval)")
 
     bt = Backtester()
     bt.set_data(df)
     bt.set_strategy(cls())  # 必須先 set_strategy 否則 grid_search 內 strategy=None 全部 score=0
     opt = Optimizer(bt, metric="sharpe_ratio", maximize=True)
     t0 = time.time()
-    results = opt.bayesian_optimization(space, n_iterations=15, n_initial=10)
+    results = opt.bayesian_optimization(ps, n_iterations=15, n_initial=10)
     best = results[0]["params"]
     best_score = results[0]["score"]
     print(f"  best={best} score={best_score:.3f} ({time.time()-t0:.0f}s)")
@@ -162,9 +161,10 @@ def main():
     with open(fpath, "w") as f:
         json.dump(rep, f, ensure_ascii=False, indent=2, default=str)
     subprocess.run(["git", "add", "backtest_history/"], cwd=PROJ, check=False)
-    subprocess.run(["git", "commit", "-q", "-m", f"perf: 本地優化+WF+MC {name} {date}"], cwd=PROJ, check=False)
-    subprocess.run(["git", "push", "origin", "master"], cwd=PROJ, check=False)
-    print(f"  [saved] {fname}")
+    if not os.environ.get("NO_PUSH"):
+        subprocess.run(["git", "commit", "-q", "-m", f"perf: 本地優化+WF+MC {name} {date}"], cwd=PROJ, check=False)
+        subprocess.run(["git", "push", "origin", "master"], cwd=PROJ, check=False)
+    print(f"  [saved] {fpath}")
     print("done.")
 
 
