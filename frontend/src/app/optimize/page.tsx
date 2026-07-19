@@ -17,10 +17,10 @@ import { RealismPanel } from '@/components/realism/RealismPanel';
 
 const FALLBACK_STRATEGIES = [
   { label: 'Moving Average Cross', value: 'ma_cross' },
-  { label: 'RSI Reversion', value: 'rsi_reversion' },
   { label: 'Breakout', value: 'breakout' },
-  { label: 'Pairs Trade', value: 'pairs' },
+  { label: 'Pairs Trade', value: 'pairs_trading' },
   { label: 'Stat Arb', value: 'stat_arb' },
+  { label: 'Factor Driven', value: 'factor_driven' },
 ];
 
 const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
