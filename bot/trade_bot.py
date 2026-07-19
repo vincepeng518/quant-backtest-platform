@@ -98,11 +98,30 @@ def _client():
     })
 
 
-def _ccxt_sym(raw: str | None) -> str | None:
-    """ccxt 格式 ETH/USDT:USDT -> ETH-USDT (統一介面輸出)"""
+def simplify_symbol(raw: str | None) -> str | None:
+    """BingX symbol 簡化 (用戶規則):
+    - Crypto:     BTC-USDT → BTC (也處理 ccxt 原始 ETH/USDT:USDT → ETH)
+    - TradFi 商品: NCCOGOLD2USD-USDT → GOLD
+    - TradFi 股票: NCSKTSLA2USD-USDT → TSLA
+    - TradFi 股指: NCSINASDAQ1002USD-USDT → NASDAQ100
+    - TradFi 外匯: NCFXEUR2USD-USDT → EUR/USD, NCFXGBP2JPY-USDT → GBP/JPY
+    """
     if not raw:
         return raw
-    return raw.replace("/", "-").replace(":USDT", "").replace(":USDC", "")
+    import re
+    s = raw.strip().replace("/", "-").replace(":USDT", "").replace(":USDC", "")
+    # 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
+    m = re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    # 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
+    m = re.match(r"^NC(CO|SK|SI)(.+?)2USD-USDT$", s)
+    if m:
+        return m.group(2)
+    # Crypto: 去尾部 -USDT
+    if s.endswith("-USDT"):
+        return s[: -len("-USDT")]
+    return s
 
 
 def fetch_positions() -> list:
@@ -115,7 +134,7 @@ def fetch_positions() -> list:
         raw = ex.fetch_positions()
         out = []
         for p in raw:
-            sym = _ccxt_sym(p.get("symbol"))
+            sym = simplify_symbol(_ccxt_sym(p.get("symbol")))
             side = (p.get("side") or "").upper()  # long/short -> LONG/SHORT
             if not sym:
                 continue
@@ -157,17 +176,10 @@ def build_snapshot() -> dict:
     positions = fetch_positions()
     orders = fetch_order_history(200)
 
-    # symbol 簡化映射 (BingX 長名 -> 好讀)
-    SYMBOL_MAP = {
-        "NCCOGOLD2USD-USDT": "GOLD-USDT",
-    }
-    def _sym(s):
-        return SYMBOL_MAP.get(s, s)
-
     recs = []
     # 1) 當前持倉 (ccxt, status=OPEN)
     for p in positions:
-        sym = _sym(p.get("symbol"))
+        sym = simplify_symbol(p.get("symbol"))
         pside = p.get("positionSide")  # LONG/SHORT
         avg = float(p.get("avgPrice", 0) or 0)
         amt = float(p.get("positionAmt", 0) or 0)
@@ -194,7 +206,7 @@ def build_snapshot() -> dict:
     for o in orders:
         if o.get("status") != "FILLED":
             continue
-        sym = _sym(o.get("symbol"))
+        sym = simplify_symbol(o.get("symbol"))
         pside = o.get("positionSide")  # LONG/SHORT
         avg = float(o.get("avgPrice", 0) or 0)
         if avg <= 0:  # 無價格不記 (過濾不完整數據)
