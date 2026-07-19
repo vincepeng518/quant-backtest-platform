@@ -32,37 +32,36 @@ class Combo_STxVolZ(StrategyBase):
         self.m = float(params.get("st_mult", 3.0))
         self.vz_n = int(params.get("vz_window", 20))
         self.vz_th = float(params.get("vz_th", 1.0))
-
-    def _supertrend(self):
-        h = pd.Series(self._h); l = pd.Series(self._l); c = pd.Series(self._c)
-        atr = (h - l).rolling(self.p).mean()  # 簡化 ATR
-        mid = (h + l) / 2
-        up = mid - self.m * atr; dn = mid + self.m * atr
-        dirr = [1]
-        for i in range(1, len(c)):
-            if c.iloc[i] > up.iloc[i - 1]:
-                dirr.append(1)
-            elif c.iloc[i] < dn.iloc[i - 1]:
-                dirr.append(-1)
-            else:
-                dirr.append(dirr[-1])
-        return pd.Series(dirr)
-
-    def _volz(self):
-        v = pd.Series(self._v)
-        m = v.rolling(self.vz_n).mean(); sd = v.rolling(self.vz_n).std()
-        return (v - m) / sd
+        self._dir = 1  # 當前 Supertrend 方向
+        self._prev_up = None
+        self._prev_dn = None
 
     def next(self, bar: Bar):
         self._h.append(bar.high); self._l.append(bar.low)
         self._c.append(bar.close); self._v.append(bar.volume)
-        if len(self._c) < self.p + 2:
+        n = len(self._c)
+        if n < self.p + 2:
             return None
-        d = self._supertrend()
-        z = self._volz()
-        dd = d.iloc[-2]; zz = z.iloc[-2]
-        if dd == 1 and zz > self.vz_th:
+        # O(1) 增量 Supertrend
+        hi = np.array(self._h); lo = np.array(self._l); cl = np.array(self._c)
+        atr = (hi[-self.p:] - lo[-self.p:]).mean()  # 簡化 ATR
+        mid = (hi[-1] + lo[-1]) / 2
+        up = mid - self.m * atr
+        dn = mid + self.m * atr
+        if self._prev_up is None:
+            self._dir = 1
+        else:
+            if cl[-1] > self._prev_up:
+                self._dir = 1
+            elif cl[-1] < self._prev_dn:
+                self._dir = -1
+        self._prev_up = up
+        self._prev_dn = dn
+        v = np.array(self._v)
+        m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
+        z = (v[-1] - m) / (sd + 1e-9)
+        if self._dir == 1 and z > self.vz_th:
             return Signal(action="buy", price=bar.close)
-        if dd == -1 and zz > self.vz_th:
+        if self._dir == -1 and z > self.vz_th:
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)

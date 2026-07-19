@@ -41,11 +41,18 @@ class Combo_KCxVolZ(StrategyBase):
     def next(self, bar: Bar):
         self._hi.append(bar.high); self._lo.append(bar.low)
         self._cl.append(bar.close); self._vol.append(bar.volume)
-        if len(self._cl) < self.n + 2:
+        n = len(self._cl)
+        if n < self.n + 2:
             return None
-        upper, lower = self._kc()
-        vz = self._volz()
-        u = upper.iloc[-2]; l = lower.iloc[-2]; z = vz.iloc[-2]
+        # O(1) 增量
+        hi = np.array(self._hi); lo = np.array(self._lo); cl = np.array(self._cl)
+        mid = (hi[-1] + lo[-1] + cl[-1]) / 3
+        rng = (hi[-self.n:] - lo[-self.n:]).mean()
+        u = mid + self.mult * rng
+        l = mid - self.mult * rng
+        v = np.array(self._vol)
+        m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
+        z = (v[-1] - m) / (sd + 1e-9)
         c = bar.close
         if c > u and z > self.vz_th:
             return Signal(action="buy", price=bar.close)

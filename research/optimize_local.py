@@ -72,9 +72,9 @@ def main():
 
     ps = cls.get_params_space()
     # 轉成 Optimizer 的 param_space 格式 (choice), 限制總組合 <= MAX_COMBOS
-    MAX_COMBOS = 150
+    MAX_COMBOS = 80
     n_params = len(ps)
-    n_pts = max(2, int(MAX_COMBOS ** (1.0 / n_params)))  # 每參數點數
+    n_pts = max(3, int(MAX_COMBOS ** (1.0 / n_params)))  # 每參數點數 (>=3 避免太粗)
     space = {}
     for k, v in ps.items():
         mn, mx = float(v["min"]), float(v["max"])

@@ -41,13 +41,18 @@ class Combo_IchxMom(StrategyBase):
 
     def next(self, bar: Bar):
         self._h.append(bar.high); self._l.append(bar.low); self._c.append(bar.close)
-        if len(self._c) < self.sen + 2:
+        n = len(self._c)
+        if n < self.sen + 2:
             return None
-        spanA = self._ichimoku()
-        sa = spanA.iloc[-2]; c = bar.close
-        mom = self._c[-1] / self._c[-1 - self.mom_w] - 1 if len(self._c) > self.mom_w else 0
-        if c > sa and mom > 0:
+        # O(1) 增量
+        hi = np.array(self._h); lo = np.array(self._l)
+        tenk = (hi[-self.ten:].max() + lo[-self.ten:].min()) / 2
+        senk = (hi[-self.sen:].max() + lo[-self.sen:].min()) / 2
+        spanA = (tenk + senk) / 2
+        c = bar.close
+        mom = self._c[-1] / self._c[-1 - self.mom_w] - 1 if n > self.mom_w else 0
+        if c > spanA and mom > 0:
             return Signal(action="buy", price=bar.close)
-        if c < sa and mom < 0:
+        if c < spanA and mom < 0:
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)
