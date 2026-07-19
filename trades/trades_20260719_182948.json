@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-07-19T16:29:48.825174+00:00",
+  "source": "bingx-swap",
+  "repo": "vincepeng518/quant-backtest-platform",
+  "count": 3,
+  "records": [
+    {
+      "symbol": "ETH-USDT",
+      "side": "LONG",
+      "positionAmt": 0.91,
+      "avgPrice": 1827.98,
+      "exitPrice": 0.0,
+      "leverage": 150.0,
+      "unrealizedProfit": 37.896,
+      "realizedProfit": -1.078,
+      "pnlRatio": 3.4172,
+      "positionValue": 1701.36,
+      "liquidationPrice": 1796.28,
+      "status": "OPEN",
+      "ts": 1784478588825
+    },
+    {
+      "symbol": "BTC-USDT",
+      "side": "LONG",
+      "positionAmt": 0.011,
+      "avgPrice": 63262.8,
+      "exitPrice": 0.0,
+      "leverage": 150.0,
+      "unrealizedProfit": 14.5332,
+      "realizedProfit": -0.6812,
+      "pnlRatio": 3.1326,
+      "positionValue": 710.42,
+      "liquidationPrice": 58515.8,
+      "status": "OPEN",
+      "ts": 1784478588825
+    },
+    {
+      "symbol": "GOLD-USDT",
+      "side": "SHORT",
+      "positionAmt": 0.362,
+      "avgPrice": 4021.41,
+      "exitPrice": 0.0,
+      "leverage": 1000.0,
+      "unrealizedProfit": 1.5529,
+      "realizedProfit": 0.2515,
+      "pnlRatio": 1.0667,
+      "positionValue": 1454.2,
+      "liquidationPrice": 4201.52,
+      "status": "OPEN",
+      "ts": 1784478588825
+    }
+  ]
+}
