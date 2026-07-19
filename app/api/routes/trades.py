@@ -15,16 +15,26 @@ from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
-# symbol 簡化映射 (與 bot/trade_bot.py 同步)
-SYMBOL_MAP = {
-    "NCCOGOLD2USD-USDT": "GOLD-USDT",
-}
+# symbol 簡化 (與 bot/trade_bot.py simplify_symbol 同步, 用戶規則)
+import re as _re
 
 
 def norm_sym(sym):
     if not sym:
         return sym
-    return SYMBOL_MAP.get(sym, sym)
+    s = str(sym).strip().replace("/", "-").replace(":USDT", "").replace(":USDC", "")
+    # 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
+    m = _re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    # 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
+    m = _re.match(r"^NC(CO|SK|SI)(.+?)2USD-USDT$", s)
+    if m:
+        return m.group(2)
+    # Crypto: 去尾部 -USDT
+    if s.endswith("-USDT"):
+        return s[: -len("-USDT")]
+    return s
 
 
 router = APIRouter(prefix="/api/trades", tags=["trades"])
