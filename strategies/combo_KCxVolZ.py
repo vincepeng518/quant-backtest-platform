@@ -16,41 +16,30 @@ class Combo_KCxVolZ(StrategyBase):
     category = "combo"
 
     def init(self, params: dict) -> None:
-        self._hi: list[float] = []
-        self._lo: list[float] = []
-        self._cl: list[float] = []
-        self._vol: list[float] = []
         self.n = int(params.get("kc_window", 20))
         self.mult = float(params.get("kc_mult", 2.0))
         self.vz_n = int(params.get("vz_window", 20))
         self.vz_th = float(params.get("vz_th", 1.0))
-
-    def _kc(self):
-        hi = pd.Series(self._hi); lo = pd.Series(self._lo); cl = pd.Series(self._cl)
-        mid = (hi + lo + cl) / 3
-        rng = (hi - lo).rolling(self.n).mean()
-        upper = mid + self.mult * rng
-        lower = mid - self.mult * rng
-        return upper, lower
-
-    def _volz(self):
-        v = pd.Series(self._vol)
-        m = v.rolling(self.vz_n).mean(); sd = v.rolling(self.vz_n).std()
-        return (v - m) / sd
+        cap = 100000
+        self._hi = np.empty(cap); self._lo = np.empty(cap)
+        self._cl = np.empty(cap); self._vol = np.empty(cap)
+        self._i = 0
 
     def next(self, bar: Bar):
-        self._hi.append(bar.high); self._lo.append(bar.low)
-        self._cl.append(bar.close); self._vol.append(bar.volume)
-        n = len(self._cl)
+        i = self._i
+        self._hi[i] = bar.high; self._lo[i] = bar.low
+        self._cl[i] = bar.close; self._vol[i] = bar.volume
+        self._i += 1
+        n = self._i
         if n < self.n + 2:
             return None
-        # O(1) 增量
-        hi = np.array(self._hi); lo = np.array(self._lo); cl = np.array(self._cl)
-        mid = (hi[-1] + lo[-1] + cl[-1]) / 3
+        hi = self._hi[:n]; lo = self._lo[:n]; cl = self._cl[:n]
+        hlc3 = (hi[-self.n:] + lo[-self.n:] + cl[-self.n:]) / 3.0
+        mid = hlc3.mean()
         rng = (hi[-self.n:] - lo[-self.n:]).mean()
         u = mid + self.mult * rng
         l = mid - self.mult * rng
-        v = np.array(self._vol)
+        v = self._vol[:n]
         m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
         z = (v[-1] - m) / (sd + 1e-9)
         c = bar.close

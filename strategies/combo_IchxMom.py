@@ -1,7 +1,7 @@
 """
 combo_IchxMom.py — 驚喜組合 IchxMom 的網站回測版。
-邏輯：價在 Ichimoku 雲上 + 動量為正 => long；雲下 + 動量為負 => short。
-來源：combo_explorer 挖掘到負相關於 BH (-0.37) 的組合。
+邏輯：價格在 Ichimoku 雲上 + 動量>0 => long；雲下 + 動量<0 => short。
+來源：combo_explorer 挖掘到的負相關於 BH 組合。
 """
 from __future__ import annotations
 import numpy as np
@@ -11,8 +11,36 @@ from strategies.base import Bar, Signal, StrategyBase
 
 class Combo_IchxMom(StrategyBase):
     name = "combo_IchxMom"
-    description = "Ichimoku雲+動量 (驚喜組合)"
+    description = "Ichimoku雲+動量確認 (驚喜組合)"
     category = "combo"
+
+    def init(self, params: dict) -> None:
+        self.ten = int(params.get("tenkan", 9))
+        self.kij = int(params.get("kijun", 26))
+        self.sen = int(params.get("senkou", 52))
+        self.mom_w = int(params.get("mom_window", 5))
+        cap = 100000
+        self._h = np.empty(cap); self._l = np.empty(cap); self._c = np.empty(cap)
+        self._i = 0
+
+    def next(self, bar: Bar):
+        i = self._i
+        self._h[i] = bar.high; self._l[i] = bar.low; self._c[i] = bar.close
+        self._i += 1
+        n = self._i
+        if n < self.sen + 2:
+            return None
+        hi = self._h[:n]; lo = self._l[:n]
+        tenk = (hi[-self.ten:].max() + lo[-self.ten:].min()) / 2
+        senk = (hi[-self.sen:].max() + lo[-self.sen:].min()) / 2
+        spanA = (tenk + senk) / 2
+        c = bar.close
+        mom = self._c[n - 1] / self._c[n - 1 - self.mom_w] - 1 if n > self.mom_w else 0
+        if c > spanA and mom > 0:
+            return Signal(action="buy", price=bar.close)
+        if c < spanA and mom < 0:
+            return Signal(action="sell", price=bar.close)
+        return Signal(action="close", price=bar.close)
 
     @staticmethod
     def get_params_space() -> dict:
@@ -22,37 +50,3 @@ class Combo_IchxMom(StrategyBase):
             "senkou": {"type": "int", "min": 40, "max": 80, "default": 52},
             "mom_window": {"type": "int", "min": 3, "max": 20, "default": 5},
         }
-
-    def init(self, params: dict) -> None:
-        self._h: list[float] = []
-        self._l: list[float] = []
-        self._c: list[float] = []
-        self.ten = int(params.get("tenkan", 9))
-        self.kij = int(params.get("kijun", 26))
-        self.sen = int(params.get("senkou", 52))
-        self.mom_w = int(params.get("mom_window", 5))
-
-    def _ichimoku(self):
-        h = pd.Series(self._h); l = pd.Series(self._l); c = pd.Series(self._c)
-        tenk = (h.rolling(self.ten).max() + h.rolling(self.ten).min()) / 2
-        kij = (h.rolling(self.kij).max() + h.rolling(self.kij).min()) / 2
-        senk = (h.rolling(self.sen).max() + h.rolling(self.sen).min()) / 2
-        return (tenk + senk) / 2
-
-    def next(self, bar: Bar):
-        self._h.append(bar.high); self._l.append(bar.low); self._c.append(bar.close)
-        n = len(self._c)
-        if n < self.sen + 2:
-            return None
-        # O(1) 增量
-        hi = np.array(self._h); lo = np.array(self._l)
-        tenk = (hi[-self.ten:].max() + lo[-self.ten:].min()) / 2
-        senk = (hi[-self.sen:].max() + lo[-self.sen:].min()) / 2
-        spanA = (tenk + senk) / 2
-        c = bar.close
-        mom = self._c[-1] / self._c[-1 - self.mom_w] - 1 if n > self.mom_w else 0
-        if c > spanA and mom > 0:
-            return Signal(action="buy", price=bar.close)
-        if c < spanA and mom < 0:
-            return Signal(action="sell", price=bar.close)
-        return Signal(action="close", price=bar.close)
