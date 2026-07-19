@@ -39,4 +39,4 @@ monitoring/shadow.db.selftest
 runtime/
 
 # trade bot local snapshots (persisted to GitHub trades/ via API)
-trades/
+/trades/
