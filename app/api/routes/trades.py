@@ -61,6 +61,7 @@ def _list_files() -> list[str]:
 @router.get("")
 async def get_trades():
     """回傳所有交易記錄 (扁平化) + 來源快照列表。"""
+    import base64
     names = _list_files()
     records = []
     snapshots = []
@@ -68,7 +69,6 @@ async def get_trades():
         obj = _gh_get(n)
         if not obj or "content" not in obj:
             continue
-        import base64
         try:
             content = base64.b64decode(obj["content"]).decode("utf-8")
             snap = json.loads(content)
@@ -79,29 +79,21 @@ async def get_trades():
             "generated_at": snap.get("generated_at"),
             "count": snap.get("count"),
         })
-        for rec in snap.get("records", []):
-            rec["_snapshot"] = n
-            rec["symbol"] = norm_sym(rec.get("symbol"))
-            records.append(rec)
-    # 去重: 同一 symbol 在多 snapshot 重複出現, 只保留最新 snapshot 的版本
-    latest_file = snapshots[-1]["file"] if snapshots else None
-    seen = {}
-    deduped = []
-    for r in records:
-        sym = r.get("symbol")
-        if sym not in seen:
-            seen[sym] = True
-            deduped.append(r)
-        elif r.get("_snapshot") == latest_file:
-            # 用最新 snapshot 的版本替換舊的
-            for i, ex in enumerate(deduped):
-                if ex.get("symbol") == sym:
-                    deduped[i] = r
-                    break
-    records = deduped
-    # 專業績效指標: 只用最新快照 (避免多 snapshot 重複計算同一持倉)
-    latest_recs = [r for r in records if r.get("_snapshot") == latest_file] if latest_file else records
-    metrics = _calc_metrics(latest_recs if latest_recs else records)
+    # 只取最新快照的 records (當前持倉狀態, 不攤平歷史 snapshot 避免重複/舊單)
+    records = []
+    if snapshots:
+        latest_file = snapshots[-1]["file"]
+        latest_obj = _gh_get(latest_file)
+        if latest_obj and "content" in latest_obj:
+            try:
+                latest_snap = json.loads(base64.b64decode(latest_obj["content"]).decode("utf-8"))
+                for rec in latest_snap.get("records", []):
+                    rec["_snapshot"] = latest_file
+                    rec["symbol"] = norm_sym(rec.get("symbol"))
+                    records.append(rec)
+            except Exception:
+                pass
+    metrics = _calc_metrics(records)
     return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics}
 
 
