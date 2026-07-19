@@ -1,122 +1,18 @@
 [
   {
-    "id": "59818afaa6cd",
-    "name": "combo_KCxVolZ",
-    "description": "combo explorer surprise",
-    "category": "combo",
-    "filename": "59818afaa6cd.py",
-    "created_at": "2026-07-18T18:43:58.743622"
-  },
-  {
-    "id": "2e995fe10dfa",
-    "name": "combo_KCxVolZ",
-    "description": "test",
-    "category": "combo",
-    "filename": "2e995fe10dfa.py",
-    "created_at": "2026-07-18T18:44:16.902602"
-  },
-  {
-    "id": "1a1b82a3cedd",
-    "name": "combo_KCxVolZ_v2",
-    "description": "kc+volz",
-    "category": "combo",
-    "filename": "1a1b82a3cedd.py",
-    "created_at": "2026-07-18T18:45:14.488644"
-  },
-  {
-    "id": "fc057f1f7881",
-    "name": "combo_KCxVolZ_net",
-    "description": "combo",
-    "category": "combo",
-    "filename": "fc057f1f7881.py",
-    "created_at": "2026-07-19T03:23:30.075248"
-  },
-  {
-    "id": "7674ce118840",
-    "name": "combo_IchxVolZ_net",
-    "description": "combo",
-    "category": "combo",
-    "filename": "7674ce118840.py",
-    "created_at": "2026-07-19T03:27:15.083818"
-  },
-  {
-    "id": "e807dadaf218",
-    "name": "combo_IchxVolZ_net",
-    "description": "ich+volz",
-    "category": "combo",
-    "filename": "e807dadaf218.py",
-    "created_at": "2026-07-19T03:41:22.628491"
-  },
-  {
-    "id": "18feeb99352a",
-    "name": "combo_IchxVolZ",
-    "description": "auto",
-    "category": "combo",
-    "filename": "18feeb99352a.py",
-    "created_at": "2026-07-19T04:14:11.503514"
-  },
-  {
-    "id": "83140b72c300",
-    "name": "combo_IchxVolZ",
-    "description": "auto",
-    "category": "combo",
-    "filename": "83140b72c300.py",
-    "created_at": "2026-07-19T04:14:39.720731"
-  },
-  {
     "id": "3036d25522fb",
     "name": "combo_IchxVolZ",
-    "description": "auto",
+    "description": "Ichimoku雲+量異常確認 (驚喜組合)",
     "category": "combo",
     "filename": "3036d25522fb.py",
     "created_at": "2026-07-19T04:14:50.307918"
   },
   {
-    "id": "9ad088071cbd",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
+    "id": "fc057f1f7881",
+    "name": "combo_KCxVolZ",
+    "description": "KC突破+量異常確認 (驚喜組合)",
     "category": "combo",
-    "filename": "9ad088071cbd.py",
-    "created_at": "2026-07-19T04:18:27.473869"
-  },
-  {
-    "id": "8a9617b31ca9",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
-    "category": "combo",
-    "filename": "8a9617b31ca9.py",
-    "created_at": "2026-07-19T04:19:09.991535"
-  },
-  {
-    "id": "6d01c2484c11",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
-    "category": "combo",
-    "filename": "6d01c2484c11.py",
-    "created_at": "2026-07-19T04:19:25.854169"
-  },
-  {
-    "id": "76565c08cc24",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
-    "category": "combo",
-    "filename": "76565c08cc24.py",
-    "created_at": "2026-07-19T04:19:52.323388"
-  },
-  {
-    "id": "fdc44217702c",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
-    "category": "combo",
-    "filename": "fdc44217702c.py",
-    "created_at": "2026-07-19T04:20:32.275787"
-  },
-  {
-    "id": "1da0ebbf2e54",
-    "name": "combo_IchxVolZ",
-    "description": "opt",
-    "category": "combo",
-    "filename": "1da0ebbf2e54.py",
-    "created_at": "2026-07-19T04:20:55.493728"
+    "filename": "fc057f1f7881.py",
+    "created_at": "2026-07-19T03:23:30.075248"
   }
 ]
