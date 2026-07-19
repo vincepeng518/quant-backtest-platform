@@ -83,11 +83,24 @@ async def get_trades():
             rec["_snapshot"] = n
             rec["symbol"] = norm_sym(rec.get("symbol"))
             records.append(rec)
+    # 去重: 同一 symbol 在多 snapshot 重複出現, 只保留最新 snapshot 的版本
+    latest_file = snapshots[-1]["file"] if snapshots else None
+    seen = {}
+    deduped = []
+    for r in records:
+        sym = r.get("symbol")
+        if sym not in seen:
+            seen[sym] = True
+            deduped.append(r)
+        elif r.get("_snapshot") == latest_file:
+            # 用最新 snapshot 的版本替換舊的
+            for i, ex in enumerate(deduped):
+                if ex.get("symbol") == sym:
+                    deduped[i] = r
+                    break
+    records = deduped
     # 專業績效指標: 只用最新快照 (避免多 snapshot 重複計算同一持倉)
-    latest_recs = []
-    if snapshots:
-        latest_file = snapshots[-1]["file"]
-        latest_recs = [r for r in records if r.get("_snapshot") == latest_file]
+    latest_recs = [r for r in records if r.get("_snapshot") == latest_file] if latest_file else records
     metrics = _calc_metrics(latest_recs if latest_recs else records)
     return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics}
 
