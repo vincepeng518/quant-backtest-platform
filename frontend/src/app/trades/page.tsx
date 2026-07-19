@@ -47,13 +47,17 @@ function heatClass(pnl: number): string {
 
 export default function TradesPage() {
   const [records, setRecords] = useState<TradeRec[]>([]);
+  const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
 
   useEffect(() => {
     api.getTrades()
-      .then((d: any) => setRecords(d.records ?? []))
+      .then((d: any) => {
+        setRecords(d.records ?? []);
+        setMetrics(d.metrics ?? null);
+      })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
   }, []);
@@ -188,6 +192,26 @@ export default function TradesPage() {
         <Card className="p-4">
           <p className="text-xs text-textSecondary font-mono mb-1">最大連續虧損</p>
           <p className="text-lg font-mono font-semibold text-danger">{stats.maxLossStreak} 筆</p>
+        </Card>
+      </div>
+
+      {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">Sharpe (粗略)</p>
+          <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
+          <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
+          <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">計入筆數</p>
+          <p className="text-xl font-mono font-semibold text-text">{metrics?.trade_count ?? 0}</p>
         </Card>
       </div>
 
