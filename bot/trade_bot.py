@@ -135,8 +135,11 @@ def build_snapshot() -> dict:
         pval = float(p.get("positionValue", 0) or 0)
         liq = float(p.get("liquidationPrice", 0) or 0)
         amt = float(p.get("positionAmt", 0) or 0)
-        # 平倉價: 用 orders 推 (持倉時 exit 通常=0或最新, 這裡抓最近一筆反向單)
-        exit_px = exit_prices.get((sym, pside), 0.0)
+        # 持倉中尚未平倉: exit price 強制 0 (orders 推的不可靠, 避免偽造平倉價)
+        exit_px = 0.0
+        # 過濾: 開倉價與平倉價都為 0 的不完整數據不記
+        if avg <= 0 and exit_px <= 0:
+            continue
         recs.append({
             "symbol": sym,
             "side": pside,
@@ -153,26 +156,9 @@ def build_snapshot() -> dict:
             "ts": int(time.time() * 1000),
         })
 
-    # 近期已實現 PnL 單獨列 (已平倉歷史)
-    for r in realized:
-        sym = norm_sym(r.get("symbol"))
-        inc = float(r.get("income", 0) or 0)
-        t = int(r.get("time", 0) or 0)
-        recs.append({
-            "symbol": sym,
-            "side": r.get("info", ""),   # Buy/Sell to Close
-            "positionAmt": 0,
-            "avgPrice": 0,
-            "exitPrice": 0,
-            "leverage": 0,
-            "unrealizedProfit": 0,
-            "realizedProfit": inc,
-            "pnlRatio": 0,
-            "positionValue": 0,
-            "liquidationPrice": 0,
-            "status": "CLOSED",
-            "ts": t,
-        })
+    # 註: 已平倉歷史 (income API) 只有盈虧數字, 沒有開平價
+    #     依需求不記錄 (避免不完整開關倉數據)
+    #     若未來需要, 改用 orders API 配對開平價後再記
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
