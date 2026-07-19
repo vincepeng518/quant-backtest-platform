@@ -83,4 +83,43 @@ async def get_trades():
             rec["_snapshot"] = n
             rec["symbol"] = norm_sym(rec.get("symbol"))
             records.append(rec)
-    return {"total": len(records), "snapshots": snapshots, "records": records}
+    # 專業績效指標 (借 awesome-quant/empyrical 算法, numpy 自實現不依賴外部 lib)
+    metrics = _calc_metrics(records)
+    return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics}
+
+
+def _calc_metrics(records: list) -> dict:
+    """Sharpe / Max Drawdown / Profit Factor (empyrical 風格, 純 numpy)。"""
+    try:
+        import numpy as np
+    except Exception:
+        return {}
+    pnls = []
+    for r in records:
+        rp = float(r.get("realizedProfit") or 0)
+        up = float(r.get("unrealizedProfit") or 0)
+        p = rp + up
+        if p != 0:
+            pnls.append(p)
+    if len(pnls) < 2:
+        return {"sharpe": None, "max_drawdown": None, "profit_factor": None, "trade_count": len(pnls)}
+    arr = np.array(pnls, dtype=float)
+    # Sharpe (年化係數簡化: 用 sqrt(N) 當 proxy, 樣本小不嚴謹)
+    mean = arr.mean()
+    std = arr.std(ddof=1)
+    sharpe = float((mean / std) * np.sqrt(len(arr))) if std > 0 else 0.0
+    # Max Drawdown (累積 PnL 峰值回撤)
+    cum = np.cumsum(arr)
+    peak = np.maximum.accumulate(cum)
+    dd = peak - cum
+    max_dd = float(dd.max()) if len(dd) else 0.0
+    # Profit Factor (總盈利 / 總虧損)
+    gains = arr[arr > 0].sum()
+    losses = -arr[arr < 0].sum()
+    pf = float(gains / losses) if losses > 0 else (float("inf") if gains > 0 else 0.0)
+    return {
+        "sharpe": round(sharpe, 3),
+        "max_drawdown": round(max_dd, 2),
+        "profit_factor": round(pf, 3) if pf != float("inf") else None,
+        "trade_count": len(pnls),
+    }
