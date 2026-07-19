@@ -42,14 +42,21 @@ class Combo_IchxVolZ(StrategyBase):
     def next(self, bar: Bar):
         self._h.append(bar.high); self._l.append(bar.low)
         self._c.append(bar.close); self._v.append(bar.volume)
-        if len(self._c) < self.sen + 2:
+        n = len(self._c)
+        if n < self.sen + 2:
             return None
-        spanA = self._ichimoku()
-        vz = self._volz()
-        sa = spanA.iloc[-2]; z = vz.iloc[-2]; c = bar.close
-        if c > sa and z > self.vz_th:
+        # O(1) 增量: 只算最新視窗, 不重建整條 pandas
+        hi = np.array(self._h); lo = np.array(self._l)
+        tenk = (hi[-self.ten:].max() + lo[-self.ten:].min()) / 2
+        senk = (hi[-self.sen:].max() + lo[-self.sen:].min()) / 2
+        spanA = (tenk + senk) / 2
+        v = np.array(self._v)
+        m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
+        z = (v[-1] - m) / (sd + 1e-9)
+        c = bar.close
+        if c > spanA and z > self.vz_th:
             return Signal(action="buy", price=bar.close)
-        if c < sa and z > self.vz_th:
+        if c < spanA and z > self.vz_th:
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)
 

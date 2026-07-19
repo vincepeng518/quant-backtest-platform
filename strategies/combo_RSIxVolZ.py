@@ -48,12 +48,22 @@ class Combo_RSIxVolZ(StrategyBase):
 
     def next(self, bar: Bar):
         self._c.append(bar.close); self._v.append(bar.volume)
-        if len(self._c) < max(self.rw, self.vz_n) + 2:
+        n = len(self._c)
+        if n < max(self.rw, self.vz_n) + 2:
             return None
-        r = self._rsi(); z = self._volz()
-        rsi = r.iloc[-2]; zz = z.iloc[-2]; c = bar.close
-        if rsi < self.os and zz > self.vz_th:
+        # O(1) 增量 RSI
+        cl = np.array(self._c)
+        d = np.diff(cl[-(self.rw + 1):])
+        gain = d[d > 0].mean() if np.any(d > 0) else 0.0
+        loss = -d[d < 0].mean() if np.any(d < 0) else 0.0
+        rs = gain / (loss + 1e-9)
+        rsi = 100 - 100 / (1 + rs)
+        v = np.array(self._v)
+        m = v[-self.vz_n:].mean(); sd = v[-self.vz_n:].std()
+        z = (v[-1] - m) / (sd + 1e-9)
+        c = bar.close
+        if rsi < self.os and z > self.vz_th:
             return Signal(action="buy", price=bar.close)
-        if rsi > self.ob and zz > self.vz_th:
+        if rsi > self.ob and z > self.vz_th:
             return Signal(action="sell", price=bar.close)
         return Signal(action="close", price=bar.close)
