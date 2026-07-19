@@ -36,12 +36,53 @@ except Exception as e:  # noqa
     git_persist = None
     REPO = "vincepeng518/quant-backtest-platform"
 
-# ccxt 統一交易所介面 (替代 BingX 私有 HMAC 簽名)
+# ccxt 統一交易所介面 (抓持倉, 穩定)
 try:
     import ccxt
 except Exception as e:  # noqa
     logger.warning("ccxt import failed: %s", e)
     ccxt = None
+
+# 私有簽名僅用於抓歷史成交 (ccxt 無法逐 symbol 掃歷史 allOrders)
+import hmac as _hmac
+import hashlib as _hashlib
+import requests as _requests
+
+BASE = "https://open-api.bingx.com"
+
+
+def _sign(path: str, params: dict) -> str:
+    qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+    secret = os.environ.get("BINGX_API_SECRET", "")
+    sig = _hmac.new(secret.encode(), qs.encode(), _hashlib.sha256).hexdigest()
+    return f"{path}?{qs}&signature={sig}"
+
+
+def _call_private(path: str, params: dict | None = None) -> dict:
+    params = params or {}
+    params.update({"timestamp": int(time.time() * 1000), "recvWindow": 5000})
+    url = f"{BASE}{_sign(path, params)}"
+    try:
+        r = _requests.get(url, headers={
+            "X-BX-APIKEY": os.environ.get("BINGX_API_KEY", ""),
+            "X-SOURCE-KEY": "BX-AI-SKILL",
+        }, timeout=15)
+        return r.json()
+    except Exception as e:  # noqa
+        logger.warning("private call %s err: %s", path, e)
+        return {}
+
+
+def _parse_lev(v) -> float:
+    """BingX leverage 可能為 '150X' 字串 -> 150.0"""
+    if v is None:
+        return 0.0
+    s = str(v).replace("X", "").replace("x", "").strip()
+    try:
+        return float(s)
+    except Exception:
+        return 0.0
+
 
 TRADES_PREFIX = "trades"  # GitHub 路徑 trades/
 
@@ -97,54 +138,91 @@ def fetch_positions() -> list:
         return []
 
 
+def fetch_order_history(limit: int = 200) -> list:
+    """私有 allOrders: 歷史成交 (含開平價, ccxt 無法逐 symbol 掃歷史)。"""
+    try:
+        d = _call_private("/openApi/swap/v2/trade/allOrders", {"limit": limit})
+        data = d.get("data", {})
+        if isinstance(data, dict):
+            return data.get("orders", [])
+        return data if isinstance(data, list) else []
+    except Exception as e:  # noqa
+        logger.warning("order history err: %s", e)
+        return []
+
+
 def build_snapshot() -> dict:
-    """組合一次快照: 持倉 (ccxt 抓取, 只含有開倉價的完整數據)。"""
+    """組合一次快照: 當前持倉 (ccxt) + 歷史成交 (私有 allOrders)。
+    只記有開平價的完整數據 (過濾無價格的)。"""
     positions = fetch_positions()
+    orders = fetch_order_history(200)
 
     # symbol 簡化映射 (BingX 長名 -> 好讀)
     SYMBOL_MAP = {
         "NCCOGOLD2USD-USDT": "GOLD-USDT",
     }
+    def _sym(s):
+        return SYMBOL_MAP.get(s, s)
 
     recs = []
+    # 1) 當前持倉 (ccxt, status=OPEN)
     for p in positions:
-        sym = SYMBOL_MAP.get(p.get("symbol"), p.get("symbol"))
+        sym = _sym(p.get("symbol"))
         pside = p.get("positionSide")  # LONG/SHORT
         avg = float(p.get("avgPrice", 0) or 0)
-        lev = float(p.get("leverage", 0) or 0)
-        upnl = float(p.get("unrealizedProfit", 0) or 0)
-        rpnl = float(p.get("realisedProfit", 0) or 0)
-        pnl_ratio = float(p.get("pnlRatio", 0) or 0)
-        pval = float(p.get("positionValue", 0) or 0)
-        liq = float(p.get("liquidationPrice", 0) or 0)
         amt = float(p.get("positionAmt", 0) or 0)
-        # 持倉中尚未平倉: exit price 強制 0 (避免偽造平倉價)
-        exit_px = 0.0
-        # 過濾: 開倉價與平倉價都為 0 的不完整數據不記
-        if avg <= 0 and exit_px <= 0:
+        if avg <= 0:  # 無開倉價不記
             continue
         recs.append({
             "symbol": sym,
             "side": pside,
             "positionAmt": amt,
-            "avgPrice": avg,            # 開倉價
-            "exitPrice": exit_px,       # 平倉價 (持倉中多為0)
-            "leverage": lev,
-            "unrealizedProfit": upnl,
-            "realizedProfit": rpnl,
-            "pnlRatio": pnl_ratio,       # 盈虧比
-            "positionValue": pval,       # 總倉位大小
-            "liquidationPrice": liq,
+            "avgPrice": avg,
+            "exitPrice": 0.0,       # 持倉中尚未平倉
+            "leverage": float(p.get("leverage", 0) or 0),
+            "unrealizedProfit": float(p.get("unrealizedProfit", 0) or 0),
+            "realizedProfit": float(p.get("realisedProfit", 0) or 0),
+            "pnlRatio": 0.0,
+            "positionValue": float(p.get("positionValue", 0) or 0),
+            "liquidationPrice": float(p.get("liquidationPrice", 0) or 0),
             "status": "OPEN",
             "ts": int(time.time() * 1000),
         })
 
-    # 註: 已平倉歷史 (income API) 只有盈虧數字, 沒有開平價
-    #     依需求不記錄 (避免不完整開關倉數據)
+    # 2) 歷史成交 (私有 allOrders, FILLED 且有 avgPrice -> 完整開平價)
+    seen_keys = set()
+    for o in orders:
+        if o.get("status") != "FILLED":
+            continue
+        sym = _sym(o.get("symbol"))
+        pside = o.get("positionSide")  # LONG/SHORT
+        avg = float(o.get("avgPrice", 0) or 0)
+        if avg <= 0:  # 無價格不記 (過濾不完整數據)
+            continue
+        # 去重: 同一 symbol+side+positionSide+time 只記一次
+        key = (sym, o.get("side"), pside, o.get("time"))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        recs.append({
+            "symbol": sym,
+            "side": pside,
+            "positionAmt": float(o.get("executedQty", 0) or 0),
+            "avgPrice": avg,            # 成交價 (開或平)
+            "exitPrice": avg,           # 歷史成交有完整價格
+            "leverage": _parse_lev(o.get("leverage")),
+            "unrealizedProfit": 0.0,
+            "realizedProfit": float(o.get("profit", 0) or 0),
+            "pnlRatio": 0.0,
+            "positionValue": float(o.get("cumQuote", 0) or 0),
+            "liquidationPrice": 0.0,
+            "status": "CLOSED",
+            "ts": int(o.get("time", 0) or 0),
+        })
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-ccxt",
+        "source": "bingx-ccxt+orders",
         "repo": REPO,
         "count": len(recs),
         "records": recs,
