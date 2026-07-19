@@ -83,8 +83,12 @@ async def get_trades():
             rec["_snapshot"] = n
             rec["symbol"] = norm_sym(rec.get("symbol"))
             records.append(rec)
-    # 專業績效指標 (借 awesome-quant/empyrical 算法, numpy 自實現不依賴外部 lib)
-    metrics = _calc_metrics(records)
+    # 專業績效指標: 只用最新快照 (避免多 snapshot 重複計算同一持倉)
+    latest_recs = []
+    if snapshots:
+        latest_file = snapshots[-1]["file"]
+        latest_recs = [r for r in records if r.get("_snapshot") == latest_file]
+    metrics = _calc_metrics(latest_recs if latest_recs else records)
     return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics}
 
 
