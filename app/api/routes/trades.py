@@ -98,7 +98,8 @@ async def get_trades():
 
 
 def _calc_metrics(records: list) -> dict:
-    """Sharpe / Max Drawdown / Profit Factor (empyrical 風格, 純 numpy)。"""
+    """Sharpe / Sortino / Calmar / Annual Return / Max Drawdown / Profit Factor
+    (empyrical 風格, 純 numpy 自實現, 不依賴外部 lib)。"""
     try:
         import numpy as np
     except Exception:
@@ -111,24 +112,38 @@ def _calc_metrics(records: list) -> dict:
         if p != 0:
             pnls.append(p)
     if len(pnls) < 2:
-        return {"sharpe": None, "max_drawdown": None, "profit_factor": None, "trade_count": len(pnls)}
+        return {"sharpe": None, "sortino": None, "calmar": None,
+                "annual_return": None, "max_drawdown": None,
+                "profit_factor": None, "trade_count": len(pnls)}
     arr = np.array(pnls, dtype=float)
-    # Sharpe (年化係數簡化: 用 sqrt(N) 當 proxy, 樣本小不嚴謹)
+    n = len(arr)
     mean = arr.mean()
     std = arr.std(ddof=1)
-    sharpe = float((mean / std) * np.sqrt(len(arr))) if std > 0 else 0.0
+    # Sharpe (簡化年化: sqrt(N) 當 proxy)
+    sharpe = float((mean / std) * np.sqrt(n)) if std > 0 else 0.0
+    # Sortino: 只用下行波動 (負收益 std)
+    downside = arr[arr < 0]
+    dstd = downside.std(ddof=1) if len(downside) > 1 else 0.0
+    sortino = float((mean / dstd) * np.sqrt(n)) if dstd > 0 else (0.0 if mean >= 0 else float('-inf'))
     # Max Drawdown (累積 PnL 峰值回撤)
     cum = np.cumsum(arr)
     peak = np.maximum.accumulate(cum)
     dd = peak - cum
     max_dd = float(dd.max()) if len(dd) else 0.0
+    # Calmar = 年化報酬 / 最大回撤 (這裡用 mean*N 當年化 proxy)
+    calmar = float((mean * n) / max_dd) if max_dd > 0 else None
+    # Annual Return (簡化: mean * N 當年化累積 proxy)
+    annual_return = float(mean * n)
     # Profit Factor (總盈利 / 總虧損)
     gains = arr[arr > 0].sum()
     losses = -arr[arr < 0].sum()
     pf = float(gains / losses) if losses > 0 else (float("inf") if gains > 0 else 0.0)
     return {
         "sharpe": round(sharpe, 3),
+        "sortino": round(sortino, 3) if sortino != float('-inf') else None,
+        "calmar": round(calmar, 3) if calmar is not None else None,
+        "annual_return": round(annual_return, 2),
         "max_drawdown": round(max_dd, 2),
         "profit_factor": round(pf, 3) if pf != float("inf") else None,
-        "trade_count": len(pnls),
+        "trade_count": n,
     }

@@ -36,96 +36,79 @@ except Exception as e:  # noqa
     git_persist = None
     REPO = "vincepeng518/quant-backtest-platform"
 
-import hmac, hashlib, requests
+# ccxt 統一交易所介面 (替代 BingX 私有 HMAC 簽名)
+try:
+    import ccxt
+except Exception as e:  # noqa
+    logger.warning("ccxt import failed: %s", e)
+    ccxt = None
 
-BASE = "https://open-api.bingx.com"
 TRADES_PREFIX = "trades"  # GitHub 路徑 trades/
 
 
-def _sign(path: str, params: dict) -> str:
-    qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-    secret = os.environ.get("BINGX_API_SECRET", "")
-    sig = hmac.new(secret.encode(), qs.encode(), hashlib.sha256).hexdigest()
-    return f"{path}?{qs}&signature={sig}"
+def _client():
+    """建立 BingX ccxt client (從環境變數讀 key/secret)。"""
+    if ccxt is None:
+        return None
+    return ccxt.bingx({
+        "apiKey": os.environ.get("BINGX_API_KEY", ""),
+        "secret": os.environ.get("BINGX_API_SECRET", ""),
+        "enableRateLimit": True,
+    })
 
 
-def _call(path: str, params: dict | None = None) -> dict:
-    params = params or {}
-    params.update({"timestamp": int(time.time() * 1000), "recvWindow": 5000})
-    url = f"{BASE}{_sign(path, params)}"
-    r = requests.get(url, headers={
-        "X-BX-APIKEY": os.environ.get("BINGX_API_KEY", ""),
-        "X-SOURCE-KEY": "BX-AI-SKILL",
-    }, timeout=15)
-    return r.json()
-
-
-# symbol 簡化映射 (BingX 長名 -> 好讀)
-SYMBOL_MAP = {
-    "NCCOGOLD2USD-USDT": "GOLD-USDT",
-}
-
-def norm_sym(sym: str | None) -> str | None:
-    if not sym:
-        return sym
-    return SYMBOL_MAP.get(sym, sym)
+def _ccxt_sym(raw: str | None) -> str | None:
+    """ccxt 格式 ETH/USDT:USDT -> ETH-USDT (統一介面輸出)"""
+    if not raw:
+        return raw
+    return raw.replace("/", "-").replace(":USDT", "").replace(":USDC", "")
 
 
 def fetch_positions() -> list:
-    try:
-        d = _call("/openApi/swap/v2/user/positions").get("data", [])
-        return d if isinstance(d, list) else []
-    except Exception as e:  # noqa
-        logger.warning("positions err: %s", e)
+    """用 ccxt 抓 BingX 持倉 (替代私有簽名 API)。"""
+    ex = _client()
+    if ex is None:
+        logger.warning("ccxt client 不可用")
         return []
-
-
-def fetch_income(income_type: str = "REALIZED_PNL", limit: int = 200) -> list:
     try:
-        d = _call("/openApi/swap/v2/user/income",
-                  {"incomeType": income_type, "limit": limit}).get("data", [])
-        return d if isinstance(d, list) else []
+        raw = ex.fetch_positions()
+        out = []
+        for p in raw:
+            sym = _ccxt_sym(p.get("symbol"))
+            side = (p.get("side") or "").upper()  # long/short -> LONG/SHORT
+            if not sym:
+                continue
+            out.append({
+                "symbol": sym,
+                "positionSide": side,
+                "avgPrice": float(p.get("entryPrice") or 0),
+                "leverage": float(p.get("leverage") or 0),
+                "unrealizedProfit": float(p.get("unrealizedPnl") or 0),
+                "realisedProfit": float(p.get("realizedPnl") or 0),
+                "pnlRatio": 0.0,
+                "positionValue": float(p.get("notional") or p.get("contracts") or 0),
+                "liquidationPrice": float(p.get("liquidationPrice") or 0),
+                "positionAmt": float(p.get("contracts") or p.get("amount") or 0),
+            })
+        return out
     except Exception as e:  # noqa
-        logger.warning("income err: %s", e)
+        logger.warning("ccxt positions err: %s", e)
         return []
-
-
-def fetch_orders(symbol: str | None = None, limit: int = 100) -> list:
-    try:
-        p = {"limit": limit}
-        if symbol:
-            p["symbol"] = symbol
-        d = _call("/openApi/swap/v2/trade/allOrders", p).get("data", {})
-        # allOrders 回傳 {"orders": [...]}
-        if isinstance(d, dict):
-            return d.get("orders", [])
-        return d if isinstance(d, list) else []
-    except Exception as e:  # noqa
-        logger.warning("orders err: %s", e)
         return []
 
 
 def build_snapshot() -> dict:
-    """組合一次快照: 持倉 + 近期已實現PnL + 訂單歷史。"""
+    """組合一次快照: 持倉 (ccxt 抓取, 只含有開倉價的完整數據)。"""
     positions = fetch_positions()
-    realized = fetch_income("REALIZED_PNL", 200)
-    orders = fetch_orders(limit=200)
 
-    # 用 orders 補 exit price (平倉單 avgPrice)
-    # order side: SELL+SHORT=LONG平倉; BUY+LONG=SHORT平倉
-    exit_prices = {}
-    for o in orders:
-        sym = o.get("symbol")
-        side = o.get("side")
-        pside = o.get("positionSide")
-        avg = float(o.get("avgPrice", 0) or 0)
-        if sym and avg > 0:
-            key = (sym, pside)
-            exit_prices.setdefault(key, avg)
+    # symbol 簡化映射 (BingX 長名 -> 好讀)
+    SYMBOL_MAP = {
+        "NCCOGOLD2USD-USDT": "GOLD-USDT",
+    }
 
     recs = []
     for p in positions:
-        sym = norm_sym(p.get("symbol"))
+        sym = SYMBOL_MAP.get(p.get("symbol"), p.get("symbol"))
         pside = p.get("positionSide")  # LONG/SHORT
         avg = float(p.get("avgPrice", 0) or 0)
         lev = float(p.get("leverage", 0) or 0)
@@ -135,7 +118,7 @@ def build_snapshot() -> dict:
         pval = float(p.get("positionValue", 0) or 0)
         liq = float(p.get("liquidationPrice", 0) or 0)
         amt = float(p.get("positionAmt", 0) or 0)
-        # 持倉中尚未平倉: exit price 強制 0 (orders 推的不可靠, 避免偽造平倉價)
+        # 持倉中尚未平倉: exit price 強制 0 (避免偽造平倉價)
         exit_px = 0.0
         # 過濾: 開倉價與平倉價都為 0 的不完整數據不記
         if avg <= 0 and exit_px <= 0:
@@ -158,11 +141,10 @@ def build_snapshot() -> dict:
 
     # 註: 已平倉歷史 (income API) 只有盈虧數字, 沒有開平價
     #     依需求不記錄 (避免不完整開關倉數據)
-    #     若未來需要, 改用 orders API 配對開平價後再記
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-swap",
+        "source": "bingx-ccxt",
         "repo": REPO,
         "count": len(recs),
         "records": recs,

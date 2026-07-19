@@ -196,10 +196,22 @@ export default function TradesPage() {
       </div>
 
       {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
         <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">Sharpe (粗略)</p>
+          <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
           <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
+          <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
+          <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
+          <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
@@ -208,10 +220,6 @@ export default function TradesPage() {
         <Card className="p-4">
           <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
           <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">計入筆數</p>
-          <p className="text-xl font-mono font-semibold text-text">{metrics?.trade_count ?? 0}</p>
         </Card>
       </div>
 
