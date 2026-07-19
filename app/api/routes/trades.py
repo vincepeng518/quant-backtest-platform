@@ -22,7 +22,7 @@ import re as _re
 def norm_sym(sym):
     if not sym:
         return sym
-    s = str(sym).strip().replace("/", "-").replace(":USDT", "").replace(":USDC", "")
+    s = str(sym).strip().replace(":USDT", "").replace(":USDC", "")
     # 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
     m = _re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
     if m:
