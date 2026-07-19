@@ -34,17 +34,30 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   };
   if (ADMIN_TOKEN) headers['Authorization'] = `Bearer ${ADMIN_TOKEN}`;
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout 防卡死轉圈
 
-  if (!response.ok) {
-    const errorDetails = await response.text();
-    throw new ApiError(response.status, errorDetails || 'API request error');
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      throw new ApiError(response.status, errorDetails || 'API request error');
+    }
+
+    return response.json();
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      throw new ApiError(408, '請求超時 (10s) — 後端可能未響應');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return response.json();
 }
 
 export const api = {
