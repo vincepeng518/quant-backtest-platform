@@ -44,8 +44,11 @@ function simplifySymbol(raw: string | undefined | null): string {
   // 商品/股票/股指: NC{CO|SK|SI}<NAME>2USD-USDT → NAME
   m = s.match(/^NC(CO|SK|SI)(.+?)2USD-USDT$/);
   if (m) return m[2];
+  // TradFi 變體: NC<NAME>-USDT → NAME (無 2USD 後綴, 例 NCOILWTI-USDT → OILWTI)
+  m = s.match(/^NC(\w+)-USDT$/);
+  if (m) return m[1];
   // Crypto: 去尾部 -USDT
-  if (s.endsWith('-USDT')) return s.slice(0, -len('-USDT'));
+  if (s.endsWith('-USDT')) return s.slice(0, -5);
   return s;
 }
 

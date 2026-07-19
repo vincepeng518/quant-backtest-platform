@@ -118,6 +118,10 @@ def simplify_symbol(raw: str | None) -> str | None:
     m = re.match(r"^NC(CO|SK|SI)(.+?)2USD-USDT$", s)
     if m:
         return m.group(2)
+    # TradFi 變體: NC<NAME>-USDT → NAME (無 2USD 後綴, 例 NCOILWTI-USDT → OILWTI)
+    m = re.match(r"^NC(\w+)-USDT$", s)
+    if m:
+        return m.group(1)
     # Crypto: 去尾部 -USDT
     if s.endswith("-USDT"):
         return s[: -len("-USDT")]
