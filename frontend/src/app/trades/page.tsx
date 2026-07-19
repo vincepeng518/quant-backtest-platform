@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { PageShell } from '@/components/layout/PageShell';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
@@ -155,6 +156,10 @@ export default function TradesPage() {
       title="交易記錄"
       subtitle="自動抓取 BingX 持倉與歷史已平倉，永久保存於 GitHub。僅含客觀數據。"
     >
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/history" className="text-xs font-mono text-accent hover:underline">回測歷史 ↗</Link>
+        <Link href="/monitoring" className="text-xs font-mono text-textSecondary hover:text-accent">監控 ↗</Link>
+      </div>
       {/* 範圍切換 */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {tabs.map((t) => (
