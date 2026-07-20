@@ -322,7 +322,7 @@ export default function TradesPage() {
                   <th className="text-right px-3 py-2">槓桿</th>
                   <th className="text-right px-3 py-2">總倉位</th>
                   <th className="text-right px-3 py-2">盈虧</th>
-                  <th className="text-right px-3 py-2">盈虧比</th>
+                  <th className="text-left px-3 py-2">開倉時間</th>
                   <th className="text-left px-3 py-2">狀態</th>
                 </tr>
               </thead>
@@ -340,7 +340,9 @@ export default function TradesPage() {
                       <td className={`px-3 py-2 text-right ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         {p >= 0 ? '+' : ''}{fmt(p)}
                       </td>
-                      <td className="px-3 py-2 text-right text-textSecondary">{r.pnlRatio ? fmt(r.pnlRatio, 2) : '—'}</td>
+                      <td className="px-3 py-2 text-textSecondary">
+                        {sortKey(r) ? new Date(sortKey(r)).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </td>
                       <td className="px-3 py-2 text-textSecondary">{r.status}</td>
                     </tr>
                   );
