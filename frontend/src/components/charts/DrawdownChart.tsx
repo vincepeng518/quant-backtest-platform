@@ -24,6 +24,19 @@ const toTs = (raw: any): number => {
   return Math.floor(t);
 };
 
+// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
+const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
+  const seen = new Set<number>();
+  return [...(arr || [])]
+    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (a as any).timestamp))
+    .filter((d) => {
+      const t = toTs(d.time ?? (d as any).timestamp);
+      if (t <= 0 || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+};
+
 const fmt = (n: number, d = 2): string => {
   if (n == null || isNaN(n)) return '—';
   const abs = Math.abs(n);
@@ -79,21 +92,20 @@ export const DrawdownChart: React.FC<DrawdownChartProps> = ({
       title: 'Drawdown (%)',
     });
 
-    drawdownArea.setData(
-      (() => {
-        let peak = -Infinity;
-        return data
-          .map((d) => {
-            const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
-            if (t <= 0) return null as any;
-            const eq = (d as any).equity ?? 0;
-            peak = Math.max(peak, eq);
-            const dd = peak > 0 ? (eq - peak) / peak * 100 : 0;
-            return { time: t, value: -Math.abs(dd) };
-          })
-          .filter(Boolean);
-      })()
-    );
+    const ddData = (() => {
+      let peak = -Infinity;
+      return sortDedupe(data)
+        .map((d) => {
+          const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
+          if (t <= 0) return null as any;
+          const eq = (d as any).equity ?? 0;
+          peak = Math.max(peak, eq);
+          const dd = peak > 0 ? (eq - peak) / peak * 100 : 0;
+          return { time: t, value: -Math.abs(dd) };
+        })
+        .filter(Boolean);
+    })();
+    if (ddData.length > 0) drawdownArea.setData(ddData);
 
     chartRef.current = chart;
 

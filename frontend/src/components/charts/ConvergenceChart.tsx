@@ -28,11 +28,13 @@ export const ConvergenceChart: React.FC<Props> = ({ trials }) => {
     chartRef.current = chart;
     const series = chart.addLineSeries({ color: '#5b9dff', lineWidth: 2 });
     let best = -Infinity;
-    const data = trials.map((t, i) => {
-      best = Math.max(best, t.score);
-      return { time: (i * 3600) as UTCTimestamp, value: best };
-    });
-    series.setData(data);
+    const data = trials
+      .map((t, i) => {
+        best = Math.max(best, t.score);
+        return { time: (i * 3600) as UTCTimestamp, value: best };
+      })
+      .filter((d) => Number.isFinite(d.value));
+    if (data.length > 0) series.setData(data);
     const onResize = () => { if (ref.current) chart.applyOptions({ width: ref.current.clientWidth }); };
     window.addEventListener('resize', onResize);
     return () => {

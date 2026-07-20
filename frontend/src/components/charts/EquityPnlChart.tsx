@@ -42,6 +42,19 @@ const toTs = (raw: any): number => {
   return Math.floor(t);
 };
 
+// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
+const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
+  const seen = new Set<number>();
+  return [...(arr || [])]
+    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (a as any).timestamp))
+    .filter((d) => {
+      const t = toTs(d.time ?? (d as any).timestamp);
+      if (t <= 0 || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+};
+
 const fmt = (n: number, d = 2): string => {
   if (n == null || isNaN(n)) return '—';
   const abs = Math.abs(n);
@@ -104,9 +117,14 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.1, bottom: 0.1 } },
     });
 
-    const eqData: LineData[] = equity
+    const eqData: LineData[] = sortDedupe(equity)
       .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
       .filter((d) => d.time > 0);
+
+    if (eqData.length === 0) {
+      chart.remove();
+      return;
+    }
 
     const equityLine = chart.addLineSeries({
       color: STRATEGY,
@@ -161,12 +179,15 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         text: `最大回撤 ${((maxDd) * 100).toFixed(1)}%`,
       });
     }
-    if (markers.length > 0) equityLine.setMarkers(markers);
+    if (markers.length > 0) {
+      markers.sort((a, b) => (a.time as number) - (b.time as number));
+      equityLine.setMarkers(markers);
+    }
 
     let spreadLine: ISeriesApi<'Line'> | null = null;
     if (showSpread && buyHold.length > 0) {
       const bhMap = new Map<number, number>(
-        buyHold.map((d) => [toTs(d.time ?? (d as any).timestamp) as number, d.equity])
+        sortDedupe(buyHold).map((d) => [toTs(d.time ?? (d as any).timestamp) as number, d.equity])
       );
       const spreadData: LineData[] = eqData
         .map((d) => {
@@ -204,7 +225,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         priceLineVisible: false,
       });
       bhLine.setData(
-        buyHold
+        sortDedupe(buyHold)
           .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
           .filter((d) => d.time > 0)
       );
@@ -218,7 +239,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
     histSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.82, bottom: 0 },
     });
-    const histData: HistogramData[] = trades
+    const histData: HistogramData[] = sortDedupe(trades)
       .map((t) => {
         const pnl = Number(t.pnl) || 0;
         const t2 = toUnixSec(t.exit_time);

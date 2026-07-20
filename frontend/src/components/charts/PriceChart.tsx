@@ -26,6 +26,19 @@ const toTs = (raw: any): number => {
   return Math.floor(t);
 };
 
+// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
+const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
+  const seen = new Set<number>();
+  return [...(arr || [])]
+    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (a as any).timestamp))
+    .filter((d) => {
+      const t = toTs(d.time ?? (d as any).timestamp);
+      if (t <= 0 || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+};
+
 const fmt = (n: number, d = 2): string => {
   if (n == null || isNaN(n)) return '—';
   const abs = Math.abs(n);
@@ -100,7 +113,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
     });
 
-    const formattedData = data
+    const formattedData = sortDedupe(data)
       .filter((d) => d != null)
       .map((d) => {
         const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
@@ -115,17 +128,19 @@ export const PriceChart: React.FC<PriceChartProps> = ({
       })
       .filter(Boolean);
 
-    candlestickSeries.setData(formattedData);
+    if (formattedData.length > 0) candlestickSeries.setData(formattedData);
 
     if (markers.length > 0) {
-      const formattedMarkers = markers.map((m) => ({
-        time: toTs(m.time) as UTCTimestamp,
-        position: (m.position === 'belowBar' ? 'aboveBar' : 'belowBar') as 'aboveBar' | 'belowBar',
-        color: m.color,
-        shape: m.shape,
-        text: m.text,
-      }));
-      candlestickSeries.setMarkers(formattedMarkers);
+      const formattedMarkers = sortDedupe(markers)
+        .map((m) => ({
+          time: toTs(m.time) as UTCTimestamp,
+          position: (m.position === 'belowBar' ? 'aboveBar' : 'belowBar') as 'aboveBar' | 'belowBar',
+          color: m.color,
+          shape: m.shape,
+          text: m.text,
+        }))
+        .filter((m) => m.time > 0);
+      if (formattedMarkers.length > 0) candlestickSeries.setMarkers(formattedMarkers);
     }
 
     candlestickSeriesRef.current = candlestickSeries;

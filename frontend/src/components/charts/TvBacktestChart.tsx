@@ -34,6 +34,19 @@ const toTs = (raw: any): number => {
   return Math.floor(t);
 };
 
+// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
+const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
+  const seen = new Set<number>();
+  return [...(arr || [])]
+    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (b as any).timestamp))
+    .filter((d) => {
+      const t = toTs(d.time ?? (d as any).timestamp);
+      if (t <= 0 || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+};
+
 // ── P9: 動態價格精度 ──
 const fmt = (n: number, d = 2): string => {
   if (n == null || isNaN(n)) return '—';
@@ -156,9 +169,10 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
     });
     const closes = data.map((d) => d.close);
     const emaArr = emaFrom(closes, emaLen);
+    const sortedData = sortDedupe(data);
     const candleData: CandlestickData[] = [];
     const emaData: LineData[] = [];
-    data.forEach((d, i) => {
+    sortedData.forEach((d, i) => {
       const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
       if (t <= 0) return; // P1: skip invalid
       candleData.push({ time: t, open: d.open, high: d.high, low: d.low, close: d.close });
@@ -171,32 +185,40 @@ export const TvBacktestChart: React.FC<TvBacktestChartProps> = ({
 
     // ── P7: 交易標記交換（入場 aboveBar / 出場 belowBar）──
     if (markers.length > 0) {
-      candle.setMarkers(markers.map((m) => ({
-        time: toTs(m.time) as UTCTimestamp,
-        position: m.position === 'belowBar' ? 'aboveBar' : 'belowBar',
-        color: m.color,
-        shape: m.shape,
-        text: m.text,
-      })));
+      candle.setMarkers(
+        sortDedupe(markers)
+          .map((m) => ({
+            time: toTs(m.time) as UTCTimestamp,
+            position: (m.position === 'belowBar' ? 'aboveBar' : 'belowBar') as 'aboveBar' | 'belowBar',
+            color: m.color,
+            shape: m.shape,
+            text: m.text,
+          }))
+          .filter((m) => m.time > 0)
+      );
     }
 
     // ── Pane 2: volume ──
     const vol = volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
     // ── P6: 成交量柱佔比 30% (top 0.7) ──
     vol.priceScale().applyOptions({ scaleMargins: { top: 0.7, bottom: 0 } });
-    vol.setData(data.map((d) => {
-      const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
-      if (t <= 0) return null as any;
-      return { time: t, value: d.volume, color: d.close >= d.open ? 'rgba(8,153,129,0.3)' : 'rgba(242,54,69,0.3)' };
-    }).filter(Boolean));
+    vol.setData(
+      sortDedupe(data)
+        .map((d) => {
+          const t = toTs(d.time ?? (d as any).timestamp) as UTCTimestamp;
+          if (t <= 0) return null as any;
+          return { time: t, value: d.volume, color: d.close >= d.open ? 'rgba(8,153,129,0.3)' : 'rgba(242,54,69,0.3)' };
+        })
+        .filter(Boolean)
+    );
 
     // ── Pane 3: equity ──
     const strat = eqChart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'Strategy' });
-    const eqPoints = equityData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0);
+    const eqPoints = sortDedupe(equityData).map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0);
     strat.setData(eqPoints);
     if (buyHoldData.length > 0) {
       const bh = eqChart.addLineSeries({ color: '#787b86', lineWidth: 1, title: 'Buy&Hold' });
-      bh.setData(buyHoldData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0));
+      bh.setData(sortDedupe(buyHoldData).map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: Number(d.equity) })).filter((d) => d.time > 0));
     }
 
     // ── P2: 多 pane 同步防循環 guard ──
