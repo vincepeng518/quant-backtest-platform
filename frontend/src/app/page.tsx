@@ -2,14 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge, GitCompareArrows } from 'lucide-react';
+import { Activity, Sliders, TrendingUp, ArrowRight, Database, Cpu, Gauge, History } from 'lucide-react';
 import { MetricsCard } from '@/components/ui/MetricsCard';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { APP_VERSION, APP_VERSION_NOTE } from '@/lib/version';
 import { useDashboard } from '@/lib/dashboard';
-import { useMonitor } from '@/lib/monitor';
 
 const modules = [
   {
@@ -17,7 +16,7 @@ const modules = [
     path: '/backtest',
     icon: Activity,
     tag: '回測引擎',
-    desc: '載入市場數據，套用均線交叉、突破、配對交易等策略，秒級生成績效報告與權益曲線。',
+    desc: '載入市場數據，套用技術/組合策略，秒級生成績效報告、權益曲線與交易分佈。',
     metric: 'P&L',
   },
   {
@@ -25,29 +24,29 @@ const modules = [
     path: '/optimize',
     icon: Sliders,
     tag: '參數優化',
-    desc: '網格搜索、遺傳演算法、貝葉斯優化並行掃參，自動收斂到最佳風險調整後參數組合。',
+    desc: '貝葉斯優化自動掃參收斂到最佳風險調整後參數，輸出 WF + 蒙地卡羅穩健性報告。',
     metric: 'SHARPE',
   },
   {
-    name: 'Arbitrage',
-    path: '/arbitrage',
-    icon: GitCompareArrows,
-    tag: '跨所套利',
-    desc: '雙邊持倉捕捉同一資產在不同交易所的價差與資金費率差，合約級手續費與 funding 實景建模。',
-    metric: 'BASIS',
+    name: 'History',
+    path: '/history',
+    icon: History,
+    tag: '回測歷史',
+    desc: '所有已儲存回測記錄一覽，按 Sharpe / 日期排序，點擊還原該次結果進行檢視與匯出。',
+    metric: 'ARCHIVE',
   },
   {
-    name: 'Monitoring',
-    path: '/monitoring',
-    icon: GitCompareArrows,
-    tag: 'predict.fun 監控',
-    desc: '影子交易實時戰績、輪次明細與異常報警。本機守護進程自動重連，數據不假死。',
-    metric: 'SHADOW',
+    name: 'Strategies',
+    path: '/strategies',
+    icon: Cpu,
+    tag: '策略管理',
+    desc: '上傳你的 Python 策略（StrategyBase 抽象層），自帶未來函數檢測，一鍵跑回測或優化。',
+    metric: 'PYTHON',
   },
 ];
 
 const capabilities = [
-  { icon: Database, label: '多市場數據', detail: 'Crypto · Equity · Futures · FX' },
+  { icon: Database, label: '多市場數據', detail: 'BTC · ETH · SOL · GOLD (BingX)' },
   { icon: Cpu, label: '向量化引擎', detail: 'pandas / numpy 高速計算' },
   { icon: Gauge, label: 'ML 接口預留', detail: 'StrategyBase 抽象層可擴充' },
 ];
@@ -63,47 +62,6 @@ function StatsStrip() {
     { label: '最差 Sharpe', value: stats.worstRun ? Number(stats.worstRun.sharpe).toFixed(2) : '—', accent: 'danger' },
   ];
   return <MetricsCard items={items} />;
-}
-
-function MonitorStrip() {
-  const { stats, loading, error } = useMonitor();
-  if (loading) return <Spinner />;
-  if (error || !stats?.available || !stats.data) {
-    return (
-      <div className="rounded-xl border border-border/10 bg-surface/50 p-5">
-        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-textSecondary">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent/60" />
-          <span>predict.fun 實時監控</span>
-        </div>
-        <p className="mt-3 text-sm text-textSecondary">
-          {error ? '監控端未連線' : '監控守護進程未啟動 — 本地 daemon 上線後此處顯示真實戰績'}
-        </p>
-      </div>
-    );
-  }
-  const d = stats.data;
-  const items: { label: string; value: string | number; accent?: 'success' | 'danger' | 'neutral' | 'accent' }[] = [
-    { label: '影子交易', value: d?.shadow?.resolved ?? 0, accent: 'accent' },
-    { label: '勝率', value: `${d?.shadow?.win_rate ?? 0}%`, accent: (d?.shadow?.win_rate ?? 0) >= 50 ? 'success' : 'danger' },
-    { label: '累計 P&L', value: d?.shadow?.total_pnl ?? 0, accent: (d?.shadow?.total_pnl ?? 0) >= 0 ? 'success' : 'danger' },
-    { label: '尾盤加速', value: d?.tail?.tail_accel ?? '—', accent: 'neutral' },
-  ];
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-textSecondary">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-          <span>predict.fun 實時監控</span>
-        </div>
-        {stats.updated_at && (
-          <span className="font-mono text-[10px] text-textSecondary">
-            {new Date(stats.updated_at).toLocaleTimeString()}
-          </span>
-        )}
-      </div>
-      <MetricsCard items={items} />
-    </div>
-  );
 }
 
 function RecentRuns() {
@@ -150,7 +108,6 @@ export default function Home() {
     <div className="space-y-24 pb-12">
       {/* ── Hero ── */}
       <section className="relative overflow-hidden min-h-[420px] flex items-center">
-        {/* 抽象權益曲線視覺 */}
         <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]">
           <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice" fill="none">
             <path
@@ -171,7 +128,7 @@ export default function Home() {
         <div className="w-full max-w-3xl pt-16 md:pt-24">
           <div className="mb-6 flex items-center space-x-2 font-mono text-xs uppercase tracking-[0.2em] text-textSecondary">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            <span>Quantitative Trading Infrastructure</span>
+            <span>Quantitative Backtest Infrastructure</span>
           </div>
 
           <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight md:text-6xl">
@@ -194,31 +151,30 @@ export default function Home() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
-              href="/analysis"
+              href="/history"
               className="inline-flex items-center space-x-2 rounded-lg bg-surface px-6 py-3 text-sm font-medium text-text transition-colors hover:bg-surface/70"
             >
-              <span>穩健性分析</span>
+              <span>回測歷史</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── 即時儀表板 ── */}
+      {/* ── 儀表板 ── */}
       <section className="space-y-6">
         <StatsStrip />
         <ErrorBoundary>
-          <MonitorStrip />
+          <RecentRuns />
         </ErrorBoundary>
-        <RecentRuns />
       </section>
 
-      {/* ── 三大模塊 ── */}
+      {/* ── 四大模塊 ── */}
       <section className="space-y-8">
         <div className="flex items-end justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
             核心模塊
           </h2>
-          <span className="font-mono text-xs text-textSecondary">05 / workflows</span>
+          <span className="font-mono text-xs text-textSecondary">04 / workflows</span>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">

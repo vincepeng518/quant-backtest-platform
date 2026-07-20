@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Database, Activity, TrendingUp, Sliders, Code2, HardDrive, History, FlaskConical, Settings, Wallet, ChevronDown, LineChart } from 'lucide-react';
+import { Sun, Moon, Database, Activity, TrendingUp, Sliders, Code2, History, Wallet, ChevronDown } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -12,23 +12,16 @@ export const Header: React.FC = () => {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: Database },
     { name: 'Backtest', path: '/backtest', icon: Activity },
-    { name: 'Analysis', path: '/analysis', icon: TrendingUp },
+    { name: 'History', path: '/history', icon: History },
+    { name: 'Optimize', path: '/optimize', icon: Sliders },
     { name: 'Strategies', path: '/strategies', icon: Code2 },
     { name: 'Trades', path: '/trades', icon: Wallet },
-    { name: 'Admin', path: '/admin', icon: Settings },
   ];
 
   // 子功能 (收納於「更多」)
   const subItems = [
-    { name: 'Optimize', path: '/optimize', icon: Sliders, parent: 'Backtest' },
-    { name: 'Research', path: '/research', icon: FlaskConical, parent: 'Backtest' },
-    { name: 'Data', path: '/data', icon: HardDrive, parent: 'Strategies' },
-    { name: 'History', path: '/history', icon: History, parent: 'Trades' },
-    { name: 'Monitoring', path: '/monitoring', icon: LineChart, parent: 'Dashboard' },
-    { name: 'Arbitrage', path: '/arbitrage', icon: LineChart, parent: 'Admin' },
-    { name: 'Experiments', path: '/experiments', icon: FlaskConical, parent: 'Admin' },
+    { name: 'Dashboard', path: '/', icon: Database, parent: 'Home' },
   ];
 
   return (
