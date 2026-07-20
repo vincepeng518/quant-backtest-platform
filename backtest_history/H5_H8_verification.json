@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "verified_by": "BacktestAgent",
+    "date": "2026-07-19",
+    "engine": "research/optimize_local.py (Bayesian ~25 evals + WalkForward 5 win + MonteCarlo 1000)",
+    "venv": "/root/ytvenv/bin/python3",
+    "NO_PUSH": 1,
+    "data_caveat": "Realized data length is far shorter than the hypotheses' stated ~3.5yr. Actual spans: 30m series = 1001 bars (~3 weeks, 2026-06-29 to 2026-07-19); 1h BTC = 14001 bars (~1.6yr, 2024-12 to 2026-07); 1h ETH/SOL/HYPE/GOLD = 1001 bars (~6 weeks, 2026-06-08 to 2026-07-19). Short samples -> wide CIs, low statistical power.",
+    "engine_caveat": "The backtester's own WalkForward re-applies the IN-SAMPLE best_params to each OOS window (does NOT re-optimize per window). Therefore reported oos_sharpe is an inflated, non-true-OOS figure and should NOT be read as genuine out-of-sample robustness. True OOS requires per-window re-optimization. No lookahead was introduced: strategies use only t-1 and earlier; fills occur at the signal bar's close.",
+    "mc_p_note": "mc_p = approximate P(annual MC return <= 0), computed from 1000 bootstrap final_values (engine does not emit a formal p-value). No Newey-West HAC correction applied (autocorrelation/heteroskedasticity in returns unaddressed) -> significance estimates are optimistic."
+  },
+  "results": [
+    {
+      "hypothesis": "H6",
+      "strategy_used": "vol_confirm_breakout (custom /tmp/vol_confirm_breakout.py: Donchian breakout gated by abnormally high PAST-volume z-score)",
+      "symbol": "BTC", "tf": "30m",
+      "sharpe": 5.664, "oos_sharpe": 7.718, "consistency": 0.80,
+      "maxdd": 4.80, "mc_p": 0.225, "trades": 6,
+      "verdict": "REJECT",
+      "reason": "Passes numeric gate on this 3-week sample, but OOS is engine-inflated (in-sample params) and sample is only ~3 weeks/6 trades -> not a validated edge. True-OOS unknown."
+    },
+    {
+      "hypothesis": "H6",
+      "strategy_used": "vol_confirm_breakout",
+      "symbol": "ETH", "tf": "30m",
+      "sharpe": 5.462, "oos_sharpe": 6.904, "consistency": 0.60,
+      "maxdd": 4.35, "mc_p": 0.181, "trades": 4,
+      "verdict": "REJECT",
+      "reason": "Borderline consistency=0.60 on 3-week sample, only 4 trades, OOS engine-inflated. Not a validated edge."
+    },
+    {
+      "hypothesis": "H6",
+      "strategy_used": "vol_confirm_breakout",
+      "symbol": "SOL", "tf": "30m",
+      "sharpe": 0.081, "oos_sharpe": 0.417, "consistency": 0.20,
+      "maxdd": 8.05, "mc_p": 0.515, "trades": 2,
+      "verdict": "REJECT",
+      "reason": "sharpe<1.0 and consistency<0.6 and only 2 trades on 3-week sample."
+    },
+    {
+      "hypothesis": "H6",
+      "strategy_used": "vol_confirm_breakout",
+      "symbol": "HYPE", "tf": "30m",
+      "sharpe": 2.502, "oos_sharpe": -0.344, "consistency": 0.20,
+      "maxdd": 4.20, "mc_p": 0.410, "trades": 4,
+      "verdict": "REJECT",
+      "reason": "consistency<0.6 (negative OOS sharpe) despite in-sample sharpe>1. Non-robust."
+    },
+    {
+      "hypothesis": "H6",
+      "strategy_used": "vol_confirm_breakout",
+      "symbol": "GOLD", "tf": "30m",
+      "sharpe": 2.013, "oos_sharpe": -1.277, "consistency": 0.20,
+      "maxdd": 1.62, "mc_p": 0.392, "trades": 1,
+      "verdict": "REJECT",
+      "reason": "consistency<0.6 (negative OOS sharpe), only 1 trade. Non-robust."
+    },
+    {
+      "hypothesis": "H7",
+      "strategy_used": "entropy_regime (custom /tmp/entropy_strat.py: Bandt-Pompe PE(m=3) gate + trend filter, t-1 only)",
+      "symbol": "BTC", "tf": "1h",
+      "sharpe": -0.872, "oos_sharpe": -0.689, "consistency": 0.20,
+      "maxdd": 45.28, "mc_p": 0.566, "trades": 507,
+      "verdict": "REJECT",
+      "reason": "Negative in-sample AND OOS sharpe, consistency<0.6, 45% max DD. No edge; over-trades (507)."
+    },
+    {
+      "hypothesis": "H7",
+      "strategy_used": "entropy_regime",
+      "symbol": "ETH", "tf": "1h",
+      "sharpe": 3.226, "oos_sharpe": 0.000, "consistency": 0.00,
+      "maxdd": 5.72, "mc_p": 0.263, "trades": 16,
+      "verdict": "REJECT",
+      "reason": "In-sample sharpe>1 but WF consistency=0.00 (OOS Sharpe=0 across all 5 windows) -> no out-of-sample edge; classic overfit."
+    },
+    {
+      "hypothesis": "H7",
+      "strategy_used": "entropy_regime",
+      "symbol": "SOL", "tf": "1h",
+      "sharpe": 5.183, "oos_sharpe": 0.000, "consistency": 0.00,
+      "maxdd": 5.12, "mc_p": 0.178, "trades": 31,
+      "verdict": "REJECT",
+      "reason": "In-sample sharpe>1 but WF consistency=0.00 (OOS Sharpe=0) -> overfit, no OOS edge."
+    },
+    {
+      "hypothesis": "H7",
+      "strategy_used": "entropy_regime",
+      "symbol": "HYPE", "tf": "1h",
+      "sharpe": 2.044, "oos_sharpe": 0.000, "consistency": 0.00,
+      "maxdd": 11.29, "mc_p": 0.362, "trades": 29,
+      "verdict": "REJECT",
+      "reason": "In-sample sharpe>1 but WF consistency=0.00 (OOS Sharpe=0) -> overfit, no OOS edge."
+    },
+    {
+      "hypothesis": "H7",
+      "strategy_used": "entropy_regime",
+      "symbol": "GOLD", "tf": "1h",
+      "sharpe": 2.930, "oos_sharpe": 0.000, "consistency": 0.00,
+      "maxdd": 1.56, "mc_p": 0.319, "trades": 16,
+      "verdict": "REJECT",
+      "reason": "In-sample sharpe>1 but WF consistency=0.00 (OOS Sharpe=0) -> overfit, no OOS edge."
+    }
+  ],
+  "cannot_verify": [
+    {
+      "hypothesis": "H5",
+      "name": "Cross-sectional relative-strength rotation (1d)",
+      "reason": "Requires a MULTI-ASSET engine: needs the 5 symbols aligned at the same daily bars to compute cross-sectional z-scores and rotate long winners / short losers. The current backtest engine (engine/backtester.py) processes a single symbol/timeframe DataFrame and goes long-only per symbol; it has no cross-sectional ranking, no portfolio of positions, and no shorting layer. Cannot be validated with the available single-asset engine. Needs: multi-symbol data join + cross-sectional scoring + portfolio/short execution."
+    },
+    {
+      "hypothesis": "H8",
+      "name": "Inter-asset volatility-cointegration hedge (4h)",
+      "reason": "Requires a PAIRS/SPREAD engine: needs two (or more) cointegrated assets simultaneously to build the log-price spread, fit rolling OLS beta, z-score the spread, and trade long-A/short-B market-neutral. The current engine backtests one symbol at a time with no spread construction or simultaneous two-sided hedging. Cannot be validated with the available single-asset engine. Needs: paired-data feed + spread/OLS module + market-neutral execution."
+    }
+  ]
+}
