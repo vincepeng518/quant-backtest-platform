@@ -63,25 +63,44 @@ def _space_from_ps(ps: dict, n_pts: int = 3) -> dict:
     return space
 
 
-def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, n_windows: int) -> dict:
-    """手寫 WF: 直接用 best_params 滾窗測 OOS 穩健性 (不重優化, 快)。"""
+def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, ps: dict, n_windows: int) -> dict:
+    """真正 Walk-Forward: 每段用前面 IS 數據重優化, 測接下來 OOS 段 (非複用樣本內 best)。
+
+    切 n_windows 段。對 i in 1..n_windows-1:
+      IS = df[0 : i*win]  (前面所有), 在該 IS 上優化 best_i
+      OOS = df[i*win : (i+1)*win], 用 best_i 測
+    這樣 OOS 參數來自獨立 IS, 不泄露。
+    """
     n = len(df)
     win = n // n_windows
+    if win < 50:
+        # 數據太少, 退回單次 (仍用 is 前半優化)
+        half = n // 2
+        is_df, oos_df = df.iloc[:half], df.iloc[half:]
+        best_i = _optimize_params(is_df, cls, ps)
+        return _eval_oos([(is_df, oos_df, best_i)], cls, n_windows)
     oos_sharpes, oos_returns, oos_dds = [], [], []
-    for i in range(n_windows):
-        start = i * win
-        end = (i + 1) * win
-        oos_data = df.iloc[start:end]
+    windows = []
+    for i in range(1, n_windows):
+        is_df = df.iloc[: i * win]
+        oos_df = df.iloc[i * win : (i + 1) * win]
+        if len(is_df) < 30 or len(oos_df) < 5:
+            continue
+        best_i = _optimize_params(is_df, cls, ps)
         bt = Backtester()
-        bt.set_data(oos_data)
+        bt.set_data(oos_df)
         s = cls()
-        s.init(best)
+        s.init(best_i)
         bt.set_strategy(s)
         try:
             r = bt.run()
             oos_sharpes.append(r.sharpe_ratio)
             oos_returns.append(r.total_return_pct)
             oos_dds.append(r.max_drawdown_pct)
+            # 記錄該窗用的 IS 區間
+            windows.append({"is_range": f"0..{i*win}", "oos_range": f"{i*win}..{(i+1)*win}",
+                            "oos_sharpe": r.sharpe_ratio, "oos_return": r.total_return_pct,
+                            "oos_max_dd": r.max_drawdown_pct})
         except Exception:
             continue
     if not oos_sharpes:
@@ -95,8 +114,51 @@ def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, n_windows: int) -> dict
         "sharpe_std": float(arr.std()),
         "return_std": float(np.std(oos_returns)),
         "consistency": float(pos / len(arr)),
-        "windows": [{"oos_sharpe": s, "oos_return": rt, "oos_max_dd": dd}
-                    for s, rt, dd in zip(oos_sharpes, oos_returns, oos_dds)],
+        "windows": windows,
+    }
+
+
+def _optimize_params(is_df: pd.DataFrame, cls, ps: dict) -> dict:
+    """在 IS 數據上用 Bayesian 優化找 best params (輕量: 減少 iter 加速 WF)。"""
+    bt = Backtester()
+    bt.set_data(is_df)
+    bt.set_strategy(cls())
+    opt = Optimizer(bt, metric="sharpe_ratio", maximize=True)
+    try:
+        res = opt.bayesian_optimization(ps, n_iterations=8, n_initial=6)
+        return res[0]["params"]
+    except Exception:
+        return {}
+
+
+def _eval_oos(pairs, cls, n_windows):
+    oos_sharpes, oos_returns, oos_dds, windows = [], [], [], []
+    for is_df, oos_df, best_i in pairs:
+        bt = Backtester()
+        bt.set_data(oos_df)
+        s = cls()
+        s.init(best_i)
+        bt.set_strategy(s)
+        try:
+            r = bt.run()
+            oos_sharpes.append(r.sharpe_ratio)
+            oos_returns.append(r.total_return_pct)
+            oos_dds.append(r.max_drawdown_pct)
+            windows.append({"oos_sharpe": r.sharpe_ratio, "oos_return": r.total_return_pct,
+                            "oos_max_dd": r.max_drawdown_pct})
+        except Exception:
+            continue
+    if not oos_sharpes:
+        return {"avg_oos_sharpe": 0.0, "avg_oos_return": 0.0, "sharpe_std": 0.0,
+                "return_std": 0.0, "consistency": 0.0, "windows": []}
+    arr = np.array(oos_sharpes)
+    return {
+        "avg_oos_sharpe": float(arr.mean()),
+        "avg_oos_return": float(np.mean(oos_returns)),
+        "sharpe_std": float(arr.std()),
+        "return_std": float(np.std(oos_returns)),
+        "consistency": float((arr > 0).sum() / len(arr)),
+        "windows": windows,
     }
 
 
@@ -131,8 +193,8 @@ def main():
     full = bt.run()
     print(f"  full: Sharpe={full.sharpe_ratio:.3f} ret={full.total_return_pct:.2f}% trades={full.total_trades}")
 
-    print(f"[3] walk-forward (n_windows={n_windows}, OOS with best_params)")
-    wf_res = _walk_forward_oos(df, cls, best, n_windows)
+    print(f"[3] walk-forward (n_windows={n_windows}, TRUE rolling IS-optimize -> OOS)")
+    wf_res = _walk_forward_oos(df, cls, best, ps, n_windows)
     print(f"  avg_oos_sharpe={wf_res.get('avg_oos_sharpe'):.3f} consistency={wf_res.get('consistency'):.2f}")
 
     print(f"[4] monte-carlo (n_sims={n_sims})")
