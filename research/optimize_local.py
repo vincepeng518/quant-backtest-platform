@@ -222,8 +222,9 @@ def main():
     fpath = os.path.join(hist_dir, fname)
     with open(fpath, "w") as f:
         json.dump(rep, f, ensure_ascii=False, indent=2, default=str)
-    subprocess.run(["git", "add", "backtest_history/"], cwd=PROJ, check=False)
+    # NO_PUSH: 完全不做任何 git 操作 (add/commit/push 全跳過)，避免並行時 index 競爭
     if not os.environ.get("NO_PUSH"):
+        subprocess.run(["git", "add", "backtest_history/"], cwd=PROJ, check=False)
         subprocess.run(["git", "commit", "-q", "-m", f"perf: 本地優化+WF+MC {name} {date}"], cwd=PROJ, check=False)
         subprocess.run(["git", "push", "origin", "master"], cwd=PROJ, check=False)
     print(f"  [saved] {fpath}")
