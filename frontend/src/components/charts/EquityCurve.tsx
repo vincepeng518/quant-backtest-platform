@@ -25,6 +25,19 @@ const toTs = (raw: any): number => {
   return Math.floor(t);
 };
 
+// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
+const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
+  const seen = new Set<number>();
+  return [...(arr || [])]
+    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (a as any).timestamp))
+    .filter((d) => {
+      const t = toTs(d.time ?? (d as any).timestamp);
+      if (t <= 0 || seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    });
+};
+
 const fmt = (n: number, d = 2): string => {
   if (n == null || isNaN(n)) return '—';
   const abs = Math.abs(n);
@@ -74,17 +87,13 @@ export const EquityCurve: React.FC<EquityCurveProps> = ({
     });
 
     const strategyLine = chart.addLineSeries({ color: '#2962FF', lineWidth: 2, title: 'Strategy' });
-    strategyLine.setData(
-      data.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
-        .filter((d) => d.time > 0)
-    );
+    const stratData = sortDedupe(data).map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity })).filter((d) => d.time > 0);
+    if (stratData.length > 0) strategyLine.setData(stratData);
 
     if (buyHoldData.length > 0) {
       const buyHoldLine = chart.addLineSeries({ color: '#787b86', lineWidth: 1, title: 'Buy & Hold' });
-      buyHoldLine.setData(
-        buyHoldData.map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
-          .filter((d) => d.time > 0)
-      );
+      const bhData = sortDedupe(buyHoldData).map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity })).filter((d) => d.time > 0);
+      if (bhData.length > 0) buyHoldLine.setData(bhData);
     }
 
     chartRef.current = chart;
