@@ -3,14 +3,14 @@
     "strategy": "sw_h22_vwaprev",
     "csv": "BTC_USDT_1h.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "win": 37,
-    "dev_mult": 2.9849190513356803,
+    "win": 53,
+    "dev_mult": 2.9901815165404413,
     "hold": 15,
-    "rsi_w": 14
+    "rsi_w": 19
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -28,32 +28,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..2800",
-        "oos_range": "2800..5600",
+        "is_range": "0..4666",
+        "oos_range": "4666..9332",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..5600",
-        "oos_range": "5600..8400",
+        "is_range": "0..9332",
+        "oos_range": "9332..13998",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..8400",
-        "oos_range": "8400..11200",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..11200",
-        "oos_range": "11200..14000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

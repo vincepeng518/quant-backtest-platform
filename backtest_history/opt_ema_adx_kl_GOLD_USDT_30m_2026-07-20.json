@@ -3,23 +3,23 @@
     "strategy": "ema_adx_kl",
     "csv": "GOLD_USDT_30m.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "ema_len": 237,
-    "adx_len": 30,
-    "atr_len": 27,
-    "adx_threshold": 34,
-    "kl_price_long": 114406,
-    "kl_price_short": 86105,
-    "sl_atr_mult": 0.7016436606159164,
-    "tp_atr_mult": 3.719340532854438,
-    "kl_atr_mult": 3.065447822237933,
+    "ema_len": 219,
+    "adx_len": 24,
+    "atr_len": 17,
+    "adx_threshold": 35,
+    "kl_price_long": 74386,
+    "kl_price_short": 39534,
+    "sl_atr_mult": 0.5401967685263163,
+    "tp_atr_mult": 1.7599913207880746,
+    "kl_atr_mult": 1.1039471493676083,
     "sr_mode": "manual",
-    "sr_lookback": 404,
-    "sr_res_pct": 0.6620915402779142,
-    "sr_sup_pct": 0.19116611753145824
+    "sr_lookback": 263,
+    "sr_res_pct": 0.6840746934362869,
+    "sr_sup_pct": 0.37590116644738003
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -30,39 +30,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": 1.786001767087142,
-    "avg_oos_return": 0.40181123787298567,
-    "sharpe_std": 9.653810093694565,
-    "return_std": 0.7332137044977133,
+    "avg_oos_sharpe": 0.49032435579126643,
+    "avg_oos_return": -0.18629970540186333,
+    "sharpe_std": 4.598586128342234,
+    "return_std": 0.38006514435200367,
     "consistency": 0.5,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": -4.108261772550968,
+        "oos_return": -0.566364849753867,
+        "oos_max_dd": 1.4131649647422313,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
-        "oos_sharpe": 5.032126125218062,
-        "oos_return": 0.3492463233436283,
-        "oos_max_dd": 1.1450695420714123
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 14.434862189131822,
-        "oos_return": 1.5992995667785872,
-        "oos_max_dd": 0.07302184536967252
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": -12.322981246001316,
-        "oos_return": -0.3413009386302729,
-        "oos_max_dd": 0.3413009386302729
+        "is_range": "0..666",
+        "oos_range": "666..999",
+        "oos_sharpe": 5.088910484133501,
+        "oos_return": 0.19376543895014037,
+        "oos_max_dd": 0.8590305411798491,
+        "used_fallback": false
       }
     ]
   },

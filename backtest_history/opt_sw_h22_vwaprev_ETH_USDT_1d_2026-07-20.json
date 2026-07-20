@@ -3,14 +3,14 @@
     "strategy": "sw_h22_vwaprev",
     "csv": "ETH_USDT_1d.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "win": 96,
-    "dev_mult": 2.9619972042085267,
-    "hold": 11,
-    "rsi_w": 12
+    "win": 58,
+    "dev_mult": 2.9778696641419993,
+    "hold": 5,
+    "rsi_w": 18
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -21,39 +21,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -0.5612667042311201,
-    "avg_oos_return": -3.95230042090045,
-    "sharpe_std": 0.9721424483250338,
-    "return_std": 6.845585135775439,
+    "avg_oos_sharpe": -0.3825513183536764,
+    "avg_oos_return": -2.71611895935145,
+    "sharpe_std": 0.3825513183536764,
+    "return_std": 2.71611895935145,
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": -2.2450668169244805,
-        "oos_return": -15.8092016836018,
-        "oos_max_dd": 15.8092016836018
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": -0.7651026367073528,
+        "oos_return": -5.4322379187029,
+        "oos_max_dd": 9.145152242708098,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

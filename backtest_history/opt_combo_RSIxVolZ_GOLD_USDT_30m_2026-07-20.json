@@ -3,15 +3,15 @@
     "strategy": "combo_RSIxVolZ",
     "csv": "GOLD_USDT_30m.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "rsi_window": 29,
-    "rsi_ob": 75,
-    "rsi_os": 24,
-    "vz_window": 23,
-    "vz_th": 2.0995530083341887
+    "rsi_window": 26,
+    "rsi_ob": 78,
+    "rsi_os": 27,
+    "vz_window": 35,
+    "vz_th": 2.570499509654105
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -22,39 +22,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -2.480358472119917,
-    "avg_oos_return": -0.09618006086754759,
-    "sharpe_std": 4.296106894695608,
-    "return_std": 0.16658875209765958,
+    "avg_oos_sharpe": -7.963628723517927,
+    "avg_oos_return": -1.1701185878551623,
+    "sharpe_std": 7.963628723517927,
+    "return_std": 1.1701185878551623,
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": -15.927257447035855,
+        "oos_return": -2.3402371757103246,
+        "oos_max_dd": 2.5620266929307944,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
-        "oos_sharpe": -9.921433888479667,
-        "oos_return": -0.38472024347019035,
-        "oos_max_dd": 0.38472024347019035
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

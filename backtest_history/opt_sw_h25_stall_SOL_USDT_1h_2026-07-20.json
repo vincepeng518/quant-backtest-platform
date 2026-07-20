@@ -3,15 +3,15 @@
     "strategy": "sw_h25_stall",
     "csv": "SOL_USDT_1h.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "roc_lb": 40,
-    "roc_thr": 0.11064379946837012,
-    "atr_w": 19,
-    "body_thr": 0.3267906242863302,
-    "hold": 15
+    "roc_lb": 34,
+    "roc_thr": 0.229874860100411,
+    "atr_w": 11,
+    "body_thr": 0.3897823523629286,
+    "hold": 10
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -29,32 +29,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
+        "is_range": "0..333",
+        "oos_range": "333..666",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

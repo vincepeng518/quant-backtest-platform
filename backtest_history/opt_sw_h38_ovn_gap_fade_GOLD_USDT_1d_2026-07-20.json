@@ -3,13 +3,13 @@
     "strategy": "sw_h38_ovn_gap_fade",
     "csv": "GOLD_USDT_1d.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "vol_lb": 36,
-    "gap_k": 1.4479370753902354,
-    "hold": 22
+    "vol_lb": 93,
+    "gap_k": 1.568610500710484,
+    "hold": 23
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -27,32 +27,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..51",
-        "oos_range": "51..102",
+        "is_range": "0..86",
+        "oos_range": "86..172",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": true
       },
       {
-        "is_range": "0..102",
-        "oos_range": "102..153",
+        "is_range": "0..172",
+        "oos_range": "172..258",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..153",
-        "oos_range": "153..204",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..204",
-        "oos_range": "204..255",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": true
       }
     ]
   },

@@ -3,12 +3,12 @@
     "strategy": "sw_h35_vwap_reversion",
     "csv": "SOL_USDT_1d.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "z_thr": 0.03833037141900057,
-    "z_exit": 0.002045177197463773
+    "z_thr": 0.012287259168445669,
+    "z_exit": 0.003660758708861258
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -26,32 +26,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
+        "is_range": "0..333",
+        "oos_range": "333..666",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

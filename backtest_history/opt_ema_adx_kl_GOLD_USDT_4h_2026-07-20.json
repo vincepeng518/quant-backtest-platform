@@ -3,23 +3,23 @@
     "strategy": "ema_adx_kl",
     "csv": "GOLD_USDT_4h.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "ema_len": 281,
-    "adx_len": 16,
-    "atr_len": 11,
-    "adx_threshold": 37,
-    "kl_price_long": 146899,
-    "kl_price_short": 32575,
-    "sl_atr_mult": 1.7632971175043246,
-    "tp_atr_mult": 0.9783442089013956,
-    "kl_atr_mult": 3.589506707335773,
-    "sr_mode": "auto",
-    "sr_lookback": 345,
-    "sr_res_pct": 0.6042480298985418,
-    "sr_sup_pct": 0.32192370598289605
+    "ema_len": 185,
+    "adx_len": 24,
+    "atr_len": 27,
+    "adx_threshold": 38,
+    "kl_price_long": 24824,
+    "kl_price_short": 27293,
+    "sl_atr_mult": 2.288945969058914,
+    "tp_atr_mult": 1.0277488599018318,
+    "kl_atr_mult": 1.486900610604252,
+    "sr_mode": "manual",
+    "sr_lookback": 214,
+    "sr_res_pct": 0.9406780372065753,
+    "sr_sup_pct": 0.24822312078728875
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -30,39 +30,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -0.7927136492613285,
-    "avg_oos_return": -0.34687513733055675,
-    "sharpe_std": 1.3730203163739558,
-    "return_std": 0.600805361738956,
+    "avg_oos_sharpe": -1.2136984037186185,
+    "avg_oos_return": -0.42605998053386435,
+    "sharpe_std": 1.2136984037186185,
+    "return_std": 0.42605998053386435,
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..191",
-        "oos_range": "191..382",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "is_range": "0..318",
+        "oos_range": "318..636",
+        "oos_sharpe": -2.427396807437237,
+        "oos_return": -0.8521199610677287,
+        "oos_max_dd": 1.6768533730294866,
+        "used_fallback": false
       },
       {
-        "is_range": "0..382",
-        "oos_range": "382..573",
-        "oos_sharpe": -3.170854597045314,
-        "oos_return": -1.387500549322227,
-        "oos_max_dd": 2.027040594240738
-      },
-      {
-        "is_range": "0..573",
-        "oos_range": "573..764",
+        "is_range": "0..636",
+        "oos_range": "636..954",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..764",
-        "oos_range": "764..955",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },
