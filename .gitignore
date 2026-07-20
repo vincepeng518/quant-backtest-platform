@@ -40,3 +40,4 @@ runtime/
 
 # trade bot local snapshots (persisted to GitHub trades/ via API)
 /trades/
+bot/trade_bot.log
