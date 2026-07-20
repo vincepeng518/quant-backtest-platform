@@ -70,23 +70,35 @@ def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, ps: dict, n_windows: in
       IS = df[0 : i*win]  (前面所有), 在該 IS 上優化 best_i
       OOS = df[i*win : (i+1)*win], 用 best_i 測
     這樣 OOS 參數來自獨立 IS, 不泄露。
+    IS 太短(<300)優化易失敗 -> 複用上一窗 best_i (fallback), 標註 used_fallback。
     """
     n = len(df)
     win = n // n_windows
+    MIN_IS = 300
     if win < 50:
         # 數據太少, 退回單次 (仍用 is 前半優化)
         half = n // 2
         is_df, oos_df = df.iloc[:half], df.iloc[half:]
-        best_i = _optimize_params(is_df, cls, ps)
-        return _eval_oos([(is_df, oos_df, best_i)], cls, n_windows)
+        best_i = _optimize_params(is_df, cls, ps, best)
+        return _eval_oos([(is_df, oos_df, best_i, False)], cls)
     oos_sharpes, oos_returns, oos_dds = [], [], []
     windows = []
+    prev_best = best  # 首窗之前用全樣本 best 兜底
     for i in range(1, n_windows):
         is_df = df.iloc[: i * win]
         oos_df = df.iloc[i * win : (i + 1) * win]
         if len(is_df) < 30 or len(oos_df) < 5:
             continue
-        best_i = _optimize_params(is_df, cls, ps)
+        if len(is_df) < MIN_IS:
+            # IS 太短, 優化不可靠 -> 複用上一窗
+            best_i = prev_best
+            used_fb = True
+        else:
+            best_i = _optimize_params(is_df, cls, ps, prev_best)
+            used_fb = (not best_i)  # 優化失敗回 {} -> 用 fallback
+            if used_fb:
+                best_i = prev_best
+        prev_best = best_i
         bt = Backtester()
         bt.set_data(oos_df)
         s = cls()
@@ -97,10 +109,9 @@ def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, ps: dict, n_windows: in
             oos_sharpes.append(r.sharpe_ratio)
             oos_returns.append(r.total_return_pct)
             oos_dds.append(r.max_drawdown_pct)
-            # 記錄該窗用的 IS 區間
             windows.append({"is_range": f"0..{i*win}", "oos_range": f"{i*win}..{(i+1)*win}",
                             "oos_sharpe": r.sharpe_ratio, "oos_return": r.total_return_pct,
-                            "oos_max_dd": r.max_drawdown_pct})
+                            "oos_max_dd": r.max_drawdown_pct, "used_fallback": used_fb})
         except Exception:
             continue
     if not oos_sharpes:
@@ -118,22 +129,27 @@ def _walk_forward_oos(df: pd.DataFrame, cls, best: dict, ps: dict, n_windows: in
     }
 
 
-def _optimize_params(is_df: pd.DataFrame, cls, ps: dict) -> dict:
-    """在 IS 數據上用 Bayesian 優化找 best params (輕量: 減少 iter 加速 WF)。"""
+def _optimize_params(is_df: pd.DataFrame, cls, ps: dict, fallback: dict) -> dict:
+    """在 IS 數據上用 Bayesian 優化找 best params (輕量: 減少 iter 加速 WF)。
+    失敗(異常/空解)回 fallback (全樣本 best) 避免 s.init({}) 崩壞。
+    """
     bt = Backtester()
     bt.set_data(is_df)
     bt.set_strategy(cls())
     opt = Optimizer(bt, metric="sharpe_ratio", maximize=True)
     try:
         res = opt.bayesian_optimization(ps, n_iterations=8, n_initial=6)
-        return res[0]["params"]
+        params = res[0]["params"]
+        if not params:
+            return fallback
+        return params
     except Exception:
-        return {}
+        return fallback
 
 
-def _eval_oos(pairs, cls, n_windows):
+def _eval_oos(pairs, cls) -> dict:
     oos_sharpes, oos_returns, oos_dds, windows = [], [], [], []
-    for is_df, oos_df, best_i in pairs:
+    for is_df, oos_df, best_i, used_fb in pairs:
         bt = Backtester()
         bt.set_data(oos_df)
         s = cls()
@@ -145,7 +161,7 @@ def _eval_oos(pairs, cls, n_windows):
             oos_returns.append(r.total_return_pct)
             oos_dds.append(r.max_drawdown_pct)
             windows.append({"oos_sharpe": r.sharpe_ratio, "oos_return": r.total_return_pct,
-                            "oos_max_dd": r.max_drawdown_pct})
+                            "oos_max_dd": r.max_drawdown_pct, "used_fallback": used_fb})
         except Exception:
             continue
     if not oos_sharpes:
@@ -165,7 +181,7 @@ def _eval_oos(pairs, cls, n_windows):
 def main():
     py = sys.argv[1]
     csv_path = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "..", "data", "csv", "BTC_USDT.csv")
-    n_windows = int(sys.argv[3]) if len(sys.argv) > 3 else 5
+    n_windows = int(sys.argv[3]) if len(sys.argv) > 3 else 3
     n_sims = int(sys.argv[4]) if len(sys.argv) > 4 else 1000
 
     name = os.path.splitext(os.path.basename(py))[0]
