@@ -84,27 +84,43 @@ export default function TradesPage() {
   }, []);
 
   const now = Date.now();
+  // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
+  const snapTs = (r: TradeRec): number => {
+    const f = r._snapshot || '';
+    const m = f.match(/(\d{8})_(\d{6})/);
+    if (m) {
+      const [y, mo, d] = [m[1].slice(0, 4), m[1].slice(4, 6), m[1].slice(6, 8)];
+      const [hh, mm, ss] = [m[2].slice(0, 2), m[2].slice(2, 4), m[2].slice(4, 6)];
+      const t = Date.parse(`${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`);
+      if (!Number.isNaN(t)) return t;
+    }
+    return 0;
+  };
+  const sortKey = (r: TradeRec): number => {
+    const t = r.ts ?? 0;
+    return t > 0 ? t : snapTs(r);
+  };
   const filtered = useMemo(() => {
     let list = records;
     if (range !== 'all') {
       list = records.filter((r) => {
-        const t = (r.ts ?? 0) / 1000;
+        const t = sortKey(r) / 1000;
         const diff = now / 1000 - t;
         if (range === 'day') return diff <= 86400;
         if (range === 'month') return diff <= 86400 * 30;
         return true;
       });
     }
-    // 開倉時間降冪: 新的在上 (ts 為毫秒)
-    return [...list].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+    // 開倉時間降冪: 新的在上 (ts 為毫秒, fallback 檔名時間)
+    return [...list].sort((a, b) => sortKey(b) - sortKey(a));
   }, [records, range, now]);
 
   const stats = useMemo(() => {
     let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
     let longPnl = 0, shortPnl = 0;
     let streak = 0, maxWinStreak = 0, maxLossStreak = 0;
-    // 按 ts 排序算連續
-    const sorted = [...filtered].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
+    // 按 ts 排序算連續 (升冪)
+    const sorted = [...filtered].sort((a, b) => sortKey(a) - sortKey(b));
     for (const r of sorted) {
       const p = pnlOf(r);
       totalPnl += p;
@@ -126,7 +142,7 @@ export default function TradesPage() {
   const heatmap = useMemo(() => {
     const dayMap = new Map<string, number>();
     for (const r of filtered) {
-      const t = (r.ts ?? 0) / 1000;
+      const t = sortKey(r) / 1000;
       if (!t) continue;
       const d = new Date(t * 1000);
       const key = d.toISOString().slice(0, 10);

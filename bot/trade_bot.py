@@ -234,43 +234,66 @@ def build_snapshot() -> dict:
             "ts": int(time.time() * 1000),
         })
 
-    # 2) 歷史成交 (私有 allOrders, FILLED 且有 avgPrice -> 完整開平價)
-    seen_keys = set()
+    # 2) 歷史成交 (私有 allOrders) -> 配對成 round-trip (開倉+平倉)
+    #    BingX 每筆 order 只有單邊價; 一筆完整交易 = 開倉單 + 平倉單
+    #    配對: 同 symbol+positionSide, 按時間排序, 開倉方向單入棧, 平倉方向單出棧配對
     fees_total = 0.0
+    # 過濾有效成交單
+    valid = []
     for o in orders:
         if o.get("status") != "FILLED":
             continue
-        sym = simplify_symbol(o.get("symbol"))
-        pside = o.get("positionSide")  # LONG/SHORT
         avg = float(o.get("avgPrice", 0) or 0)
-        if avg <= 0:  # 無價格不記 (過濾不完整數據)
+        if avg <= 0:
             continue
-        # 過濾: 無實際盈虧變動的單 (策略: pnl != 0 才記)
-        rpnl = float(o.get("profit", 0) or 0)
-        if rpnl == 0:
-            continue
-        # 手續費累加 (另計上板)
-        fees_total += float(o.get("commission", 0) or 0)
-        # 去重: 同一 symbol+side+positionSide+time 只記一次
-        key = (sym, o.get("side"), pside, o.get("time"))
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        recs.append({
-            "symbol": sym,
-            "side": pside,
-            "positionAmt": float(o.get("executedQty", 0) or 0),
-            "avgPrice": avg,            # 成交價 (開或平)
-            "exitPrice": avg,           # 歷史成交有完整價格
-            "leverage": _parse_lev(o.get("leverage")),
-            "unrealizedProfit": 0.0,
-            "realizedProfit": rpnl,
-            "pnlRatio": 0.0,
-            "positionValue": float(o.get("cumQuote", 0) or 0),
-            "liquidationPrice": 0.0,
-            "status": "CLOSED",
-            "ts": int(o.get("time", 0) or 0),
-        })
+        valid.append(o)
+
+    # 分組 (symbol, positionSide)
+    groups: dict = {}
+    for o in valid:
+        key = (simplify_symbol(o.get("symbol")), o.get("positionSide"))
+        groups.setdefault(key, []).append(o)
+
+    recs_closed: list = []
+    for (sym, pside), grp in groups.items():
+        # 按時間升序
+        grp.sort(key=lambda x: int(x.get("time", 0) or 0))
+        # 開倉方向: LONG->BUY, SHORT->SELL; 平倉方向相反
+        open_side = "BUY" if pside == "LONG" else "SELL"
+        stack: list = []
+        for o in grp:
+            oside = (o.get("side") or "").upper()
+            avg = float(o.get("avgPrice", 0) or 0)
+            rpnl = float(o.get("profit", 0) or 0)
+            fees_total += float(o.get("commission", 0) or 0)
+            if oside == open_side:
+                # 開倉單: 入棧 (攜帶開倉價/時間/數量)
+                stack.append({
+                    "avgPrice": avg,
+                    "time": int(o.get("time", 0) or 0),
+                    "qty": float(o.get("executedQty", 0) or 0),
+                })
+            else:
+                # 平倉單: 與棧頂開倉單配對 (無開倉則單獨記一筆 FILLED)
+                entry = stack.pop() if stack else None
+                entry_price = entry["avgPrice"] if entry else avg
+                recs_closed.append({
+                    "symbol": sym,
+                    "side": pside,
+                    "positionAmt": float(o.get("executedQty", 0) or 0),
+                    "avgPrice": entry_price,       # 開倉價 (來自開倉單)
+                    "exitPrice": avg,              # 平倉價 (來自平倉單)
+                    "leverage": _parse_lev(o.get("leverage")),
+                    "unrealizedProfit": 0.0,
+                    "realizedProfit": rpnl,
+                    "pnlRatio": 0.0,
+                    "positionValue": float(o.get("cumQuote", 0) or 0),
+                    "liquidationPrice": 0.0,
+                    "status": "CLOSED",
+                    "ts": int(o.get("time", 0) or 0),
+                })
+
+    recs.extend(recs_closed)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
