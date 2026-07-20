@@ -761,6 +761,22 @@ function BacktestView() {
         )}
       </Card>
 
+      {/* Results loading skeleton */}
+      {status === 'running' && (
+        <div className="space-y-6" aria-busy="true">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 rounded-sm overflow-hidden">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-surface px-4 py-3 flex flex-col gap-2">
+                <div className="h-2 w-16 bg-border/30 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-border/40 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="h-64 bg-surface border border-border/10 rounded-sm animate-pulse" />
+          <div className="h-48 bg-surface border border-border/10 rounded-sm animate-pulse" />
+        </div>
+      )}
+
       {/* Results */}
       {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
         <div className="space-y-6">

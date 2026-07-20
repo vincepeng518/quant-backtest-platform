@@ -74,7 +74,7 @@ const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit
 
   const inner = (
     <div
-      className={`group relative bg-[#161a25] px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 ${
+      className={`group relative bg-[#161a25] px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 border border-[#363c4e]/15 hover:border-[#363c4e]/40 rounded-sm ${
         mega ? 'py-3 sm:py-4' : ''
       }`}
     >
@@ -90,7 +90,6 @@ const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit
       {sub != null && (
         <span className={`${subSize} font-mono tabular-nums ${colorClass} opacity-70 truncate`}>{sub}</span>
       )}
-      <div className="absolute inset-x-0 top-0 h-px bg-[#363c4e] opacity-0 group-hover:opacity-40 transition-opacity duration-150" />
     </div>
   );
 
@@ -205,6 +204,9 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
 
   // ── 進階風險指標 (純前端, 從 equity + trades 算) ──
   const adv = useMemo(() => calcAdvRisk(equity, trades), [equity, trades]);
+
+  // ── #2 擴充指標 (純前端: Rolling Sharpe / 超額 α / β-相關) ──
+  const ext = useMemo(() => calcExtMetrics(equity, buyHold), [equity, buyHold]);
 
   const fmtPct = (v: number | null, d = 2): string =>
     v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`;
@@ -392,6 +394,39 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
           sub="筆/日"
           color="neutral"
           tip="Trade Frequency：測試區間內平均每天產生的交易筆數"
+        />
+      </div>
+
+      {/* ── #2 擴充指標 (Rolling Sharpe / 超額 α / β-相關) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+        <SectionHeader title="擴充指標 Extended" />
+        <KpiBlock
+          label="Rolling 30D Sharpe"
+          value={fmtNum(ext.rollSharpe)}
+          sub="近30根K線"
+          color={ext.rollSharpe == null ? 'neutral' : ext.rollSharpe >= 1 ? 'pos' : ext.rollSharpe >= 0 ? 'neutral' : 'neg'}
+          tip="Rolling Sharpe：以最近 30 根 K 線收益窗口計算的滾動夏普比率，反映近期穩定性"
+        />
+        <KpiBlock
+          label="超額收益 α"
+          value={fmtPct(ext.alphaPct)}
+          sub={ext.alphaPct == null ? 'vs 基準' : 'vs 買進持有'}
+          color={ext.alphaPct == null ? 'neutral' : ext.alphaPct >= 0 ? 'pos' : 'neg'}
+          tip="Alpha (α)：策略總回報 − 買進持有基準總回報。>0 代表策略戰勝單純持有"
+        />
+        <KpiBlock
+          label="相關性 β"
+          value={fmtNum(ext.beta)}
+          sub={ext.beta == null ? 'vs 基準' : `ρ=${ext.corr?.toFixed(2)}`}
+          color={ext.beta == null ? 'neutral' : ext.beta <= 0.5 ? 'pos' : ext.beta <= 1 ? 'neutral' : 'neg'}
+          tip="Beta (β)：策略收益對基準收益的敏感度。ρ 為相關係數。β 低代表與大盤脫鉤、分散效果好"
+        />
+        <KpiBlock
+          label="超額夏普 ExSharpe"
+          value={fmtNum(ext.exSharpe)}
+          sub="策略−基準"
+          color={ext.exSharpe == null ? 'neutral' : ext.exSharpe >= 0 ? 'pos' : 'neg'}
+          tip="Excess Sharpe：策略 Sharpe − 基準 Sharpe。衡量風險調整後的超額能力"
         />
       </div>
 
@@ -608,4 +643,103 @@ function calcAdvRisk(equity: EquityPoint[], trades: TradeRecord[]): AdvRisk {
     skew, kurt, var95, cvar95, var99, cvar99,
     worstMonth, bestMonth, posMonthPct,
   };
+};
+
+// ── #2 擴充指標: 純前端從 equity + buyHold 算 ──
+interface ExtMetrics {
+  rollSharpe: number | null;
+  alphaPct: number | null;
+  beta: number | null;
+  corr: number | null;
+  exSharpe: number | null;
+}
+
+function calcExtMetrics(equity: EquityPoint[], buyHold: EquityPoint[]): ExtMetrics {
+  const empty: ExtMetrics = { rollSharpe: null, alphaPct: null, beta: null, corr: null, exSharpe: null };
+  if (!equity || equity.length < 5) return empty;
+
+  // 策略日收益序列
+  const stratEq = equity.map((e) => Number(e.equity) || 0).filter((v) => v > 0);
+  const stratRets: number[] = [];
+  for (let i = 1; i < stratEq.length; i++) {
+    const prev = stratEq[i - 1];
+    if (prev > 0) stratRets.push((stratEq[i] - prev) / prev);
+  }
+  const n = stratRets.length;
+  if (n < 3) return empty;
+
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  const std = (a: number[]) => {
+    const m = mean(a);
+    return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length);
+  };
+
+  // Rolling 30 窗口 Sharpe (取最後一個完整窗口)
+  const W = Math.min(30, n);
+  let rollSharpe: number | null = null;
+  if (W >= 3) {
+    const win = stratRets.slice(n - W);
+    const wm = mean(win);
+    const ws = std(win);
+    if (ws > 0) {
+      const periodsPerYear = 252; // 假設日頻近似
+      rollSharpe = (wm / ws) * Math.sqrt(periodsPerYear);
+    }
+  }
+
+  // 基準對比 (buyHold 需同長度對齊)
+  if (!buyHold || buyHold.length < 5) return { rollSharpe, alphaPct: null, beta: null, corr: null, exSharpe: null };
+
+  // 對齊時間戳
+  const toTs = (e: any) => Number(e.time ?? e.timestamp ?? 0);
+  const bhMap = new Map<number, number>();
+  for (const e of buyHold) {
+    const t = toTs(e);
+    if (t > 0) bhMap.set(t, Number(e.equity) || 0);
+  }
+  const stratMap = new Map<number, number>();
+  for (const e of equity) {
+    const t = toTs(e);
+    if (t > 0) stratMap.set(t, Number(e.equity) || 0);
+  }
+  const commonT = Array.from(stratMap.keys()).filter((t) => bhMap.has(t)).sort((a, b) => a - b);
+  if (commonT.length < 5) return { rollSharpe, alphaPct: null, beta: null, corr: null, exSharpe: null };
+
+  // 對齊後的收益序列
+  const sRets: number[] = [];
+  const bRets: number[] = [];
+  for (let i = 1; i < commonT.length; i++) {
+    const sp = stratMap.get(commonT[i - 1])!;
+    const sc = stratMap.get(commonT[i])!;
+    const bp = bhMap.get(commonT[i - 1])!;
+    const bc = bhMap.get(commonT[i])!;
+    if (sp > 0 && bp > 0) {
+      sRets.push((sc - sp) / sp);
+      bRets.push((bc - bp) / bp);
+    }
+  }
+  if (sRets.length < 3) return { rollSharpe, alphaPct: null, beta: null, corr: null, exSharpe: null };
+
+  // Alpha: 總回報差
+  const stratTotal = (stratEq[stratEq.length - 1] / stratEq[0] - 1) * 100;
+  const bhEq = buyHold.map((e) => Number(e.equity) || 0).filter((v) => v > 0);
+  const bhTotal = bhEq.length > 1 ? (bhEq[bhEq.length - 1] / bhEq[0] - 1) * 100 : 0;
+  const alphaPct = stratTotal - bhTotal;
+
+  // Beta + 相關係數
+  const ms = mean(sRets), mb = mean(bRets);
+  const cov = sRets.reduce((acc, s, i) => acc + (s - ms) * (bRets[i] - mb), 0) / sRets.length;
+  const varB = std(bRets) ** 2;
+  const beta = varB > 0 ? cov / varB : null;
+  const corr = std(sRets) > 0 && std(bRets) > 0
+    ? cov / (std(sRets) * std(bRets))
+    : null;
+
+  // Excess Sharpe (策略 − 基準)
+  const sStd = std(sRets), bStd = std(bRets);
+  const stratSharpe = sStd > 0 ? (ms / sStd) * Math.sqrt(252) : 0;
+  const bhSharpe = bStd > 0 ? (mb / bStd) * Math.sqrt(252) : 0;
+  const exSharpe = stratSharpe - bhSharpe;
+
+  return { rollSharpe, alphaPct, beta, corr, exSharpe };
 }
