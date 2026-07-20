@@ -177,6 +177,7 @@ def fetch_order_history(limit: int = 200) -> list:
     分頁拉取: BingX 單次最多 100 筆, 用 id 游標往回翻頁, 直到達 limit 或無更多。
     """
     all_orders: list = []
+    seen_ids: set = set()
     cursor_id = None
     page = 0
     while len(all_orders) < limit and page < 50:
@@ -189,7 +190,12 @@ def fetch_order_history(limit: int = 200) -> list:
             batch = data.get("orders", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
             if not batch:
                 break
-            all_orders.extend(batch)
+            for o in batch:
+                oid = o.get("id")
+                if oid in seen_ids:
+                    continue  # 分頁重疊去重
+                seen_ids.add(oid)
+                all_orders.append(o)
             cursor_id = batch[-1].get("id")  # 下一頁游標
             page += 1
         except Exception as e:  # noqa
@@ -292,6 +298,17 @@ def build_snapshot() -> dict:
                     "status": "CLOSED",
                     "ts": int(o.get("time", 0) or 0),
                 })
+
+    # 最終整筆去重 (防配對/分頁邊緣產生的重複): 指紋 = sym+side+entry+exit+ts+rpnl
+    seen_rec: set = set()
+    deduped: list = []
+    for r in recs_closed:
+        fp = (r["symbol"], r["side"], r["avgPrice"], r["exitPrice"], r["ts"], r["realizedProfit"])
+        if fp in seen_rec:
+            continue
+        seen_rec.add(fp)
+        deduped.append(r)
+    recs_closed = deduped
 
     recs.extend(recs_closed)
 
