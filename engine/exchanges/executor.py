@@ -75,6 +75,7 @@ class ExchangeExecutor:
         order_type: str = "market",
         price: Optional[float] = None,
         exchange: str = "bingx",
+        is_close: bool = False,
     ) -> OrderResult:
         if exchange not in self.exchanges:
             return OrderResult(False, exchange, symbol, side, order_type, price, qty, error="exchange not in allowed list")
@@ -83,12 +84,13 @@ class ExchangeExecutor:
             return OrderResult(False, exchange, symbol, side, order_type, price, qty, error="unknown exchange")
 
         if self.mode == "paper":
-            # paper: fetch last price, simulate fill at mid ± slippage
+            # paper: fetch last price, simulate fill at volatility-aware slippage
             try:
                 ex = self._get_ccxt(exchange)
                 ticker = await asyncio.to_thread(ex.fetch_ticker, symbol)
                 last = float(ticker.get("last") or ticker.get("close") or 0.0)
-                slip = spec.book_base_slippage
+                # 滑點至少 book_base_slippage, 極端時用 0.2% 地板, 避免回測虛高
+                slip = max(spec.book_base_slippage, abs(last * 0.002))
                 direction = 1 if side == "buy" else -1
                 fill = last * (1 + direction * slip)
                 fee_rate = spec.maker_fee if order_type == "limit" else spec.taker_fee
@@ -96,7 +98,7 @@ class ExchangeExecutor:
                     ok=True, exchange=exchange, symbol=symbol, side=side,
                     order_type=order_type, price=fill, qty=qty,
                     order_id=f"paper-{exchange}-{side}-{int(asyncio.get_event_loop().time())}",
-                    raw={"last": last, "fee_rate": fee_rate}, paper=True,
+                    raw={"last": last, "fee_rate": fee_rate, "slippage": slip}, paper=True,
                 )
             except Exception as e:
                 return OrderResult(False, exchange, symbol, side, order_type, price, qty, error=f"paper fetch failed: {e}")
@@ -104,10 +106,15 @@ class ExchangeExecutor:
         # live mode
         try:
             ex = self._get_ccxt(exchange)
+            params = {}
+            if is_close:
+                params["reduceOnly"] = True   # 平倉單加防護, 避免反向開倉穿倉
+            import uuid as _uuid
+            params["clientOrderId"] = f"hm-{_uuid.uuid4().hex[:12]}"  # 冪等, 超時重送不重單
             if order_type == "limit" and price is not None:
-                raw = await asyncio.to_thread(ex.create_limit_order, symbol, side, qty, price)
+                raw = await asyncio.to_thread(ex.create_order, symbol, "limit", side, qty, price, params)
             else:
-                raw = await asyncio.to_thread(ex.create_market_order, symbol, side, qty)
+                raw = await asyncio.to_thread(ex.create_order, symbol, "market", side, qty, None, params)
             return OrderResult(
                 ok=True, exchange=exchange, symbol=symbol, side=side,
                 order_type=order_type, price=price, qty=qty,

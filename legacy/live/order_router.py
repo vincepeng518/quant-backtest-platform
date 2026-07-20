@@ -17,6 +17,7 @@ import logging
 import time
 from typing import Dict, Optional, Callable
 from dataclasses import dataclass, field
+import pandas as pd
 
 from events import OrderEvent, OrderSide, OrderType, FillEvent
 
@@ -32,6 +33,7 @@ class OrderTracking:
     filled: bool = False
     fill_price: float = 0.0
     fill_quantity: float = 0.0
+    symbol: str = ""   # 每單獨立記標的, 避免併發共用 _last_symbol 查錯
 
 
 class CCXTOrderRouter:
@@ -100,6 +102,8 @@ class CCXTOrderRouter:
         if order.is_close:
             params["reduceOnly"] = True  # 確保是平倉單
 
+        import uuid as _uuid
+        params.setdefault("clientOrderId", f"hm-{_uuid.uuid4().hex[:12]}")  # 冪等
         try:
             result = await self._exchange.create_order(
                 symbol=symbol,
@@ -112,11 +116,12 @@ class CCXTOrderRouter:
             order_id = result["id"]
             logger.info(f"訂單送出: {side} {order.quantity} {symbol} @ {order.price} → {order_id}")
 
-            # 追蹤
+            # 追蹤 (存正確 symbol, 不用共用 _last_symbol)
             self._pending[order_id] = OrderTracking(
                 order_id=order_id,
                 order_event=order,
                 submitted_at=time.time(),
+                symbol=symbol,
             )
             return order_id
 
@@ -164,14 +169,15 @@ class CCXTOrderRouter:
             if tracking.filled:
                 continue
             try:
-                status = await self._exchange.fetch_order(order_id, self._last_symbol)
+                status = await self._exchange.fetch_order(order_id, tracking.symbol)
                 if status["status"] == "closed":
                     # 已成交
                     tracking.filled = True
                     tracking.fill_price = status["average"] or status["price"]
                     tracking.fill_quantity = status["filled"]
+                    fill_ts = status.get("timestamp")
                     fill = FillEvent(
-                        timestamp=order_id,  # 簡化
+                        timestamp=(pd.Timestamp(fill_ts, unit="ms", tz="UTC").to_pydatetime() if fill_ts else pd.Timestamp.now(tz="UTC").to_pydatetime()),
                         side=tracking.order_event.side,
                         quantity=tracking.fill_quantity,
                         price=tracking.fill_price,
@@ -184,7 +190,7 @@ class CCXTOrderRouter:
                         self._on_fill(fill)
                     del self._pending[order_id]
             except Exception as e:
-                logger.exception(f"查詢訂單 {order_id} 失敗: {e}")
+                logger.warning(f"查詢訂單 {order_id} 失敗, 保留下輪重試: {e}")  # 不移除, 避免永久卡住
 
     async def close(self) -> None:
         if self._exchange:
