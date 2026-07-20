@@ -3,17 +3,17 @@
     "strategy": "engulfing_pullback",
     "csv": "HYPE_USDT_1h.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "ema_len": 164,
-    "adx_len": 25,
-    "atr_len": 9,
-    "adx_threshold": 36,
-    "pullback_atr": 2.5179986559969163,
-    "sl_atr_mult": 2.9875237916949757,
-    "rr_ratio": 2.135873056648333,
+    "ema_len": 298,
+    "adx_len": 28,
+    "atr_len": 13,
+    "adx_threshold": 30,
+    "pullback_atr": 3.278880424409297,
+    "sl_atr_mult": 1.1553878753736644,
+    "rr_ratio": 3.7989055694028453,
     "use_atr_sl": false
   },
   "best_score": 0.0,
@@ -25,39 +25,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -0.5925791275876784,
-    "avg_oos_return": -0.6911579165351759,
-    "sharpe_std": 1.026377156486699,
-    "return_std": 1.1971206274923742,
-    "consistency": 0.0,
+    "avg_oos_sharpe": 2.8315354952584353,
+    "avg_oos_return": 0.8147644180386123,
+    "sharpe_std": 2.8315354952584353,
+    "return_std": 0.8147644180386123,
+    "consistency": 0.5,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
+        "is_range": "0..333",
+        "oos_range": "333..666",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
-        "oos_sharpe": -2.3703165103507136,
-        "oos_return": -2.7646316661407035,
-        "oos_max_dd": 5.566068685610207
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "is_range": "0..666",
+        "oos_range": "666..999",
+        "oos_sharpe": 5.663070990516871,
+        "oos_return": 1.6295288360772247,
+        "oos_max_dd": 0.48887340143224844,
+        "used_fallback": false
       }
     ]
   },

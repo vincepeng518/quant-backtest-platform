@@ -3,18 +3,18 @@
     "strategy": "engulfing_pullback",
     "csv": "HYPE_USDT_30m.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "ema_len": 278,
-    "adx_len": 15,
-    "atr_len": 23,
-    "adx_threshold": 34,
-    "pullback_atr": 2.7205824205522324,
-    "sl_atr_mult": 0.8316697544616622,
-    "rr_ratio": 3.3873137057452656,
-    "use_atr_sl": true
+    "ema_len": 268,
+    "adx_len": 29,
+    "atr_len": 22,
+    "adx_threshold": 36,
+    "pullback_atr": 0.5882588089925835,
+    "sl_atr_mult": 1.5399137353139174,
+    "rr_ratio": 3.272492030454443,
+    "use_atr_sl": false
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -25,39 +25,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": 0.0,
-    "avg_oos_return": 0.0,
-    "sharpe_std": 0.0,
-    "return_std": 0.0,
+    "avg_oos_sharpe": -5.136820336549212,
+    "avg_oos_return": -1.1808631931312557,
+    "sharpe_std": 5.136820336549212,
+    "return_std": 1.1808631931312557,
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": -10.273640673098424,
+        "oos_return": -2.3617263862625113,
+        "oos_max_dd": 2.6932474316636608,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

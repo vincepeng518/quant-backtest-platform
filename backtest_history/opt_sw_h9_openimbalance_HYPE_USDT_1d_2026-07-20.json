@@ -3,11 +3,11 @@
     "strategy": "sw_h9_openimbalance",
     "csv": "HYPE_USDT_1d.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "thr_pct": 0.9866334961152892
+    "thr_pct": 0.32022829197345737
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -25,32 +25,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..116",
-        "oos_range": "116..232",
+        "is_range": "0..194",
+        "oos_range": "194..388",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": true
       },
       {
-        "is_range": "0..232",
-        "oos_range": "232..348",
+        "is_range": "0..388",
+        "oos_range": "388..582",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..348",
-        "oos_range": "348..464",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..464",
-        "oos_range": "464..580",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

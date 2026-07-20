@@ -3,14 +3,14 @@
     "strategy": "sw_h22_vwaprev",
     "csv": "HYPE_USDT_15m.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "win": 37,
-    "dev_mult": 1.8021564525627343,
-    "hold": 10,
-    "rsi_w": 10
+    "win": 71,
+    "dev_mult": 1.9257919523319103,
+    "hold": 4,
+    "rsi_w": 11
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -21,39 +21,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -4.118141256694842,
-    "avg_oos_return": -0.1053312007728491,
-    "sharpe_std": 7.1328298893410125,
-    "return_std": 0.18243899136081285,
-    "consistency": 0.0,
+    "avg_oos_sharpe": 3.393952559384397,
+    "avg_oos_return": 0.06119626529931702,
+    "sharpe_std": 3.393952559384397,
+    "return_std": 0.06119626529931702,
+    "consistency": 0.5,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": -16.472565026779368,
-        "oos_return": -0.4213248030913964,
-        "oos_max_dd": 0.5798033338547736
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": 6.787905118768794,
+        "oos_return": 0.12239253059863404,
+        "oos_max_dd": 0.2217461564412657,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

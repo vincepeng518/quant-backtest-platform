@@ -3,14 +3,14 @@
     "strategy": "sw_h37_vpin_fade",
     "csv": "SOL_USDT_15m.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "bucket": 8384,
-    "nbuckets": 10,
-    "vpin_thr": 0.5611459395600576,
-    "hold": 34
+    "bucket": 12360,
+    "nbuckets": 27,
+    "vpin_thr": 0.8333738913414438,
+    "hold": 11
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -28,32 +28,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
+        "is_range": "0..333",
+        "oos_range": "333..666",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
+        "is_range": "0..666",
+        "oos_range": "666..999",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

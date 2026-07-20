@@ -3,13 +3,13 @@
     "strategy": "sw_h45_session_mom",
     "csv": "GOLD_USDT_4h.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "mom_n": 3,
-    "session_start": 0,
-    "session_end": 11
+    "mom_n": 4,
+    "session_start": 4,
+    "session_end": 7
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -27,32 +27,20 @@
     "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..191",
-        "oos_range": "191..382",
+        "is_range": "0..318",
+        "oos_range": "318..636",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       },
       {
-        "is_range": "0..382",
-        "oos_range": "382..573",
+        "is_range": "0..636",
+        "oos_range": "636..954",
         "oos_sharpe": 0.0,
         "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..573",
-        "oos_range": "573..764",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
-      },
-      {
-        "is_range": "0..764",
-        "oos_range": "764..955",
-        "oos_sharpe": 0.0,
-        "oos_return": 0.0,
-        "oos_max_dd": 0.0
+        "oos_max_dd": 0.0,
+        "used_fallback": false
       }
     ]
   },

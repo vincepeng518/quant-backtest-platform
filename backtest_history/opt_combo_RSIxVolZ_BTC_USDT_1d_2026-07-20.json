@@ -3,15 +3,15 @@
     "strategy": "combo_RSIxVolZ",
     "csv": "BTC_USDT_1d.csv",
     "date": "2026-07-20",
-    "n_windows": 5,
+    "n_windows": 3,
     "n_sims": 1000
   },
   "best_params": {
-    "rsi_window": 22,
-    "rsi_ob": 60,
-    "rsi_os": 39,
-    "vz_window": 14,
-    "vz_th": 2.6711987708229246
+    "rsi_window": 19,
+    "rsi_ob": 75,
+    "rsi_os": 24,
+    "vz_window": 25,
+    "vz_th": 2.8471140336350444
   },
   "best_score": 0.0,
   "full_backtest": {
@@ -22,39 +22,27 @@
     "total_trades": 0
   },
   "walk_forward": {
-    "avg_oos_sharpe": -6.230362949787623,
-    "avg_oos_return": 0.7248568811098086,
-    "sharpe_std": 11.07436139918878,
-    "return_std": 4.024606502131007,
-    "consistency": 0.5,
+    "avg_oos_sharpe": -0.786342188410606,
+    "avg_oos_return": -2.413970252359977,
+    "sharpe_std": 0.457731754203771,
+    "return_std": 4.281532508430049,
+    "consistency": 0.0,
     "windows": [
       {
-        "is_range": "0..200",
-        "oos_range": "200..400",
-        "oos_sharpe": 0.6485669088924306,
-        "oos_return": 3.7816698072634316,
-        "oos_max_dd": 0.04997601249376021
+        "is_range": "0..333",
+        "oos_range": "333..666",
+        "oos_sharpe": -0.328610434206835,
+        "oos_return": 1.8675622560700722,
+        "oos_max_dd": 0.1561399428242439,
+        "used_fallback": false
       },
       {
-        "is_range": "0..400",
-        "oos_range": "400..600",
-        "oos_sharpe": -25.332975935625466,
-        "oos_return": -0.10621701229565951,
-        "oos_max_dd": 0.10621701229565951
-      },
-      {
-        "is_range": "0..600",
-        "oos_range": "600..800",
-        "oos_sharpe": 1.2281797898968463,
-        "oos_return": 4.724622878109993,
-        "oos_max_dd": 0.049976012493745656
-      },
-      {
-        "is_range": "0..800",
-        "oos_range": "800..1000",
-        "oos_sharpe": -1.4652225623143011,
-        "oos_return": -5.500648148638531,
-        "oos_max_dd": 5.500648148638531
+        "is_range": "0..666",
+        "oos_range": "666..999",
+        "oos_sharpe": -1.244073942614377,
+        "oos_return": -6.695502760790026,
+        "oos_max_dd": 8.579637386813452,
+        "used_fallback": false
       }
     ]
   },
