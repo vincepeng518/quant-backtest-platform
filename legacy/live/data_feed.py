@@ -93,6 +93,17 @@ class CCXTBarsFeed:
                         open=o, high=h, low=l, close=c, volume=v,
                         symbol=self.symbol,
                     )
+                    # 只發「已收盤」的 bar: close 時間戳需早於當前時間一個 timeframe 以上
+                    # 避免把 websocket 推送的「進行中」bar 當收盤 bar 餵策略 -> 假信號
+                    bar_close_ts = int(timestamp)
+                    now_ms = int(pd.Timestamp.now(tz="UTC").timestamp() * 1000)
+                    tf_ms = 60_000  # 預設 1m, 實際由 self.timeframe 推算
+                    _tf_map = {"1m": 60_000, "5m": 300_000, "15m": 900_000,
+                               "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+                    tf_ms = _tf_map.get(self.timeframe, 60_000)
+                    if now_ms - bar_close_ts < tf_ms:
+                        # 這根還在進行中, 不發 (等下一輪收盤後再發)
+                        continue
                     self._emit(bar)
             except Exception as e:
                 logger.exception(f"WebSocket 錯誤: {e}")

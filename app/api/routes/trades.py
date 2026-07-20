@@ -77,10 +77,11 @@ async def get_trades():
     """回傳所有交易記錄 (扁平化) + 來源快照列表。"""
     import base64
     names = _list_files()
-    # snapshots: 只列檔名 (不抓全部內容, 避免 N 次 GitHub 下載拖慢)
+    # snapshots: 只列檔名
     snapshots = [{"file": n} for n in sorted(names)]
-    # 只取最新快照的 records (當前持倉狀態, 不攤平歷史 snapshot 避免重複/舊單)
     records = []
+    fees_total = None
+    # 只取最新快照一次 (避免重複下載同一檔)
     if snapshots:
         latest_file = snapshots[-1]["file"]
         latest_obj = _gh_get(latest_file)
@@ -91,25 +92,18 @@ async def get_trades():
                     rec["_snapshot"] = latest_file
                     rec["symbol"] = norm_sym(rec.get("symbol"))
                     records.append(rec)
-            except Exception:
-                pass
-    metrics = _calc_metrics(records)
-    fees_total = None
-    if snapshots:
-        latest_file = snapshots[-1]["file"]
-        latest_obj = _gh_get(latest_file)
-        if latest_obj and "content" in latest_obj:
-            try:
-                latest_snap = json.loads(base64.b64decode(latest_obj["content"]).decode("utf-8"))
                 fees_total = latest_snap.get("fees_total")
             except Exception:
                 pass
+    metrics = _calc_metrics(records)
     return {"total": len(records), "snapshots": snapshots, "records": records, "metrics": metrics, "fees_total": fees_total}
 
 
-def _calc_metrics(records: list) -> dict:
-    """Sharpe / Sortino / Calmar / Annual Return / Max Drawdown / Profit Factor
-    (empyrical 風格, 純 numpy 自實現, 不依賴外部 lib)。"""
+def _calc_metrics(records: list, periods_per_year: int = 252) -> dict:
+    """Sharpe / Sortino / Calmar / Annual Return / Max Drawdown / Profit Factor.
+
+    periods_per_year: 年化因子 (日級=252, 小時級=24*365, 30m=2*24*365). 預設 252 避免高頻 Sharpe 膨脹.
+    """
     try:
         import numpy as np
     except Exception:
@@ -129,27 +123,22 @@ def _calc_metrics(records: list) -> dict:
     n = len(arr)
     mean = arr.mean()
     std = arr.std(ddof=1)
-    # Sharpe (簡化年化: sqrt(N) 當 proxy)
-    sharpe = float((mean / std) * np.sqrt(n)) if std > 0 else 0.0
-    # Sortino: 只用下行波動 (負收益 std)
+    # 正確年化 Sharpe: mean/std * sqrt(periods_per_year)
+    sharpe = float((mean / std) * np.sqrt(periods_per_year)) if std > 0 else 0.0
     downside = arr[arr < 0]
     dstd = downside.std(ddof=1) if len(downside) > 1 else 0.0
     if dstd > 0:
-        sortino = float((mean / dstd) * np.sqrt(n))
+        sortino = float((mean / dstd) * np.sqrt(periods_per_year))
     elif mean > 0:
-        sortino = None  # 無下行風險且盈利 -> 無限大, 顯示 None
+        sortino = None
     else:
         sortino = 0.0
-    # Max Drawdown (累積 PnL 峰值回撤)
     cum = np.cumsum(arr)
     peak = np.maximum.accumulate(cum)
     dd = peak - cum
     max_dd = float(dd.max()) if len(dd) else 0.0
-    # Calmar = 年化報酬 / 最大回撤 (這裡用 mean*N 當年化 proxy)
-    calmar = float((mean * n) / max_dd) if max_dd > 0 else None
-    # Annual Return (簡化: mean * N 當年化累積 proxy)
-    annual_return = float(mean * n)
-    # Profit Factor (總盈利 / 總虧損)
+    calmar = float((mean * periods_per_year) / max_dd) if max_dd > 0 else None
+    annual_return = float(mean * periods_per_year)
     gains = arr[arr > 0].sum()
     losses = -arr[arr < 0].sum()
     pf = float(gains / losses) if losses > 0 else (float("inf") if gains > 0 else 0.0)

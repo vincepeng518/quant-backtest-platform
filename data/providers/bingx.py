@@ -42,70 +42,56 @@ class BingXProvider:
         end_date: str = "",
         limit: int = 1000,
     ) -> Optional[pd.DataFrame]:
-        """Fetch OHLCV as a DataFrame with columns timestamp/open/high/low/close/volume.
-
-        Fetches FORWARD from start_date (or most-recent if omitted), bounded by
-        `limit` bars, then trims to the [start_date, end_date] window.
-        """
-        try:
-            import ccxt
-
-            ex = self._get_exchange()
-            tf_ms = TF_MS.get(timeframe, 3_600_000)
-            start_ms = None
-            if start_date:
-                start_ms = ex.parse8601(
-                    f"{start_date}Z" if len(start_date) == 10 else start_date
-                )
-            end_ms = None
-            if end_date:
-                end_ms = ex.parse8601(
-                    f"{end_date}Z" if len(end_date) == 10 else end_date
-                )
-
-            frames: list[list] = []
-            cursor = start_ms  # None -> most recent
-            remaining = limit
-            max_pages = 12
-            for _ in range(max_pages):
-                if remaining <= 0:
-                    break
-                raw = await asyncio.to_thread(
-                    ex.fetch_ohlcv, symbol, timeframe, cursor, min(remaining, 1000)
-                )
-                if not raw:
-                    break
-                frames.append(raw)
-                remaining -= len(raw)
-                last_ts = raw[-1][0]
-                # stop once we've passed the requested end window
-                if end_ms is not None and last_ts >= end_ms:
-                    break
-                # advance cursor forward
-                cursor = last_ts + tf_ms
-                if cursor <= 0:
-                    break
-
-            if not frames:
-                return pd.DataFrame()
-
-            import itertools
-
-            merged = list(itertools.chain.from_iterable(frames))
-            df = pd.DataFrame(
-                merged, columns=["timestamp", "open", "high", "low", "close", "volume"]
-            )
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            for col in ["open", "high", "low", "close", "volume"]:
-                df[col] = df[col].astype(float)
-            df = df[["timestamp", "open", "high", "low", "close", "volume"]]
-            df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
-
-            if start_ms is not None:
-                df = df[df["timestamp"] >= pd.to_datetime(start_ms, unit="ms")]
-            if end_ms is not None:
-                df = df[df["timestamp"] <= pd.to_datetime(end_ms, unit="ms")]
-            return df.reset_index(drop=True)
-        except Exception as e:
-            logger.warning("BingX fetch failed for %s: %s", symbol, e)
-            return None
+        """Fetch OHLCV as a DataFrame. On failure returns EMPTY DataFrame (never None)."""
+        import itertools
+        last_err = None
+        for attempt in range(3):
+            try:
+                import ccxt
+                ex = self._get_exchange()
+                tf_ms = TF_MS.get(timeframe, 3_600_000)
+                start_ms = None
+                if start_date:
+                    start_ms = ex.parse8601(f"{start_date}Z" if len(start_date) == 10 else start_date)
+                end_ms = None
+                if end_date:
+                    end_ms = ex.parse8601(f"{end_date}Z" if len(end_date) == 10 else end_date)
+                frames: list[list] = []
+                cursor = start_ms
+                remaining = limit
+                max_pages = 12
+                for _ in range(max_pages):
+                    if remaining <= 0:
+                        break
+                    raw = await asyncio.to_thread(ex.fetch_ohlcv, symbol, timeframe, cursor, min(remaining, 1000))
+                    if not raw:
+                        break
+                    frames.append(raw)
+                    remaining -= len(raw)
+                    last_ts = raw[-1][0]
+                    if end_ms is not None and last_ts >= end_ms:
+                        break
+                    cursor = last_ts + tf_ms
+                    if cursor <= 0:
+                        break
+                if not frames:
+                    return pd.DataFrame()
+                merged = list(itertools.chain.from_iterable(frames))
+                df = pd.DataFrame(merged, columns=["timestamp", "open", "high", "low", "close", "volume"])
+                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+                for col in ["open", "high", "low", "close", "volume"]:
+                    df[col] = df[col].astype(float)
+                df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+                df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
+                if start_ms is not None:
+                    df = df[df["timestamp"] >= pd.to_datetime(start_ms, unit="ms")]
+                if end_ms is not None:
+                    df = df[df["timestamp"] <= pd.to_datetime(end_ms, unit="ms")]
+                return df.reset_index(drop=True)
+            except Exception as e:  # noqa
+                last_err = e
+                logger.warning("BingX fetch attempt %d failed for %s: %s", attempt + 1, symbol, e)
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+        logger.error("BingX fetch exhausted retries for %s: %s", symbol, last_err)
+        return pd.DataFrame()

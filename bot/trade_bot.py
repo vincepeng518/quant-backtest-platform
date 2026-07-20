@@ -62,15 +62,27 @@ def _call_private(path: str, params: dict | None = None) -> dict:
     params = params or {}
     params.update({"timestamp": int(time.time() * 1000), "recvWindow": 5000})
     url = f"{BASE}{_sign(path, params)}"
-    try:
-        r = _requests.get(url, headers={
-            "X-BX-APIKEY": os.environ.get("BINGX_API_KEY", ""),
-            "X-SOURCE-KEY": "BX-AI-SKILL",
-        }, timeout=15)
-        return r.json()
-    except Exception as e:  # noqa
-        logger.warning("private call %s err: %s", path, e)
-        return {}
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = _requests.get(url, headers={
+                "X-BX-APIKEY": os.environ.get("BINGX_API_KEY", ""),
+                "X-SOURCE-KEY": "BX-AI-SKILL",
+            }, timeout=15)
+            if r.status_code == 429:
+                # 限流: 退避後重試
+                wait = 2 * (attempt + 1)
+                logger.warning("BingX 429 rate limit on %s, retry in %ss", path, wait)
+                time.sleep(wait)
+                last_err = "429"
+                continue
+            return r.json()
+        except Exception as e:  # noqa
+            last_err = e
+            logger.warning("private call %s err (attempt %d): %s", path, attempt + 1, e)
+            if attempt < 2:
+                time.sleep(2 * (attempt + 1))
+    return {}
 
 
 def _parse_lev(v) -> float:
@@ -158,35 +170,52 @@ def fetch_positions() -> list:
     except Exception as e:  # noqa
         logger.warning("ccxt positions err: %s", e)
         return []
-        return []
 
 
 def fetch_order_history(limit: int = 200) -> list:
-    """私有 allOrders: 歷史成交 (含開平價, ccxt 無法逐 symbol 掃歷史)。"""
-    try:
-        d = _call_private("/openApi/swap/v2/trade/allOrders", {"limit": limit})
-        data = d.get("data", {})
-        if isinstance(data, dict):
-            return data.get("orders", [])
-        return data if isinstance(data, list) else []
-    except Exception as e:  # noqa
-        logger.warning("order history err: %s", e)
-        return []
+    """私有 allOrders: 歷史成交 (含開平價, ccxt 無法逐 symbol 掃歷史)。
+    分頁拉取: BingX 單次最多 100 筆, 用 id 游標往回翻頁, 直到達 limit 或無更多。
+    """
+    all_orders: list = []
+    cursor_id = None
+    page = 0
+    while len(all_orders) < limit and page < 50:
+        params = {"limit": min(100, limit - len(all_orders))}
+        if cursor_id is not None:
+            params["idLessThan"] = cursor_id  # BingX 分頁: 上一頁最後一筆 id
+        try:
+            d = _call_private("/openApi/swap/v2/trade/allOrders", params)
+            data = d.get("data", {})
+            batch = data.get("orders", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            if not batch:
+                break
+            all_orders.extend(batch)
+            cursor_id = batch[-1].get("id")  # 下一頁游標
+            page += 1
+        except Exception as e:  # noqa
+            logger.warning("order history err: %s", e)
+            break
+    return all_orders[:limit]
 
 
 def build_snapshot() -> dict:
     """組合一次快照: 當前持倉 (ccxt) + 歷史成交 (私有 allOrders)。
     只記有開平價的完整數據 (過濾無價格的)。"""
     positions = fetch_positions()
-    orders = fetch_order_history(200)
+    orders = fetch_order_history(1000)
 
     recs = []
+    MAX_SAFE_LEV = 20
     # 1) 當前持倉 (ccxt, status=OPEN)
     for p in positions:
         sym = simplify_symbol(p.get("symbol"))
         pside = p.get("positionSide")  # LONG/SHORT
         avg = float(p.get("avgPrice", 0) or 0)
         amt = float(p.get("positionAmt", 0) or 0)
+        lev = float(p.get("leverage", 0) or 0)
+        if lev > MAX_SAFE_LEV:
+            # 高槓桿持倉: 不阻止, 但標記穿倉風險
+            logger.warning("高槓桿持倉 %s %sx — 穿倉風險, 建議降到 %dx 以下", sym, lev, MAX_SAFE_LEV)
         if avg <= 0:  # 無開倉價不記
             continue
         recs.append({
@@ -275,11 +304,16 @@ def _gh_put(path: str, content: str, message: str) -> tuple[bool, str]:
     if existing and existing.get("sha"):
         payload["sha"] = existing["sha"]
     req = urllib.request.Request(api, data=json.dumps(payload).encode(), method="PUT", headers=h)
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return True, "pushed" if r.status == 201 or r.status == 200 else str(r.status)
-    except Exception as e:  # noqa
-        return False, str(e)[:200]
+    last_err = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return True, "pushed" if r.status == 201 or r.status == 200 else str(r.status)
+        except Exception as e:  # noqa
+            last_err = e
+            if attempt < 2:
+                time.sleep(2 * (attempt + 1))  # 指數退避
+    return False, str(last_err)[:200] if last_err else "unknown"
 
 
 def persist(snap: dict) -> str:
