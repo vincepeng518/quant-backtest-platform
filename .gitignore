@@ -41,3 +41,10 @@ runtime/
 # trade bot local snapshots (persisted to GitHub trades/ via API)
 /trades/
 bot/trade_bot.log
+
+# factor library — large generated matrices & vendored clones (keep source scripts only)
+factor_lib/**/*.parquet
+factor_lib/alpha101_src/
+factor_lib/alpha101_worldquant/
+factor_lib/awesome_quant_ref/
+factor_lib/qlib_factors/qlib_loader_source.py
