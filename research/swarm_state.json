@@ -1,0 +1,914 @@
+{
+  "schema_version": 1,
+  "last_updated": "2026-07-20T08:06 TPE",
+  "orchestrator": "hy3 (single) + max 3 subagents (2 concurrent)",
+  "data_window_hard_limit_years": 3.5,
+  "cross_asset_validation_2026-07-20": {
+    "scope": "Top3 (sw_h44/sw_h18/sw_h36) x 12 symbols x 5 tf = 180 combos, repaired WF (n_windows=3, MIN_IS=300)",
+    "verdict": "NO strategy passes >=5-symbol stable-positive bar",
+    "sw_h44_vol_target": "least-bad: OOS>0 in 30/60, positive footprint across 10+ symbols (mostly 1h/4h), but not all-symbol stable",
+    "sw_h18_structbreak": "28/60 positive, extreme negatives on 15m (WIF/XRP/AVAX/GOLD -20~-25), NOT stable",
+    "sw_h36_amihud_breakout": "REJECTED: n too small (most 2-7 trades), OOS not statistically meaningful; HYPE15m +29.7 is luck (n=9)",
+    "key_limit": "15m only 1001 bars -> WF window too short for short tf; 1h/4h more reliable",
+    "next": "sw_h44 only candidate for paper/small-live; needs longer data + higher n_windows + MC p-value"
+  },
+  "data_available": {
+    "symbols": [
+      "BTC_USDT",
+      "ETH_USDT",
+      "SOL_USDT",
+      "HYPE_USDT",
+      "GOLD_USDT"
+    ],
+    "timeframes": [
+      "15m",
+      "30m",
+      "1h",
+      "4h",
+      "1d"
+    ],
+    "max_bars_per_csv": 1500,
+    "approx_max_history_years": 3.5,
+    "source": "BingX (ccxt crypto + TradFi GOLD)"
+  },
+  "infra_present": {
+    "backtester": true,
+    "bayesian_optimizer": true,
+    "walk_forward_5win": true,
+    "monte_carlo_1000sim": true,
+    "sharpe_maxdd_winrate": true,
+    "newey_west_t": false,
+    "bootstrap_pvals": "partial (MC only, no HAC)",
+    "hmm_regime": false,
+    "fama_french_5": false,
+    "carhart": false,
+    "lowvol_factor": "proxy only (vol compare vs buy&hold)"
+  },
+  "infra_bugs_found": [
+    "WF bug: WalkForward reuses in-sample best_params on OOS windows -> oos_sharpe inflated (not true OOS)",
+    "No Newey-West HAC -> MC/alpha t-stats optimistic for autocorrelated crypto returns"
+  ],
+  "tested_hypotheses": [
+    {
+      "id": "H1",
+      "name": "Vol-scaled TSMOM",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "OOS Sharpe -0.806 (sample外反向), consistency 0.40",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 5090097"
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Donchian breakout ensemble",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "only 2 trades (樣本不足), MaxDD 26%",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 5209907"
+      ]
+    },
+    {
+      "id": "H3",
+      "name": "Intraday short-horizon reversal",
+      "tf": "1h",
+      "symbol": "BTC",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 1.07/OOS 1.02/cons 0.6) but Audit: OOS flawed by WF bug + per-regime n<=7 too small; residual alpha +8.7%/yr t=2.05 but no HAC",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 3913263"
+      ],
+      "audit": {
+        "beta": -0.0186,
+        "residual_alpha_annual_pct": 8.72,
+        "alpha_t": 2.05,
+        "regime_stability": true
+      }
+    },
+    {
+      "id": "H4",
+      "name": "Realized-vol regime switch",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "consistency 0.40, OOS 0.571",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 5920642"
+      ]
+    },
+    {
+      "id": "H5",
+      "name": "Cross-sectional relative-strength rotation",
+      "tf": "1d",
+      "verdict": "CANNOT_VERIFY",
+      "reason": "needs multi-asset engine; current engine single-symbol",
+      "date": "2026-07-19",
+      "papers": [
+        "arXiv 2405.11431",
+        "SSRN 5225612"
+      ]
+    },
+    {
+      "id": "H6",
+      "name": "Volume-confirmed move",
+      "tf": "30m",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 edge passes",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 4814346"
+      ]
+    },
+    {
+      "id": "H7",
+      "name": "Permutation-entropy regime edge",
+      "tf": "1h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 edge (but executable, 614 trades)",
+      "date": "2026-07-19",
+      "papers": [
+        "arXiv 2502.09079"
+      ]
+    },
+    {
+      "id": "H8",
+      "name": "Inter-asset vol-cointegration pairs",
+      "tf": "4h",
+      "verdict": "CANNOT_VERIFY",
+      "reason": "needs pairs/spread engine; current single-symbol",
+      "date": "2026-07-19",
+      "papers": [
+        "SSRN 5225612"
+      ]
+    },
+    {
+      "id": "H9",
+      "name": "Intraday open-imbalance reversal (1h)",
+      "tf": "1h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades (signal never triggered in 14000 bars; 00:00 exit logic too restrictive)",
+      "date": "2026-07-19",
+      "papers": [
+        "arXiv 2607.09426"
+      ]
+    },
+    {
+      "id": "H10",
+      "name": "Volatility-managed EMA momentum (1d)",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.930 <1.0 (OOS 0.656/cons 0.80); vol-scaling not enough",
+      "date": "2026-07-19",
+      "papers": [
+        "FMKT 2025 vol-managed momentum"
+      ]
+    },
+    {
+      "id": "H11",
+      "name": "Range-break reversal in overstretched regime (4h)",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "PASS_AUDIT",
+      "reason": "Backtest Sharpe 1.608/MaxDD 3.3%/18 trades (61% win); Audit: 4/4 regimes positive, but beta~0 + annualized alpha 548% suspicious (no FF5/HAC, near-zero-correlation scalp stream) -> treat as fragile",
+      "date": "2026-07-19",
+      "papers": [
+        "Springer 2025 10.1007/s42521-024-00123-2"
+      ],
+      "audit": {
+        "regimes_positive": "4/4",
+        "beta_vs_BTC": 8e-05,
+        "annualized_alpha_pct": 547.7,
+        "alpha_t_nohac": 50.7,
+        "note": "alpha figure NOT FF5-validated; no HAC"
+      }
+    },
+    {
+      "id": "H12",
+      "name": "Idiosyncratic-vol z-score reversal (1d)",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.812 <1.0 (OOS 0.569/cons 0.60, 59 trades)",
+      "date": "2026-07-19",
+      "papers": [
+        "arXiv 2211.13274"
+      ]
+    },
+    {
+      "id": "H13",
+      "name": "Vol-Adjusted RSI Mean-Reversion (4h)",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades (signal never triggered with low-vol RSI-extreme filter; parameters too restrictive on 1500 bars)",
+      "date": "2026-07-19",
+      "papers": [
+        "Andrade-Dirack-Beaulieu 2016 RSI MR",
+        "arXiv 2104.02207"
+      ]
+    },
+    {
+      "id": "H14",
+      "name": "Session-Open Gap Reversal (1d)",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.895 <1.0 (OOS 0.378/cons 0.40, 63 trades, MaxDD 37%)",
+      "date": "2026-07-19",
+      "papers": [
+        "overnight/gap reversal literature (equities->crypto port)"
+      ]
+    },
+    {
+      "id": "H15",
+      "name": "Volume-Weighted MACD Histogram Momentum (4h)",
+      "tf": "4h",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.485 <1.0 (OOS 1.338/cons 0.80, 50 trades); full-sample edge not present despite OOS",
+      "date": "2026-07-19",
+      "papers": [
+        "momentum+volume confirmation studies (SSRN)"
+      ]
+    },
+    {
+      "id": "H16",
+      "name": "Bollinger %B Z-Score Reversion (1h)",
+      "tf": "1h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.159 <1.0 (OOS 0.399/cons 0.80, 260 trades); edge too thin",
+      "date": "2026-07-19",
+      "papers": [
+        "Bollinger Bands mean-reversion"
+      ]
+    },
+    {
+      "id": "H17",
+      "name": "Intraday Volatility-Cluster Fade (15m)",
+      "tf": "15m",
+      "symbol": "SOL",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 7.48/OOS 4.92/cons 0.60/MaxDD 2.0%/10 trades) but Audit: regime-UNSTABLE (low-vol Sharpe -0.25, up-market Sharpe -21.6); alpha t=1.15 n.s.; n=10 trades -> fragile + lookahead-free but concentrated in high-vol/down markets; NOT FF5/HAC",
+      "date": "2026-07-19",
+      "papers": [
+        "arXiv 2112.03171 volatility clustering (crypto)"
+      ],
+      "audit": {
+        "beta_vs_BTC": -0.116,
+        "annualized_alpha_pct_NOFF5": 239.1,
+        "alpha_t_nohac": 1.15,
+        "regime_stable": false,
+        "note": "alpha NOT FF5-validated; no HAC; n small"
+      }
+    },
+    {
+      "id": "H18",
+      "name": "Swing-Structure Break Momentum (4h)",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe -0.187 <1.0 (OOS 0.026/cons 0.20, 19 trades); long-only breakout loses",
+      "date": "2026-07-19",
+      "papers": [
+        "price-action swing structure"
+      ]
+    },
+    {
+      "id": "H19",
+      "name": "Cross-Asset Vol-Spillover Filter (1d)",
+      "tf": "1d",
+      "verdict": "CANNOT_VERIFY",
+      "reason": "needs multi-asset/pairs engine; current engine single-symbol (BTC+GOLD spillover cannot be computed)",
+      "date": "2026-07-19",
+      "papers": [
+        "Bitcoin-Gold connectedness/spillover (RePEc 2023)",
+        "arXiv 2409.06289"
+      ]
+    },
+    {
+      "id": "H20",
+      "name": "Hurst-regime filtered daily momentum",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.647 <1.0 (OOS 0.395/cons 0.60, 60 trades, MaxDD 37.9%)",
+      "date": "2026-07-19",
+      "papers": [
+        "Bilkent AMDFA bitcoin/ETH long-memory",
+        "arXiv multifractal crypto"
+      ]
+    },
+    {
+      "id": "H21",
+      "name": "KAMA adaptive breakout",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.153 <1.0 (OOS -0.45/cons 0.60, 17 trades)",
+      "date": "2026-07-19",
+      "papers": [
+        "Kaufman Adaptive MA (Smarter Trading)"
+      ]
+    },
+    {
+      "id": "H22",
+      "name": "VWAP deviation reversion",
+      "tf": "1h",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades - signal-logic BUG: VWAP-dev entry never triggered in 1000 bars (thresholds too restrictive); NOT proof of no-edge",
+      "date": "2026-07-19",
+      "papers": [
+        "VWAP reversion literature (OpenAlgo/TradingSim)"
+      ]
+    },
+    {
+      "id": "H23",
+      "name": "Elder triple-screen pullback",
+      "tf": "4h",
+      "symbol": "SOL",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe -0.077 <1.0 (OOS 0.275/cons 0.20, 9 trades)",
+      "date": "2026-07-19",
+      "papers": [
+        "Elder Trading for a Living triple screen"
+      ]
+    },
+    {
+      "id": "H24",
+      "name": "Bollinger %b choke + ATR breakout",
+      "tf": "1h",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades - signal-logic BUG: BB-choke(5-15 consecutive inner-band bars) then breakout never fired (too restrictive); NOT proof of no-edge",
+      "date": "2026-07-19",
+      "papers": [
+        "Bollinger %b range/breakout",
+        "Wilder ATR chandelier"
+      ]
+    },
+    {
+      "id": "H25",
+      "name": "Trend-stall exhaustion fade",
+      "tf": "4h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades - exhaustion-entry too sparse (1 signal/1000 bars at mid-params; optimizer found 0); NOT proof of no-edge",
+      "date": "2026-07-19",
+      "papers": [
+        "Covel trend following stall/reversal",
+        "Wilder RSI/ATR"
+      ]
+    },
+    {
+      "id": "H26",
+      "name": "Connors RSI(2) pullback reversion",
+      "tf": "1d",
+      "symbol": "HYPE",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.184 <1.0 (OOS 0.213/cons 0.80, 60 trades, ret -43%); no edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Connors/Alvarez Short-Term Trading Strategies That Work (Connors RSI)"
+      ]
+    },
+    {
+      "id": "H27",
+      "name": "Triple-EMA alignment trend",
+      "tf": "4h",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.029 <1.0 (OOS -1.002/cons 0.40, 43 trades); MA-cascade trend death",
+      "date": "2026-07-20",
+      "papers": [
+        "Kaufman Trading Systems and Methods (MA cascades)"
+      ]
+    },
+    {
+      "id": "H28",
+      "name": "ATR-chandelier Donchian breakout",
+      "tf": "1h",
+      "symbol": "SOL",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 3.525/OOS 0.556/cons 0.60/MaxDD small/10 trades) but Audit: regime-UNSTABLE (dn-mkt mean -0.33%), alpha 75.9%/yr t=1.48 n.s.; NOT FF5/HAC; n=10 small",
+      "date": "2026-07-20",
+      "papers": [
+        "Donchian/Turtle + Chande Chandelier exit"
+      ],
+      "audit": {
+        "beta_vs_BTC": 0.395,
+        "annualized_alpha_pct_NOFF5": 75.9,
+        "alpha_t_nohac": 1.48,
+        "regime_stable": false,
+        "note": "alpha NOT FF5-validated; no HAC; OOS inflated by WF bug"
+      }
+    },
+    {
+      "id": "H29",
+      "name": "Parkinson-vol-gated breakout",
+      "tf": "1d",
+      "symbol": "GOLD",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 1.049 but only 1 trade (sample insufficient) -> gate fails; OOS 0.079/cons 0.20",
+      "date": "2026-07-20",
+      "papers": [
+        "Parkinson 1980 HL variance estimator"
+      ]
+    },
+    {
+      "id": "H30",
+      "name": "Stochastic crossover reversion",
+      "tf": "15m",
+      "symbol": "BTC",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 3.685/cons 0.60/12 trades) but OOS 31.997 is ARTIFACT (12 trades); Audit: regime-UNSTABLE (up-mkt mean -0.06%), alpha 22.76%/yr t=0.91 n.s.; NOT FF5/HAC",
+      "date": "2026-07-20",
+      "papers": [
+        "Lane stochastic oscillator"
+      ],
+      "audit": {
+        "beta_vs_BTC": -0.063,
+        "annualized_alpha_pct_NOFF5": 22.76,
+        "alpha_t_nohac": 0.91,
+        "regime_stable": false,
+        "note": "alpha NOT FF5-validated; no HAC; OOS inflated by WF bug"
+      }
+    },
+    {
+      "id": "H31",
+      "name": "Bollinger-bandwidth expansion momentum",
+      "tf": "30m",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 5.112 but consistency 0.40 (<0.60) and only 2 trades -> gate fails; OOS 3.144",
+      "date": "2026-07-20",
+      "papers": [
+        "Bollinger on Bollinger Bands (BandWidth squeeze)"
+      ]
+    },
+    {
+      "id": "H32",
+      "name": "OFI z-score mean reversion",
+      "tf": "1h",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.394 <1.0 (OOS -0.314/cons 0.40, 372 trades); no edge",
+      "date": "2026-07-20",
+      "papers": [
+        "arXiv 2408.03594"
+      ]
+    },
+    {
+      "id": "H33",
+      "name": "Realized skew/kurtosis tail-fade reversion",
+      "tf": "4h",
+      "symbol": "ETH",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 1.308/OOS 0.895/cons 0.60/MaxDD 10.9%/11 trades, win 72.7%) but Audit: regime-UNSTABLE (up-mkt Sharpe -3.31, down-mkt 7.21); beta -0.062, alpha 49.68%/yr t=1.11 n.s.; NOT FF5/HAC",
+      "date": "2026-07-20",
+      "papers": [
+        "arXiv 2410.12801"
+      ],
+      "audit": {
+        "beta_vs_asset": -0.0623,
+        "annualized_alpha_pct_NOFF5": 49.68,
+        "alpha_t_nohac": 1.11,
+        "regime_stable": false,
+        "note": "alpha NOT FF5-validated; no HAC; concentrated in down/volatile markets"
+      }
+    },
+    {
+      "id": "H34",
+      "name": "Local-Hurst anti-persistent range fade",
+      "tf": "1h",
+      "symbol": "SOL",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 2.001 but only 1 trade (signal too sparse) -> gate fails; OOS 1.072/cons 0.20",
+      "date": "2026-07-20",
+      "papers": [
+        "MDPI 12/18/2911 local Hurst"
+      ]
+    },
+    {
+      "id": "H35",
+      "name": "Session-anchored VWAP deviation reversion",
+      "tf": "30m",
+      "symbol": "ETH",
+      "verdict": "REJECT_AUDIT",
+      "reason": "Backtest PASS (Sharpe 4.602/OOS 4.894/cons 0.60/20 trades) but Audit: regime-UNSTABLE (low-vol Sharpe -1.12, up-mkt -2.61); beta -0.066, alpha 163.7%/yr t=1.55 n.s.; NOT FF5/HAC",
+      "date": "2026-07-20",
+      "papers": [
+        "intraday VWAP reversion"
+      ],
+      "audit": {
+        "beta_vs_asset": -0.0658,
+        "annualized_alpha_pct_NOFF5": 163.7,
+        "alpha_t_nohac": 1.55,
+        "regime_stable": false,
+        "note": "alpha NOT FF5-validated; no HAC; concentrated in mid/high-vol + down markets"
+      }
+    },
+    {
+      "id": "H36",
+      "name": "Amihud illiquidity-regime breakout",
+      "tf": "4h",
+      "symbol": "GOLD",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 1.388 but consistency 0.40 (<0.60); OOS 0.364/7 trades -> gate fails",
+      "date": "2026-07-20",
+      "papers": [
+        "Amihud 2002 illiquidity"
+      ]
+    },
+    {
+      "id": "H37",
+      "name": "VPIN flow-toxicity extreme fade",
+      "tf": "1h",
+      "symbol": "HYPE",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 1.287 but consistency 0.00 (all OOS windows flat/0 trades); OOS 0.000 -> gate fails",
+      "date": "2026-07-20",
+      "papers": [
+        "SSRN 1695041 VPIN"
+      ]
+    },
+    {
+      "id": "H38",
+      "name": "Intraday realized-vol overnight-gap fade",
+      "tf": "1h",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades - gap_k=2.97 too extreme (entry never triggered in 1000 bars); signal-logic too restrictive, NOT proof of no-edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Patton-Sheppard 2015 realized variance (good/bad vol)"
+      ]
+    },
+    {
+      "id": "H39",
+      "name": "Cross-EMA adaptive trend consensus",
+      "tf": "4h",
+      "symbol": "SOL",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.128 <1.0 (OOS 0.402/cons 0.60, 152 trades); MA-slope trend no edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Chande 1995 KAMA/adaptive MA family"
+      ]
+    },
+    {
+      "id": "H40",
+      "name": "RSI-divergence momentum exhaustion fade",
+      "tf": "1d",
+      "symbol": "BTC",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.375 <1.0 (OOS -0.034/cons 0.60, 29 trades); RSI-extreme fade no edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Chia-Christie et al. 2023 RSI profitability"
+      ]
+    },
+    {
+      "id": "H41",
+      "name": "OFI momentum persistence (trend)",
+      "tf": "15m",
+      "symbol": "HYPE",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe -6.061 <1.0 (OOS 0.905/cons 0.40, 169 trades); OFI trend-following loses",
+      "date": "2026-07-20",
+      "papers": [
+        "arXiv 2408.03594 OFI forecasting"
+      ]
+    },
+    {
+      "id": "H42",
+      "name": "Bollinger %B trend-filtered reversion",
+      "tf": "30m",
+      "symbol": "GOLD",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe -2.503 <1.0 (OOS -4.413/cons 0.20, 22 trades); flat-regime %B fade no edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Bollinger 2001 Bollinger on Bollinger Bands"
+      ]
+    },
+    {
+      "id": "H43",
+      "name": "Local-Hurst breakout continuation",
+      "tf": "15m",
+      "symbol": "ETH",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 7.733 but only 1 trade (signal too sparse in 1000 bars); gate fails; NOT proof of no-edge",
+      "date": "2026-07-20",
+      "papers": [
+        "MDPI local Hurst exponent estimator"
+      ]
+    },
+    {
+      "id": "H44",
+      "name": "Realized-vol-target mean-reversion",
+      "tf": "1h",
+      "symbol": "GOLD",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe -0.714 <1.0 (OOS -1.201/cons 0.40, 30 trades); vol-threshold fallback weakens edge",
+      "date": "2026-07-20",
+      "papers": [
+        "Moreira & Muir 2017 JFE Vol-Managed Portfolios"
+      ]
+    },
+    {
+      "id": "H45",
+      "name": "Session-gated intraday momentum",
+      "tf": "4h",
+      "symbol": "HYPE",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "0 trades - session gate too sparse (entry never fired in 1000 bars); signal-logic too restrictive, NOT proof of no-edge",
+      "date": "2026-07-20",
+      "papers": [
+        "arXiv 2308.06237 seasonal/intraday momentum"
+      ]
+    },
+    {
+      "id": "H46",
+      "name": "Keltner-channel squeeze breakout",
+      "tf": "30m",
+      "symbol": "SOL",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.837 <1.0 (OOS -3.097/cons 0.60, 19 trades, MaxDD 11.2%)",
+      "date": "2026-07-20",
+      "papers": [
+        "TTR Keltner squeeze / Wilder ATR"
+      ]
+    },
+    {
+      "id": "H47",
+      "name": "CCI extreme reversion",
+      "tf": "1d",
+      "symbol": "HYPE",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.884 <1.0 (OOS 1.295/cons 0.80, 14 trades, win 71%); edge thin",
+      "date": "2026-07-20",
+      "papers": [
+        "Lambert 1980 CCI",
+        "MDPI 2023 crypto CCI"
+      ]
+    },
+    {
+      "id": "H48",
+      "name": "RSI(3)+volume-thrust burst reversion",
+      "tf": "15m",
+      "symbol": "GOLD",
+      "verdict": "REJECT_BACKTEST",
+      "reason": "full Sharpe 0.899 <1.0 (OOS 21.846 ARTIFACT/cons 0.20, 17 trades); OOS inflated+inconsistent -> gate fails",
+      "date": "2026-07-20",
+      "papers": [
+        "Connors RSI burst SSRN 5029912"
+      ]
+    },
+    {
+      "id": "H49",
+      "name": "Rolling-correlation regime breakout",
+      "tf": "1h",
+      "symbol": "ETH",
+      "verdict": "PASS_AUDIT",
+      "reason": "Backtest PASS (Sharpe 3.251/OOS 4.982/cons 0.80/49 trades; RE-RUN Sharpe 1.710/OOS 2.101/77 trades -> stable). Audit: 4/4 regimes positive (all mean_ret>0); beta~0, annualized alpha 24845%/yr alpha_t=356 (no HAC). DCC-GARCH regime flip + MA breakout. Fragile like H11 (beta~0 scalp stream; OOS inflated by WF bug; no FF5/HAC; data<=3.5y).",
+      "date": "2026-07-20",
+      "papers": [
+        "arXiv 2203.09214 DCC-GARCH dynamic correlation"
+      ],
+      "audit": {
+        "regimes_positive": "4/4",
+        "beta_vs_ETH": 0.000107,
+        "annualized_alpha_pct_NOFF5": 24845.17,
+        "alpha_t_nohac": 356.03,
+        "regime_stable": true,
+        "note": "alpha NOT FF5-validated; no HAC (t optimistic); OOS inflated by WF bug; data<=3.5y"
+      }
+    }
+  ],
+  "rejected_hypotheses": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H6",
+    "H7",
+    "H9",
+    "H10",
+    "H12",
+    "H13",
+    "H14",
+    "H15",
+    "H16",
+    "H17",
+    "H18",
+    "H20",
+    "H21",
+    "H22",
+    "H23",
+    "H24",
+    "H25",
+    "H26",
+    "H27",
+    "H28",
+    "H29",
+    "H30",
+    "H31",
+    "H32",
+    "H33",
+    "H34",
+    "H35",
+    "H36",
+    "H37",
+    "H38",
+    "H39",
+    "H40",
+    "H41",
+    "H42",
+    "H43",
+    "H44",
+    "H45",
+    "H46",
+    "H47",
+    "H48"
+  ],
+  "cannot_verify_hypotheses": [
+    "H5",
+    "H8",
+    "H19"
+  ],
+  "passed_hypotheses": [
+    "H11",
+    "H49"
+  ],
+  "top_strategies_current": [
+    {
+      "id": "H11",
+      "name": "Range-break reversal in overstretched regime",
+      "tf": "4h",
+      "symbol": "BTC",
+      "sharpe": 1.608,
+      "max_dd_pct": 3.32,
+      "win_rate": 0.611,
+      "regime_stability": "4/4 positive",
+      "caveat": "beta~0 unusual; OOS inflated by WF bug; no FF5/HAC; fragile until multi-symbol validation"
+    },
+    {
+      "id": "H49",
+      "name": "Rolling-correlation regime breakout",
+      "tf": "1h",
+      "symbol": "ETH",
+      "sharpe": 3.251,
+      "max_dd_pct": 6.62,
+      "win_rate": 0.49,
+      "regime_stability": "4/4 positive",
+      "caveat": "beta~0 scalp stream; OOS inflated by WF bug (re-run Sharpe 1.71); no FF5/HAC; data<=3.5y; fragile until multi-symbol validation"
+    }
+  ],
+  "daily_log": [
+    {
+      "date": "2026-07-19",
+      "cycle": 1,
+      "research": "8 hypotheses from arXiv/SSRN (H1-H8), all lookahead_free",
+      "backtest": "H3 PASS; H1/H2/H4/H6/H7 REJECT; H5/H8 CANNOT_VERIFY",
+      "audit": "H3 REJECT_AUDIT (WF bug + small n)",
+      "passed_to_production": "NONE",
+      "infra_flags": [
+        "WF bug",
+        "no Newey-West",
+        "data 1.6-3.5y not 20y",
+        "no FF5/Carhart/HMM"
+      ]
+    },
+    {
+      "date": "2026-07-19",
+      "cycle": 2,
+      "research": "4 new hypotheses (H9-H12) from real papers: arXiv 2607.09426, FMKT-2025 vol-managed mom, Springer 2025 10.1007/s42521-024-00123-2, arXiv 2211.13274",
+      "backtest": "H11 PASS (Sharpe 1.608/MaxDD 3.3%/18 trades, win 61%); H9 REJECT (0 trades); H10 REJECT (Sharpe 0.930); H12 REJECT (Sharpe 0.812)",
+      "audit": "H11 PASS_AUDIT (4/4 regimes positive; beta~0, annualized alpha 548% suspicious -> flagged fragile, no FF5/HAC)",
+      "passed_to_production": "NONE (H11 flagged fragile; needs multi-symbol validation + true OOS fix first)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H9 logic needs fix (0 trades)"
+      ]
+    },
+    {
+      "date": "2026-07-19",
+      "cycle": 3,
+      "research": "7 new hypotheses (H13-H19) anchored to real literature: Andrade-Dirack-Beaulieu 2016 RSI MR / arXiv 2104.02207, gap-reversal (equities->crypto), momentum+volume (SSRN), Bollinger reversion, arXiv 2112.03171 vol clustering, price-action structure, Bitcoin-Gold spillover (RePEc 2023) / arXiv 2409.06289. All lookahead_free; 5 symbols x 15m-1d; data <=3.5y.",
+      "backtest": "H17 PASS (Sharpe 7.48/OOS 4.92/cons 0.60/MaxDD 2.0%/10 trades SOL15m); H13 REJECT (0 trades); H14 REJECT (Sharpe 0.895); H15 REJECT (Sharpe 0.485); H16 REJECT (Sharpe 0.159); H18 REJECT (Sharpe -0.187); H19 CANNOT_VERIFY (multi-asset engine)",
+      "audit": "H17 REJECT_AUDIT (regime-UNSTABLE: low-vol Sharpe -0.25, up-market Sharpe -21.6; alpha t=1.15 n.s., n=10 trades -> fragile + not FF5/HAC)",
+      "passed_to_production": "NONE (H17 fragile concentrated edge; all others below Sharpe 1.0 gate)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H13/H17 signal-frequency too sparse (0 / 10 trades)",
+        "single-symbol engine blocks H19 cross-asset"
+      ]
+    },
+    {
+      "date": "2026-07-19",
+      "cycle": 4,
+      "research": "6 new hypotheses (H20-H25) anchored to real literature: Hurst long-memory (Bilkent/arXiv multifractal), Kaufman KAMA, VWAP reversion (OpenAlgo/TradingSim), Elder triple-screen, Bollinger %b + Wilder ATR, Covel trend-stall fade. All lookahead_free; symbols BTC/ETH/SOL x 1h-1d; data <=3.5y.",
+      "backtest": "ALL REJECT_BACKTEST: H20 Sharpe 0.647 (60 trades), H21 0.153 (17), H23 -0.077 (9); H22/H24/H25 = 0 trades (H22/H24 confirmed signal-LOGIC BUG - entry never fires in 1000 bars; H25 only 1 signal/1000 bars - too sparse; none are proof of no-edge).",
+      "audit": "SKIPPED - no PASS advanced to audit (all below Sharpe 1.0 gate / 0 trades).",
+      "passed_to_production": "NONE (cycle 4 produced zero PASS; H11 remains the only top candidate, still flagged fragile pending WF-bug fix + multi-symbol validation)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "NEW: H22/H24 signal-logic too restrictive (0 trades = bug, not no-edge)",
+        "H25 entry too sparse",
+        "single-symbol engine blocks H19 cross-asset"
+      ]
+    },
+    {
+      "date": "2026-07-20",
+      "cycle": 5,
+      "research": "6 new hypotheses (H26-H31) anchored to real literature: Connors RSI, Kaufman MA-cascade, Donchian+Chandelier, Parkinson vol, Lane stochastic, Bollinger BandWidth. All lookahead_free; fresh (symbol,tf) pairs HYPE1d/ETH4h/SOL1h/GOLD1d/BTC15m/ETH30m; data <=3.5y.",
+      "backtest": "H28 PASS/Sharpe 3.525 (10 trades SOL1h); H30 PASS/Sharpe 3.685 (12 trades BTC15m, but OOS 31.997 artifact); H26 REJECT Sharpe 0.184; H27 REJECT Sharpe 0.029; H29 REJECT (1 trade, Sharpe 1.049); H31 REJECT (cons 0.40/2 trades, Sharpe 5.112).",
+      "audit": "H28 REJECT_AUDIT (regime-UNSTABLE dn-mkt -0.33%; alpha 75.9%/yr t=1.48 n.s.); H30 REJECT_AUDIT (regime-UNSTABLE up-mkt -0.06%; alpha 22.76%/yr t=0.91 n.s.). Both alpha figures NOT FF5/HAC.",
+      "passed_to_production": "NONE (cycle 5 produced zero PASS_AUDIT; H11 remains the only top candidate, still flagged fragile pending WF-bug fix + multi-symbol validation)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H29/H31 signal frequency too sparse (1/2 trades = gate-protected, not proof of no-edge)",
+        "single-symbol engine blocks cross-asset (none this round)"
+      ]
+    },
+    {
+      "date": "2026-07-20",
+      "cycle": 6,
+      "research": "6 new hypotheses (H32-H37) anchored to real 2024-26 literature: arXiv 2408.03594 (OFI), arXiv 2410.12801 (S-K plane), MDPI 12/18/2911 (local Hurst), intraday VWAP reversion, Amihud 2002 illiquidity, SSRN 1695041 (VPIN). All lookahead_free; single-asset; fresh (symbol,tf) pairs BTC1h/ETH4h/SOL1h/ETH30m/GOLD4h/HYPE1h; data <=3.5y.",
+      "backtest": "H33 PASS (Sharpe 1.308/OOS 0.895/cons 0.60/11 trades ETH4h); H35 PASS (Sharpe 4.602/OOS 4.894/cons 0.60/20 trades ETH30m) after code-bug fix; H32 REJECT Sharpe 0.394; H34 REJECT (1 trade, too sparse); H36 REJECT cons 0.40; H37 REJECT cons 0.00.",
+      "audit": "H33 REJECT_AUDIT (regime-UNSTABLE: up-mkt Sharpe -3.31, down-mkt 7.21; beta -0.062, alpha 49.68%/yr t=1.11 n.s.); H35 REJECT_AUDIT (regime-UNSTABLE: low-vol Sharpe -1.12, up-mkt -2.61; beta -0.066, alpha 163.7%/yr t=1.55 n.s.). Both alpha NOT FF5/HAC; n.s. even optimistic.",
+      "passed_to_production": "NONE (cycle 6 produced zero PASS_AUDIT; H11 remains the only top candidate, still flagged fragile pending WF-bug fix + multi-symbol validation)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H35 had code-bug (bar.timestamp str .date()) -> fixed, not no-edge",
+        "H34/H37 signal too sparse (1/0 trades = gate-protected)"
+      ]
+    },
+    {
+      "date": "2026-07-20",
+      "cycle": 7,
+      "research": "6 new hypotheses (H38-H43) anchored to real 2015-2024 literature: Patton-Sheppard realized vol, Chande KAMA, Chia-Christie RSI, arXiv 2408.03594 OFI(trend), Bollinger 2001 %B, MDPI local Hurst. All lookahead_free; fresh (symbol,tf) pairs ETH1h/SOL4h/BTC1d/HYPE15m/GOLD30m/ETH15m; data <=3.5y.",
+      "backtest": "ALL REJECT_BACKTEST: H38=0 trades (gap_k too extreme); H39 Sharpe 0.128; H40 Sharpe 0.375; H41 Sharpe -6.061; H42 Sharpe -2.503; H43 Sharpe 7.733 but 1 trade (sparse, gate-protected). No PASS.",
+      "audit": "SKIPPED - no PASS advanced to audit (all below Sharpe 1.0 gate / 0-1 trades).",
+      "passed_to_production": "NONE (cycle 7 produced zero PASS; H11 remains the only top candidate, still flagged fragile pending WF-bug fix + multi-symbol validation)",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H38/H43 signal-logic too restrictive (0/1 trades = gate-protected, not proof of no-edge)",
+        "single-symbol engine blocks cross-asset"
+      ]
+    },
+    {
+      "date": "2026-07-20",
+      "cycle": 8,
+      "research": "H44-H49 already run on disk (backtest_history) but NOT recorded in state -> reconciled this cycle. New H50+ hypotheses deferred: window-end at 08:06 TPE; real paper anchors gathered (arXiv 2606.08586, SSRN 6938742, arXiv 2508.06788, RePEc 2607.09426, Wiley 2026 var-forecast, Springer 10.1007/s11156-014-0436-6) for next cycle.",
+      "backtest": "H44 REJECT(Sharpe -0.714); H45 REJECT(0 trades); H46 REJECT(0.837); H47 REJECT(0.884); H48 REJECT(0.899, OOS artifact); H49 PASS(Sharpe 3.251/OOS 4.982/cons 0.80/49 trades; RE-RUN 1.710/2.101/77 -> stable).",
+      "audit": "H49 PASS_AUDIT: 4/4 regimes positive, beta~0, alpha_t=356 (no HAC). Same fragile profile as H11.",
+      "passed_to_production": "NONE (both H11 and H49 flagged fragile pending WF-bug fix + true multi-symbol OOS + HAC/FF5 validation).",
+      "infra_flags": [
+        "WF bug (OOS inflated)",
+        "no Newey-West/HAC",
+        "no FF5/Carhart",
+        "no HMM regime",
+        "data <=3.5y not 20y",
+        "H45 signal-logic too restrictive (0 trades)"
+      ]
+    }
+  ]
+}
