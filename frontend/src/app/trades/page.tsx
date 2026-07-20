@@ -174,7 +174,6 @@ export default function TradesPage() {
     >
       <div className="flex items-center justify-between mb-4">
         <Link href="/history" className="text-xs font-mono text-accent hover:underline">回測歷史 ↗</Link>
-        <Link href="/monitoring" className="text-xs font-mono text-textSecondary hover:text-accent">監控 ↗</Link>
       </div>
       {/* 範圍切換 */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
