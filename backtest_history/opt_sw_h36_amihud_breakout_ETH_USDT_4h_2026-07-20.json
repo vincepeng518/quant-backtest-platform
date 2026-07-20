@@ -7,9 +7,9 @@
     "n_sims": 1000
   },
   "best_params": {
-    "lookback": 76,
-    "illiq_scale": 0.505599088780267,
-    "hold": 30
+    "lookback": 47,
+    "illiq_scale": 0.5495908645910172,
+    "hold": 17
   },
   "best_score": 0.0,
   "full_backtest": {
