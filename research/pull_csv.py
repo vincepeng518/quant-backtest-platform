@@ -15,9 +15,12 @@ PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_DIR = os.path.join(PROJ, "data", "csv")
 os.makedirs(CSV_DIR, exist_ok=True)
 
-CRYPTO = [("HYPE/USDT", "HYPE_USDT"), ("BTC/USDT", "BTC_USDT"),
-          ("ETH/USDT", "ETH_USDT"), ("SOL/USDT", "SOL_USDT")]
+CRYPTO = [("BTC/USDT", "BTC_USDT"), ("ETH/USDT", "ETH_USDT"), ("SOL/USDT", "SOL_USDT"),
+          ("HYPE/USDT", "HYPE_USDT"), ("XRP/USDT", "XRP_USDT"), ("AVAX/USDT", "AVAX_USDT"),
+          ("ZRO/USDT", "ZRO_USDT"), ("RUNE/USDT", "RUNE_USDT"), ("WIF/USDT", "WIF_USDT"),
+          ("ATOM/USDT", "ATOM_USDT"), ("DYDX/USDT", "DYDX_USDT")]
 TFS = ["15m", "30m", "1h", "4h", "1d"]
+LIMIT = 1500  # BingX 單次上限; 如需更長再分段
 
 async def main():
     ex = ccxt.bingx()
@@ -27,7 +30,7 @@ async def main():
             fname = f"{tag}_{tf}.csv"
             fpath = os.path.join(CSV_DIR, fname)
             try:
-                ohlcv = ex.fetch_ohlcv(sym, tf, limit=1500)
+                ohlcv = ex.fetch_ohlcv(sym, tf, limit=LIMIT)
                 if not ohlcv:
                     print(f"FAIL {sym} {tf}")
                     continue
