@@ -150,7 +150,7 @@ def fetch_positions() -> list:
         raw = ex.fetch_positions()
         out = []
         for p in raw:
-            sym = simplify_symbol(_ccxt_sym(p.get("symbol")))
+            sym = simplify_symbol(p.get("symbol"))
             side = (p.get("side") or "").upper()  # long/short -> LONG/SHORT
             if not sym:
                 continue
@@ -186,6 +186,16 @@ def fetch_order_history(limit: int = 200) -> list:
             params["idLessThan"] = cursor_id  # BingX 分頁: 上一頁最後一筆 id
         try:
             d = _call_private("/openApi/swap/v2/trade/allOrders", params)
+            # BingX 限流: code 100410 = 端點頻率限制禁用期, 需等解封
+            if d.get("code") == 100410:
+                msg = str(d.get("msg", ""))
+                import re as _re
+                m = _re.search(r"unblocked after (\d+)", msg)
+                wait = (int(m.group(1)) - int(__import__("time").time() * 1000)) / 1000 + 2 if m else 30
+                wait = max(5, min(wait, 120))
+                logger.warning("BingX allOrders rate-limited (100410), wait %.0fs", wait)
+                time.sleep(wait)
+                continue  # 重試同頁
             data = d.get("data", {})
             batch = data.get("orders", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
             if not batch:
@@ -357,7 +367,31 @@ def _gh_put(path: str, content: str, message: str) -> tuple[bool, str]:
 
 
 def persist(snap: dict) -> str:
-    """寫入本地 + 永久 GitHub trades/ 目錄。"""
+    """寫入本地 + 永久 GitHub trades/ 目錄。
+
+    防護: 若 count==0 (抓取限流/失敗), 不覆蓋既有好數據, 跳過並告警。
+    """
+    # 空快照防護: 不寫入 0 筆覆蓋有效數據
+    if snap.get("count", 0) == 0:
+        # 檢查本地是否已有非空 snapshot
+        existing_files = sorted(
+            f for f in os.listdir(os.path.join(ROOT, TRADES_PREFIX))
+            if f.startswith("trades_") and f.endswith(".json")
+        ) if os.path.isdir(os.path.join(ROOT, TRADES_PREFIX)) else []
+        has_good = False
+        for ef in reversed(existing_files[-5:]):
+            try:
+                with open(os.path.join(ROOT, TRADES_PREFIX, ef)) as fh:
+                    if len(json.load(fh).get("records", [])) > 0:
+                        has_good = True
+                        break
+            except Exception:
+                continue
+        if has_good:
+            logger.warning("skip empty snapshot (count=0): 保留既有有效數據, 不覆蓋")
+            return ""
+        logger.warning("empty snapshot but no prior good data: still writing (first run?)")
+
     os.makedirs(os.path.join(ROOT, TRADES_PREFIX), exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     fname = f"trades_{ts}.json"
