@@ -966,7 +966,16 @@ function BacktestView() {
 
 export default function BacktestPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={
+      <PageShell eyebrow="Backtest / workflow" title="策略回測" subtitle="載入中…">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-10 bg-surface rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="h-64 bg-surface border border-border/10 rounded-lg animate-pulse mt-6" />
+      </PageShell>
+    }>
       <BacktestView />
     </Suspense>
   );

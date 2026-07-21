@@ -32,7 +32,16 @@ const SOURCES = [
 
 export default function OptimizePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={
+      <PageShell eyebrow="Optimize / search" title="參數優化" subtitle="載入中…">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 bg-surface rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="h-48 bg-surface border border-border/10 rounded-lg animate-pulse mt-6" />
+      </PageShell>
+    }>
       <OptimizeView />
     </Suspense>
   );

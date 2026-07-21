@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface PageShellProps {
   /** mono uppercase eyebrow above the title, e.g. "BACKTEST / workflow" */
@@ -20,6 +20,10 @@ export const PageShell: React.FC<PageShellProps> = ({
   subtitle,
   children,
 }) => {
+  useEffect(() => {
+    document.title = `${title} — Quant Backtest`;
+  }, [title]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-14">
       {/* Hero header */}

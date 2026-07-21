@@ -40,11 +40,14 @@ export default function HistoryPage() {
     >
       <Card className="min-h-[300px]">
         {loading ? (
-          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Spinner size="lg" />
+            <p className="text-sm text-textSecondary font-mono">載入回測記錄…</p>
+          </div>
         ) : error ? (
           <p className="text-sm font-mono text-danger p-6">{error}</p>
         ) : items.length === 0 ? (
-          <EmptyState title="No backtest records yet" description="Run a backtest to populate history." />
+          <EmptyState title="暫無回測記錄" description="執行回測後，記錄會自動保存在這裡。" />
         ) : (
           <div className="divide-y divide-border/10">
             {items.map((it) => (

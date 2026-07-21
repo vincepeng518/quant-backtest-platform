@@ -190,116 +190,120 @@ export default function TradesPage() {
         ))}
       </div>
 
-      {/* 統計卡 (journalit 風格擴充) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
-          <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-            {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">勝率 / 筆數</p>
-          <p className="text-xl font-mono font-semibold text-text">{fmt(stats.winRate, 1)}%</p>
-          <p className="text-xs text-textSecondary font-mono">{stats.wins}W / {stats.losses}L / {stats.scr}平</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
-          <p className={`text-xl font-mono font-semibold ${stats.avgPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-            {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">總倉位大小</p>
-          <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
-        </Card>
-      </div>
+      {/* 統計卡 (journalit 風格擴充) — 僅在有資料時顯示 */}
+      {records.length > 0 && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
+              <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">勝率 / 筆數</p>
+              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.winRate, 1)}%</p>
+              <p className="text-xs text-textSecondary font-mono">{stats.wins}W / {stats.losses}L / {stats.scr}平</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
+              <p className={`text-xl font-mono font-semibold ${stats.avgPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">總倉位大小</p>
+              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
+            </Card>
+          </div>
 
-      {/* 手續費總和 (另計, 不併入 P/L) */}
-      {feesTotal != null && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <Card className="p-4 col-span-2 md:col-span-1">
-            <p className="text-xs text-textSecondary font-mono mb-1">手續費總和 (Fees)</p>
-            <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
-            <p className="text-xs text-textSecondary font-mono">不計入 P/L 面板</p>
+          {/* 手續費總和 (另計, 不併入 P/L) */}
+          {feesTotal != null && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <Card className="p-4 col-span-2 md:col-span-1">
+                <p className="text-xs text-textSecondary font-mono mb-1">手續費總和 (Fees)</p>
+                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
+                <p className="text-xs text-textSecondary font-mono">不計入 P/L 面板</p>
+              </Card>
+            </div>
+          )}
+
+          {/* 多空 + 連續 (第二排) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">多頭 P/L</p>
+              <p className={`text-lg font-mono font-semibold ${stats.longPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">空頭 P/L</p>
+              <p className={`text-lg font-mono font-semibold ${stats.shortPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">最大連續盈利</p>
+              <p className="text-lg font-mono font-semibold text-accent">{stats.maxWinStreak} 筆</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">最大連續虧損</p>
+              <p className="text-lg font-mono font-semibold text-danger">{stats.maxLossStreak} 筆</p>
+            </Card>
+          </div>
+
+          {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
+              <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
+              <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
+            </Card>
+          </div>
+
+          {/* PnL Calendar Heatmap (journalit ContributionsHeatmap 風格) */}
+          <Card className="p-4 mb-6">
+            <p className="text-xs text-textSecondary font-mono mb-3">PnL 日曆 (近 12 週, 綠=盈/紅=虧)</p>
+            <div className="flex flex-wrap gap-1">
+              {heatmap.map((d) => (
+                <div
+                  key={d.key}
+                  className={`heat-cell ${heatClass(d.pnl)}`}
+                  title={`${d.key}: ${d.pnl >= 0 ? '+' : ''}${fmt(d.pnl)}`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-3 text-xs font-mono text-textSecondary">
+              <span>少</span>
+              <span className="heat-cell heat-empty" />
+              <span className="heat-cell heat-loss-2" />
+              <span className="heat-cell heat-loss-4" />
+              <span className="heat-cell heat-profit-2" />
+              <span className="heat-cell heat-profit-4" />
+              <span>多</span>
+            </div>
           </Card>
-        </div>
+        </>
       )}
-
-      {/* 多空 + 連續 (第二排) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">多頭 P/L</p>
-          <p className={`text-lg font-mono font-semibold ${stats.longPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-            {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">空頭 P/L</p>
-          <p className={`text-lg font-mono font-semibold ${stats.shortPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-            {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">最大連續盈利</p>
-          <p className="text-lg font-mono font-semibold text-accent">{stats.maxWinStreak} 筆</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">最大連續虧損</p>
-          <p className="text-lg font-mono font-semibold text-danger">{stats.maxLossStreak} 筆</p>
-        </Card>
-      </div>
-
-      {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
-          <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
-          <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
-          <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
-          <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
-          <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
-          <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
-        </Card>
-      </div>
-
-      {/* PnL Calendar Heatmap (journalit ContributionsHeatmap 風格) */}
-      <Card className="p-4 mb-6">
-        <p className="text-xs text-textSecondary font-mono mb-3">PnL 日曆 (近 12 週, 綠=盈/紅=虧)</p>
-        <div className="flex flex-wrap gap-1">
-          {heatmap.map((d) => (
-            <div
-              key={d.key}
-              className={`heat-cell ${heatClass(d.pnl)}`}
-              title={`${d.key}: ${d.pnl >= 0 ? '+' : ''}${fmt(d.pnl)}`}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-2 mt-3 text-xs font-mono text-textSecondary">
-          <span>少</span>
-          <span className="heat-cell heat-empty" />
-          <span className="heat-cell heat-loss-2" />
-          <span className="heat-cell heat-loss-4" />
-          <span className="heat-cell heat-profit-2" />
-          <span className="heat-cell heat-profit-4" />
-          <span>多</span>
-        </div>
-      </Card>
 
       {/* 交易表格 */}
       <Card className="min-h-[300px]">
