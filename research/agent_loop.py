@@ -30,7 +30,7 @@ QWEN_KEY = "sk-sp-H.PDLP.Cang.MEUCIQD0Q-9KggKz03ksH3o9oylj_8XG_NKEH4pK2LoYuZwn5w
 
 # Qwen token endpoint 可用文字模型 (2026-07-21 驗證)
 QWEN_MODELS = [
-    "qwen3.6-plus", "qwen3.6-flash", "qwen3.7-max", "qwen3.7-plus",
+    "qwen3.8-max-preview", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus", "qwen3.6-flash",
     "deepseek-v3.2", "deepseek-v4-flash", "deepseek-v4-pro",
     "glm-5", "glm-5.1", "glm-5.2",
     "kimi-k2.5", "kimi-k2.6", "kimi-k2.7-code", "MiniMax-M2.5",
