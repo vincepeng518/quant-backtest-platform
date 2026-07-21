@@ -3,11 +3,13 @@ agent_loop.py — 自動策略演化循環 (用戶指定 5 步流程)
 1. 策略生成: LLM 讀因子庫 → 輸出 JSON 交易邏輯假設
 2. 程式碼轉譯: Parser 讀 JSON → 生成 Python 回測腳本 (StrategyBase 子類)
 3. 回測執行: 命令列呼叫 optimize_local.py
-4. 條件過濾: Sharpe>1.5 且 MaxDD<20% → 未達標回傳 LLM 修正
+4. 條件過濾: IS Sharpe>1.5 且 MaxDD<20% 且 OOS Sharpe>0 → 未達標回傳 LLM 修正
 5. 儲存與叠代: 合格寫入 backtest_history + 觸發下一輪變異 (mutate params)
-單輪 <10min。終端機執行: python3 research/agent_loop.py [--rounds N] [--symbol BTC_USDT] [--tf 1h]
+單輪 <10min。終端機執行: python3 research/agent_loop.py [--rounds N] [--symbol BTC_USDT] [--tf 1h] [--llm qwen|novita]
 
-LLM: Novita 額度 (meta-llama/llama-3.3-70b-instruct). key: NOVITA_API_KEY (搜 /root/.hermes/.env)
+LLM providers:
+- novita: meta-llama/llama-3.3-70b-instruct (key: NOVITA_API_KEY in /root/.hermes/.env)
+- qwen: qwen3.7-max (key: 用戶提供, token-plan.ap-southeast-1.maas.aliyuncs.com)
 """
 from __future__ import annotations
 import os, sys, json, time, argparse, subprocess, textwrap, datetime, re
@@ -18,17 +20,24 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-LLM_BASE = "https://api.novita.ai/openai"
-LLM_MODEL = "meta-llama/llama-3.3-70b-instruct"  # novita 額度 (非 reasoning, content 直接可解析)
+# LLM providers
+NOVITA_BASE = "https://api.novita.ai/openai"
+NOVITA_MODEL = "meta-llama/llama-3.3-70b-instruct"
 NOVITA_KEY_FILES = ["/root/.hermes/.env", "/root/.env"]
+
+QWEN_BASE = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+QWEN_MODEL = "qwen3.7-max"
+QWEN_KEY = "sk-sp-H.PDLP.Cang.MEUCIQD0Q-9KggKz03ksH3o9oylj_8XG_NKEH4pK2LoYuZwn5wIgB-GEaQIf-3wEKWKVB5w2C5sTicmPqCpl5UBTLuVRxQ4"
+
 THRESH_SHARPE = 1.5
 THRESH_MAXDD = 20.0
 SYMBOL_DEF = "BTC_USDT"
 TF_DEF = "1h"
 
+LLM_PROVIDER = "novita"  # runtime default; cron uses qwen
+
 
 def _load_novita_key() -> str:
-    """從 hermes/.env 或 /root/.env 讀 NOVITA_API_KEY"""
     import re
     for f in NOVITA_KEY_FILES:
         try:
@@ -41,14 +50,16 @@ def _load_novita_key() -> str:
     return os.environ.get("NOVITA_API_KEY", "")
 
 
-NOVITA_KEY = _load_novita_key()
-
-
-def llm_chat(system: str, user: str, max_tokens: int = 1500) -> str:
-    if not NOVITA_KEY:
-        raise RuntimeError("NOVITA_API_KEY 未找到 (搜 /root/.hermes/.env, /root/.env, env)")
+def llm_chat(system: str, user: str, max_tokens: int = 1500, provider: str = None) -> str:
+    provider = provider or LLM_PROVIDER
+    if provider == "qwen":
+        base, model, key = QWEN_BASE, QWEN_MODEL, QWEN_KEY
+    else:
+        base, model, key = NOVITA_BASE, NOVITA_MODEL, _load_novita_key()
+    if not key:
+        raise RuntimeError(f"{provider} API key 未找到")
     payload = {
-        "model": LLM_MODEL,
+        "model": model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -57,8 +68,8 @@ def llm_chat(system: str, user: str, max_tokens: int = 1500) -> str:
         "temperature": 0.8,
     }
     resp = requests.post(
-        f"{LLM_BASE}/chat/completions",
-        headers={"Authorization": f"Bearer {NOVITA_KEY}", "Content-Type": "application/json"},
+        f"{base}/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         json=payload,
         timeout=120,
     )
@@ -66,88 +77,179 @@ def llm_chat(system: str, user: str, max_tokens: int = 1500) -> str:
     return resp.json()["choices"][0]["message"]["content"]
 
 
-def step1_generate(round_n: int, feedback: str | None) -> dict:
-    """LLM 讀因子庫 → JSON 交易邏輯假設"""
+def step1_generate(round_n: int, feedback: str | None, factor_cols: list[str], provider: str = "novita") -> dict:
+    """LLM 讀因子清單 + 統計摘要 → JSON 交易邏輯假設 (指定具體因子)"""
     factor_hint = (
-        "因子庫可用: pandas_ta 130+ 技術指標 (RSI/ATR/BBANDS/MACD...), "
-        "Alpha101 量價因子 (需時序化), qlib Alpha158 特徵."
+        f"可用因子 (pandas_ta 單標的時間序列, 274 總數, 穩定子集 {len(factor_cols)} 個):\n"
+        f"{', '.join(factor_cols[:40])}\n"
+        "策略必須選用上述因子名 (如 'rsi','atr','MACD_12_26_9','BBANDS' 等), "
+        "並指定 entry/exit 的數值閾值。"
     )
     system = (
         "你是一個量化策略設計師。輸出嚴格 JSON (不要 markdown 代碼塊), 包含:\n"
-        "{\"name\": str, \"logic\": str, \"indicators\": [str], "
-        "\"entry_rule\": str, \"exit_rule\": str, \"params\": {param: default}, "
-        "\"timeframe\": str, \"rationale\": str}\n"
-        "策略必須可用 pandas_ta 指標表達。只輸出 JSON。"
+        "{\"name\": str, \"logic\": str, \"factor\": str (選一個因子名), "
+        "\"entry_rule\": str (如 'rsi < 30'), \"exit_rule\": str (如 'rsi > 70'), "
+        "\"params\": {\"n\": 14}, \"rationale\": str}\n"
+        "factor 必須是給定清單中的一個。只輸出 JSON。"
     )
     user = f"第 {round_n} 輪策略生成。{factor_hint}\n"
     if feedback:
         user += f"\n上一輪失敗日誌 (請修正):\n{feedback}\n"
-    user += "\n請生成一個新的交易邏輯假設 (JSON)。"
-    raw = llm_chat(system, user)
-    # 抽取 JSON
+    user += "\n請生成一個新的交易邏輯假設 (JSON)，指定一個具體因子與閾值。"
+    raw = llm_chat(system, user, provider=provider)
     try:
         j = json.loads(raw[raw.find("{") : raw.rfind("}") + 1])
     except Exception:
-        j = {"name": f"llm_round{round_n}", "logic": raw[:200], "indicators": ["rsi"],
-             "entry_rule": "rsi<30", "exit_rule": "rsi>70", "params": {"n": 14}, "timeframe": "1h",
-             "rationale": "fallback"}
+        j = {"name": f"llm_round{round_n}", "logic": raw[:200], "factor": "rsi",
+             "entry_rule": "rsi<30", "exit_rule": "rsi>70", "params": {"n": 14}, "rationale": "fallback"}
+    # 確保 factor 在清單內, 否則 fallback rsi
+    if j.get("factor") not in factor_cols:
+        j["factor"] = "rsi"
     return j
 
 
+def _build_factor_expr(factor: str) -> tuple[str, str]:
+    """把因子名映射到 pandas_ta 呼叫 + 取最後值的方式。
+    回傳 (init計算代碼片段, next取值代碼片段)"""
+    f = factor.lower()
+    # 特殊處理常見因子 (pandas_ta 調用方式)
+    if f == "rsi":
+        init = (
+            "delta = self._df['close'].diff()\n"
+            "gain = delta.clip(lower=0).rolling(self.n).mean()\n"
+            "loss = (-delta.clip(upper=0)).rolling(self.n).mean()\n"
+            "rs = gain / (loss + 1e-9)\n"
+            "self._f = 100 - 100 / (1 + rs)"
+        )
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f in ("atr", "natr"):
+        init = "self._f = self._df.ta.atr(length=self.n)"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f.startswith("macd"):
+        init = "self._f = self._df.ta.macd(length=self.n).iloc[:, 0]"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f.startswith("bbands") or f == "bbands":
+        init = "self._f = self._df.ta.bbands(length=self.n).iloc[:, 0]"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f in ("adx", "adxr_14_2", "adxr"):
+        init = "self._f = self._df.ta.adx(length=self.n).iloc[:, 0]"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f == "cci":
+        init = "self._f = self._df.ta.cci(length=self.n)"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f == "willr":
+        init = "self._f = self._df.ta.willr(length=self.n)"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f == "roc" or f.startswith("roc"):
+        init = "self._f = self._df.ta.roc(length=self.n)"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f == "mom" or f.startswith("mom"):
+        init = "self._f = self._df['close'].diff(self.n)"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    elif f == "obv" or f == "obv_min_2" or f == "obv_max_2":
+        init = "self._f = self._df.ta.obv()"
+        get = "val = self._f.iloc[self._i - 1] if self._i - 1 < len(self._f) else None"
+    else:
+        # 通用 fallback: 嘗試 df.ta.<factor>(); 若無則用 close rolling
+        init = (
+            "try:\n"
+            "    self._f = self._df.ta." + f + "(length=self.n) if hasattr(self._df.ta, '" + f + "') else self._df['close'].rolling(self.n).mean()\n"
+            "except Exception:\n"
+            "    self._f = self._df['close'].rolling(self.n).mean()"
+        )
+        get = "val = self._f.iloc[self._i] if hasattr(self, '_f') and self._i < len(self._f) else None"
+    return init, get
+
+
 def step2_translate(spec: dict) -> str:
-    """Parser 讀 JSON → 生成 StrategyBase 子類 .py (正確繼承)"""
+    """Parser 讀 JSON → 生成 StrategyBase 子類 (真因子預計算 + 逐根取用)"""
     name = spec.get("name", "agent_strat")
     safe = f"r{int(time.time()) % 100000}_{abs(hash(name)) % 100000:05d}"
-    params = spec.get("params", {"n": 14})
-    indicators = spec.get("indicators", ["rsi"])
-    entry = spec.get("entry_rule", "rsi < 30")
-    exit_ = spec.get("exit_rule", "rsi > 70")
-    cls = f'''# AUTO-GENERATED by agent_loop.py round {datetime.datetime.now().isoformat()}
+    factor = spec.get("factor", "rsi")
+    entry = spec.get("entry_rule", "val < 30")
+    exit_ = spec.get("exit_rule", "val > 70")
+    init_code, get_code = _build_factor_expr(factor)
+    cls = '''# AUTO-GENERATED by agent_loop.py round __TS__
 from __future__ import annotations
 from typing import Any, Optional
+import numpy as np
 import pandas as pd
 from strategies.base import Bar, Signal, StrategyBase
 
-class {safe}(StrategyBase):
-    name = "agent_{safe}"
-    description = "{spec.get('rationale','auto')[:80]}"
+def _rsi_series(x: pd.Series) -> float:
+    delta = x.diff()
+    gain = delta.clip(lower=0).sum()
+    loss = (-delta.clip(upper=0)).sum()
+    rs = gain / (loss + 1e-9)
+    return 100 - 100 / (1 + rs)
+
+class __SAFE__(StrategyBase):
+    name = "agent___SAFE__"
+    description = "__DESC__"
     category = "agent"
 
     def init(self, params: dict[str, Any]) -> None:
-        super().init(params)
+        super().__init__()
         self.n = int(params.get("n", 14))
         self._pos = 0
-        self._closes: list[float] = []
+        self._i = 0
+        self._bars: list[Bar] = []
+        self._df = pd.DataFrame()
+        self._f = None
 
     def next(self, bar: Bar) -> Optional[Signal]:
-        self._closes.append(bar.close)
-        if len(self._closes) < self.n + 2:
+        self._bars.append(bar)
+        self._i += 1
+        if len(self._bars) < self.n + 2:
             return None
-        s = pd.Series(self._closes)
-        # indicators: {indicators}
-        delta = s.diff()
-        gain = delta.clip(lower=0).rolling(self.n).sum()
-        loss = (-delta.clip(upper=0)).rolling(self.n).sum()
-        rs = gain / (loss + 1e-9)
-        rsi = (100 - 100 / (1 + rs)).iloc[-1]
-        if pd.isna(rsi):
+        # 每根用累積歷史重算因子 (向量化, 只用歷史無泄漏)
+        self._df = pd.DataFrame({
+            "close": [b.close for b in self._bars],
+            "high": [b.high for b in self._bars],
+            "low": [b.low for b in self._bars],
+            "volume": [b.volume for b in self._bars],
+        })
+        try:
+__INIT_CODE__
+__GET_CODE__
+            __FACTOR_VAR__ = val
+        except Exception:
             return None
-        # entry: {entry}
-        # exit: {exit_}
-        if rsi < 30 and self._pos == 0:
-            self._pos = 1
-            return Signal(action="buy", price=bar.close)
-        if rsi > 70 and self._pos == 1:
-            self._pos = 0
-            return Signal(action="close")
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return None
+        # entry: __ENTRY__
+        # exit: __EXIT__
+        try:
+            if (__ENTRY__) and self._pos == 0:
+                self._pos = 1
+                return Signal(action="buy", price=bar.close)
+            if (__EXIT__) and self._pos == 1:
+                self._pos = 0
+                return Signal(action="close")
+        except Exception:
+            return None
         return None
 
     def get_params_space(self) -> dict[str, Any]:
-        return {{"n": {{"type": "range", "min": 5, "max": 50, "step": 1}}}}
+        return {"n": {"type": "range", "min": 5, "max": 50, "step": 1}}
 
     def warmup_period(self) -> int:
         return self.n + 2
 '''
+    # init_code/get_code 是頂格代碼塊 (在 try: 下需 12 空格縮排)
+    init_indented = "\n".join("            " + ln if ln.strip() else ln for ln in init_code.split("\n"))
+    get_indented = "\n".join("            " + ln if ln.strip() else ln for ln in get_code.split("\n"))
+    # entry/exit 裡的因子名映射成 val (LLM 用 factor 名, 代碼用 val)
+    factor_var = factor.lower()
+    cls = (cls
+           .replace("__TS__", datetime.datetime.now().isoformat())
+           .replace("__SAFE__", safe)
+           .replace("__DESC__", spec.get("rationale", "auto")[:80])
+           .replace("__INIT_CODE__", init_indented)
+           .replace("__GET_CODE__", get_indented)
+           .replace("__FACTOR_VAR__", factor_var)
+           .replace("__ENTRY__", entry)
+           .replace("__EXIT__", exit_))
     path = os.path.join(ROOT, "strategies", "technical", f"agent_{safe}.py")
     with open(path, "w") as f:
         f.write(cls)
@@ -231,21 +333,42 @@ def mutate(spec: dict, feedback: str) -> dict:
     return spec  # step1_generate 會吃 feedback 重新生成
 
 
+def _load_factor_cols(symbol: str, tf: str) -> list[str]:
+    """從 factor_lib parquet 抽穩定因子列名 (給 LLM 精確清單)"""
+    import pandas as pd
+    p = os.path.join(ROOT, "factor_lib", "pandas_ta_features", f"{symbol}_{tf}.parquet")
+    if not os.path.exists(p):
+        return ["rsi", "atr", "macd", "bbands", "cci", "willr", "adx", "roc", "mom", "obv"]
+    try:
+        df = pd.read_parquet(p)
+        cols = [c for c in df.columns if c not in ("timestamp", "open", "high", "low", "close", "volume")]
+        # 優先穩定子集
+        stable = [c for c in cols if any(k in c.upper() for k in
+                  ["RSI", "ATR", "BBANDS", "MACD", "SMA", "EMA", "ADX", "CCI", "ROC", "MOM",
+                   "WILLR", "STOCH", "OBV", "VWAP", "ZSCORE", "LOG"])]
+        return stable[:40] if stable else cols[:40]
+    except Exception:
+        return ["rsi", "atr", "macd", "bbands", "cci"]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--symbol", default=SYMBOL_DEF)
     ap.add_argument("--tf", default=TF_DEF)
+    ap.add_argument("--llm", default="novita", choices=["novita", "qwen"])
     args = ap.parse_args()
 
-    print(f"=== agent_loop start: {args.rounds} rounds, {args.symbol} {args.tf} ===")
+    factor_cols = _load_factor_cols(args.symbol, args.tf)
+    print(f"=== agent_loop start: {args.rounds} rounds, {args.symbol} {args.tf}, llm={args.llm} ===")
+    print(f"  factor pool: {len(factor_cols)} factors from factor_lib")
     feedback = None
     for i in range(1, args.rounds + 1):
         t0 = time.time()
         print(f"\n--- ROUND {i} ({time.time()-t0:.0f}s) ---")
         # 1. 生成
-        spec = step1_generate(i, feedback)
-        print(f"  [1] LLM spec: {spec.get('name')} | {spec.get('rationale','')[:60]}")
+        spec = step1_generate(i, feedback, factor_cols, provider=args.llm)
+        print(f"  [1] LLM spec: {spec.get('name')} | factor={spec.get('factor')} | {spec.get('rationale','')[:40]}")
         # 2. 轉譯
         py = step2_translate(spec)
         print(f"  [2] generated: {os.path.basename(py)}")
