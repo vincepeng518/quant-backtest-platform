@@ -7,28 +7,46 @@ agent_loop.py — 自動策略演化循環 (用戶指定 5 步流程)
 5. 儲存與叠代: 合格寫入 backtest_history + 觸發下一輪變異 (mutate params)
 單輪 <10min。終端機執行: python3 research/agent_loop.py [--rounds N] [--symbol BTC_USDT] [--tf 1h]
 
-LLM: OpenRouter (hy3, 與主對話同). env: OPENROUTER_API_KEY (in /root/.env)
+LLM: Novita 額度 (meta-llama/llama-3.3-70b-instruct). key: NOVITA_API_KEY (搜 /root/.hermes/.env)
 """
 from __future__ import annotations
-import os, sys, json, time, argparse, subprocess, textwrap, datetime
+import os, sys, json, time, argparse, subprocess, textwrap, datetime, re
 import urllib.request
+import requests
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-LLM_BASE = "https://openrouter.ai/api/v1"
-LLM_MODEL = "qwen/qwen3-235b-a22b"  # openrouter 可用 (tencent/hunyuan-* 在 OR 不存在)
-OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+LLM_BASE = "https://api.novita.ai/openai"
+LLM_MODEL = "meta-llama/llama-3.3-70b-instruct"  # novita 額度 (非 reasoning, content 直接可解析)
+NOVITA_KEY_FILES = ["/root/.hermes/.env", "/root/.env"]
 THRESH_SHARPE = 1.5
 THRESH_MAXDD = 20.0
 SYMBOL_DEF = "BTC_USDT"
 TF_DEF = "1h"
 
 
+def _load_novita_key() -> str:
+    """從 hermes/.env 或 /root/.env 讀 NOVITA_API_KEY"""
+    import re
+    for f in NOVITA_KEY_FILES:
+        try:
+            for line in open(f, encoding="utf-8", errors="ignore"):
+                m = re.match(r"^NOVITA_API_KEY\s*=\s*['\"]?([A-Za-z0-9_\-]+)", line.strip())
+                if m:
+                    return m.group(1)
+        except Exception:
+            continue
+    return os.environ.get("NOVITA_API_KEY", "")
+
+
+NOVITA_KEY = _load_novita_key()
+
+
 def llm_chat(system: str, user: str, max_tokens: int = 1500) -> str:
-    if not OPENROUTER_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY 未設定")
+    if not NOVITA_KEY:
+        raise RuntimeError("NOVITA_API_KEY 未找到 (搜 /root/.hermes/.env, /root/.env, env)")
     payload = {
         "model": LLM_MODEL,
         "messages": [
@@ -38,17 +56,14 @@ def llm_chat(system: str, user: str, max_tokens: int = 1500) -> str:
         "max_tokens": max_tokens,
         "temperature": 0.8,
     }
-    req = urllib.request.Request(
+    resp = requests.post(
         f"{LLM_BASE}/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_KEY}",
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": f"Bearer {NOVITA_KEY}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=120,
     )
-    with urllib.request.urlopen(req, timeout=120) as r:
-        resp = json.load(r)
-    return resp["choices"][0]["message"]["content"]
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
 
 
 def step1_generate(round_n: int, feedback: str | None) -> dict:
@@ -153,7 +168,12 @@ def step3_backtest(py_path: str, symbol: str, tf: str) -> dict:
     elapsed = time.time() - t0
     # 讀最新 opt json
     import glob
-    files = sorted(glob.glob(os.path.join(ROOT, "backtest_history", "opt_*.json")))
+    # 必須按「修改時間」取最新，而非檔名字典序——否則會讀到歷史舊檔
+    # （曾導致每輪都讀到同一份陳舊 opt json，誤判全部未達標）。
+    files = sorted(
+        glob.glob(os.path.join(ROOT, "backtest_history", "opt_*.json")),
+        key=os.path.getmtime,
+    )
     res = {}
     if files:
         try:
