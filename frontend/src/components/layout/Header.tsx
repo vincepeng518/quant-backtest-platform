@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Database, Activity, TrendingUp, Sliders, Code2, History, Wallet, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Database, Activity, Sliders, Code2, History, Wallet } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = [
     { name: 'Backtest', path: '/backtest', icon: Activity },
@@ -17,11 +16,6 @@ export const Header: React.FC = () => {
     { name: 'Optimize', path: '/optimize', icon: Sliders },
     { name: 'Strategies', path: '/strategies', icon: Code2 },
     { name: 'Trades', path: '/trades', icon: Wallet },
-  ];
-
-  // 子功能 (收納於「更多」)
-  const subItems = [
-    { name: 'Dashboard', path: '/', icon: Database, parent: 'Home' },
   ];
 
   return (
@@ -53,43 +47,6 @@ export const Header: React.FC = () => {
               </Link>
             );
           })}
-
-          {/* 更多 (子功能) */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setMoreOpen((v) => !v)}
-              onBlur={() => setTimeout(() => setMoreOpen(false), 150)}
-              className={`flex items-center space-x-1 rounded-md px-2 py-1 transition-colors ${
-                subItems.some((s) => pathname === s.path)
-                  ? 'text-text font-medium bg-surface'
-                  : 'text-textSecondary hover:text-text'
-              }`}
-            >
-              <span className="whitespace-nowrap">更多</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            {moreOpen && (
-              <div className="absolute right-0 z-50 mt-1 w-48 rounded-md border border-border/40 bg-background shadow-lg py-1">
-                {subItems.map((s) => {
-                  const Icon = s.icon;
-                  const active = pathname === s.path;
-                  return (
-                    <Link
-                      key={s.path}
-                      href={s.path}
-                      className={`flex items-center space-x-2 px-3 py-1.5 text-sm ${
-                        active ? 'text-text bg-surface' : 'text-textSecondary hover:text-text hover:bg-surface/60'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="flex-1">{s.name}</span>
-                      <span className="text-[10px] text-textSecondary/60">{s.parent}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </nav>
 
         {/* Theme toggle */}
