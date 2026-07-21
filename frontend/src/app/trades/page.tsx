@@ -65,6 +65,7 @@ function heatClass(pnl: number): string {
 }
 
 export default function TradesPage() {
+  const [source, setSource] = useState<'bingx' | 'arb'>('bingx');
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [feesTotal, setFeesTotal] = useState<number | null>(null);
@@ -73,7 +74,10 @@ export default function TradesPage() {
   const [range, setRange] = useState<Range>('all');
 
   useEffect(() => {
-    api.getTrades()
+    setLoading(true);
+    setError(null);
+    const fetcher = source === 'arb' ? api.getArbTrades() : api.getTrades();
+    fetcher
       .then((d: any) => {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
@@ -81,7 +85,7 @@ export default function TradesPage() {
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [source]);
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
@@ -174,6 +178,23 @@ export default function TradesPage() {
     >
       <div className="flex items-center justify-between mb-4">
         <Link href="/history" className="text-xs font-mono text-accent hover:underline">回測歷史 ↗</Link>
+      </div>
+      {/* 來源切換: BingX / Arb Bot */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {([
+          { key: 'bingx', label: 'BingX 紀錄' },
+          { key: 'arb', label: 'Arb Bot' },
+        ] as const).map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setSource(s.key)}
+            className={`px-3 py-1.5 rounded-md text-sm font-mono transition-colors ${
+              source === s.key ? 'bg-accent text-background font-medium' : 'bg-surface text-textSecondary hover:text-text'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
       {/* 範圍切換 */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -312,7 +333,7 @@ export default function TradesPage() {
         ) : error ? (
           <p className="text-sm font-mono text-danger p-6">{error}</p>
         ) : records.length === 0 ? (
-          <EmptyState title="No trades yet" description="Run bot/trade_bot.py to capture BingX data." />
+          <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : "Run bot/trade_bot.py to capture BingX data."} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-mono">

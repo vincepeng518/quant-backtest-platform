@@ -45,14 +45,15 @@ router = APIRouter(prefix="/api/trades", tags=["trades"])
 
 REPO = "vincepeng518/quant-backtest-platform"
 TRADES_API = f"https://api.github.com/repos/{REPO}/contents/trades"
+ARB_TRADES_API = f"https://api.github.com/repos/{REPO}/contents/arb-trades"
 HEADERS = {"Accept": "application/vnd.github+json"}
 _token = os.environ.get("GITHUB_TOKEN")
 if _token:
     HEADERS["Authorization"] = f"Bearer {_token}"
 
 
-def _gh_get(path: str):
-    req = urllib.request.Request(f"{TRADES_API}/{path}", headers=HEADERS)
+def _gh_get(api_base: str, path: str):
+    req = urllib.request.Request(f"{api_base}/{path}", headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read().decode("utf-8"))
@@ -61,8 +62,8 @@ def _gh_get(path: str):
         return None
 
 
-def _list_files() -> list[str]:
-    req = urllib.request.Request(TRADES_API, headers=HEADERS)
+def _list_files(api_base: str) -> list[str]:
+    req = urllib.request.Request(api_base, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             data = json.loads(r.read().decode("utf-8"))
@@ -72,11 +73,38 @@ def _list_files() -> list[str]:
         return []
 
 
+@router.get("/arb")
+async def get_arb_trades():
+    """arb-bot 成交記錄 (GitHub arb-trades/fills.json)."""
+    import base64
+    names = _list_files(ARB_TRADES_API)
+    records = []
+    if names:
+        # fills.json 是合併檔, 取它
+        target = "fills.json" if "fills.json" in names else sorted(names)[-1]
+        obj = _gh_get(ARB_TRADES_API, target)
+        if obj and "content" in obj:
+            try:
+                snap = json.loads(base64.b64decode(obj["content"]).decode("utf-8"))
+                if isinstance(snap, list):
+                    records = snap
+                elif isinstance(snap, dict):
+                    records = snap.get("records", [])
+            except Exception:
+                pass
+    # 標註來源 + 簡化 (arb 用 BTC-5m 固定 symbol, 不需 norm)
+    for rec in records:
+        rec.setdefault("_snapshot", "arb-trades/fills.json")
+    metrics = _calc_metrics(records)
+    return {"total": len(records), "snapshots": [{"file": n} for n in sorted(names)],
+            "records": records, "metrics": metrics, "fees_total": None, "source": "arb-bot"}
+
+
 @router.get("")
 async def get_trades():
     """回傳所有交易記錄 (扁平化) + 來源快照列表。"""
     import base64
-    names = _list_files()
+    names = _list_files(TRADES_API)
     # snapshots: 只列檔名
     snapshots = [{"file": n} for n in sorted(names)]
     records = []
@@ -84,7 +112,7 @@ async def get_trades():
     # 只取最新快照一次 (避免重複下載同一檔)
     if snapshots:
         latest_file = snapshots[-1]["file"]
-        latest_obj = _gh_get(latest_file)
+        latest_obj = _gh_get(TRADES_API, latest_file)
         if latest_obj and "content" in latest_obj:
             try:
                 latest_snap = json.loads(base64.b64decode(latest_obj["content"]).decode("utf-8"))
