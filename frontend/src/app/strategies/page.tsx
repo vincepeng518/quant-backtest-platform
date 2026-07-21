@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageShell } from '@/components/layout/PageShell';
 import { useToastStore } from '@/stores/useToastStore';
 
 interface UserMeta {
@@ -144,10 +145,18 @@ export default function StrategiesPage() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return (
+    <PageShell eyebrow="Strategies / library" title="策略管理" subtitle="載入中…">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 bg-surface rounded-lg animate-pulse" />
+        ))}
+      </div>
+    </PageShell>
+  );
 
   return (
-    <div className="space-y-12 pb-12">
+    <PageShell eyebrow="Strategies / library" title="策略管理" subtitle="上傳你的 Python 策略，一鍵跑回測或優化。">
       {/* Grid Switcher — 日線趨勢狀態判定 */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -290,6 +299,6 @@ export default function StrategiesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
