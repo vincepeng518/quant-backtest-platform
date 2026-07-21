@@ -188,18 +188,25 @@ def step3_backtest(py_path: str, symbol: str, tf: str) -> dict:
 
 
 def step4_filter(res: dict) -> tuple[bool, str]:
-    """Sharpe>1.5 且 MaxDD<20%"""
+    """雙重過濾: IS Sharpe>1.5 且 MaxDD<20% 且 OOS Sharpe>0 (防過擬合)"""
     if res.get("error") or res.get("_returncode", 0) != 0:
         return False, f"回測失敗: {res.get('error') or res.get('_stderr','')[:800]}"
     fb = res.get("full_backtest", {})
+    wf = res.get("walk_forward", {})
     sharpe = fb.get("sharpe", 0) or 0
     mdd = fb.get("max_drawdown_pct", 100) or 100
-    if sharpe > THRESH_SHARPE and mdd < THRESH_MAXDD:
-        return True, f"PASS sharpe={sharpe:.2f} mdd={mdd:.1f}%"
-    return False, (
-        f"未達標: sharpe={sharpe:.2f} (需>{THRESH_SHARPE}) "
-        f"mdd={mdd:.1f}% (需<{THRESH_MAXDD})"
-    )
+    oos = wf.get("avg_oos_sharpe", -999) or -999
+    # IS 達標 + OOS 正 (樣本外不失效)
+    if sharpe > THRESH_SHARPE and mdd < THRESH_MAXDD and oos > 0:
+        return True, f"PASS IS_sharpe={sharpe:.2f} mdd={mdd:.1f}% OOS_sharpe={oos:.2f}"
+    reasons = []
+    if sharpe <= THRESH_SHARPE:
+        reasons.append(f"IS_sharpe={sharpe:.2f}(需>{THRESH_SHARPE})")
+    if mdd >= THRESH_MAXDD:
+        reasons.append(f"mdd={mdd:.1f}%(需<{THRESH_MAXDD})")
+    if oos <= 0:
+        reasons.append(f"OOS_sharpe={oos:.2f}(需>0,過擬合)")
+    return False, "未達標: " + " | ".join(reasons)
 
 
 def step5_store(spec: dict, res: dict, passed: bool, symbol: str, tf: str):
