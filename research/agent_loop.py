@@ -26,8 +26,15 @@ NOVITA_MODEL = "meta-llama/llama-3.3-70b-instruct"
 NOVITA_KEY_FILES = ["/root/.hermes/.env", "/root/.env"]
 
 QWEN_BASE = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
-QWEN_MODEL = "qwen3.7-max"
 QWEN_KEY = "sk-sp-H.PDLP.Cang.MEUCIQD0Q-9KggKz03ksH3o9oylj_8XG_NKEH4pK2LoYuZwn5wIgB-GEaQIf-3wEKWKVB5w2C5sTicmPqCpl5UBTLuVRxQ4"
+
+# Qwen token endpoint 可用文字模型 (2026-07-21 驗證)
+QWEN_MODELS = [
+    "qwen3.6-plus", "qwen3.6-flash", "qwen3.7-max", "qwen3.7-plus",
+    "deepseek-v3.2", "deepseek-v4-flash", "deepseek-v4-pro",
+    "glm-5", "glm-5.1", "glm-5.2",
+    "kimi-k2.5", "kimi-k2.6", "kimi-k2.7-code", "MiniMax-M2.5",
+]
 
 THRESH_SHARPE = 1.5
 THRESH_MAXDD = 20.0
@@ -51,11 +58,18 @@ def _load_novita_key() -> str:
 
 
 def llm_chat(system: str, user: str, max_tokens: int = 1500, provider: str = None) -> str:
+    """provider: 'novita' | 'qwen' | 具體模型名 (qwen3.7-max, deepseek-v4-pro, glm-5 ...)
+    若傳具體模型名且屬於 QWEN_MODELS，自動走 Qwen endpoint。"""
     provider = provider or LLM_PROVIDER
-    if provider == "qwen":
-        base, model, key = QWEN_BASE, QWEN_MODEL, QWEN_KEY
-    else:
+    if provider in QWEN_MODELS:
+        base, model, key = QWEN_BASE, provider, QWEN_KEY
+    elif provider == "qwen":
+        base, model, key = QWEN_BASE, "qwen3.7-max", QWEN_KEY
+    elif provider in ("novita", "meta-llama/llama-3.3-70b-instruct"):
         base, model, key = NOVITA_BASE, NOVITA_MODEL, _load_novita_key()
+    else:
+        # 未知但嘗試當 novita (容錯)
+        base, model, key = NOVITA_BASE, provider, _load_novita_key()
     if not key:
         raise RuntimeError(f"{provider} API key 未找到")
     payload = {
@@ -356,7 +370,8 @@ def main():
     ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--symbol", default=SYMBOL_DEF)
     ap.add_argument("--tf", default=TF_DEF)
-    ap.add_argument("--llm", default="novita", choices=["novita", "qwen"])
+    ap.add_argument("--llm", default="novita",
+                    help=f"novita | qwen | 具體模型名 (可用: {', '.join(QWEN_MODELS)})")
     args = ap.parse_args()
 
     factor_cols = _load_factor_cols(args.symbol, args.tf)
