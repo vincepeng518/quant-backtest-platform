@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-07-22T22:37:26.158898+00:00",
+  "source": "bingx-ccxt+orders",
+  "repo": "vincepeng518/quant-backtest-platform",
+  "count": 3,
+  "fees_total": -0.0146,
+  "records": [
+    {
+      "symbol": "GOLD",
+      "side": "LONG",
+      "positionAmt": 0.5438,
+      "avgPrice": 4017.5,
+      "exitPrice": 0.0,
+      "leverage": 1000.0,
+      "unrealizedProfit": 64.3438,
+      "realizedProfit": 22.1342,
+      "pnlRatio": 0.0,
+      "positionValue": 2249.06,
+      "liquidationPrice": 0.0,
+      "status": "OPEN",
+      "ts": 1784759846158
+    },
+    {
+      "symbol": "JTO",
+      "side": "LONG",
+      "positionAmt": 482.893,
+      "avgPrice": 0.5989,
+      "exitPrice": 0.0,
+      "leverage": 75.0,
+      "unrealizedProfit": 15.8682,
+      "realizedProfit": -0.035,
+      "pnlRatio": 0.0,
+      "positionValue": 305.09,
+      "liquidationPrice": 0.0,
+      "status": "OPEN",
+      "ts": 1784759846158
+    },
+    {
+      "symbol": "BTC",
+      "side": "SHORT",
+      "positionAmt": 0.0211,
+      "avgPrice": 65940.7,
+      "exitPrice": 0.0,
+      "leverage": 150.0,
+      "unrealizedProfit": -3.3231,
+      "realizedProfit": -0.6497,
+      "pnlRatio": 0.0,
+      "positionValue": 1394.67,
+      "liquidationPrice": 0.0,
+      "status": "OPEN",
+      "ts": 1784759846158
+    }
+  ]
+}
