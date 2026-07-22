@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Database, Activity, Sliders, Code2, History, Wallet } from 'lucide-react';
+import { Sun, Moon, Database, Activity, Sliders, Code2, History, Wallet, Bot } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -47,6 +47,14 @@ export const Header: React.FC = () => {
               </Link>
             );
           })}
+          <a
+            href="/llmlite-ui.html"
+            target="_self"
+            className="flex shrink-0 items-center space-x-1.5 rounded-md px-2 py-1 transition-colors duration-150 text-textSecondary hover:text-text font-normal"
+          >
+            <Bot className="h-3.5 w-3.5 shrink-0" />
+            <span className="whitespace-nowrap">LLMLite</span>
+          </a>
         </nav>
 
         {/* Theme toggle */}
