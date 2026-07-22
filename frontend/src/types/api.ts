@@ -212,6 +212,7 @@ export interface SiteConfig {
   risk_guard_daily_loss_pct: number;
   risk_guard_max_drawdown_pct: number;
   maintenance_mode: boolean;
+  llm_model: string;
   updated_at: string;
 }
 
@@ -234,6 +235,7 @@ export interface SiteConfigUpdate {
   risk_guard_daily_loss_pct?: number | null;
   risk_guard_max_drawdown_pct?: number | null;
   maintenance_mode?: boolean | null;
+  llm_model?: string | null;
 }
 
 export interface ResearchResult {

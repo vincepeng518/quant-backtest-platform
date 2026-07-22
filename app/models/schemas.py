@@ -263,6 +263,7 @@ class SiteConfig(BaseModel):
     risk_guard_daily_loss_pct: float = 0.0   # 0 = disabled
     risk_guard_max_drawdown_pct: float = 0.0  # 0 = disabled
     maintenance_mode: bool = False
+    llm_model: str = "novita/tencent-hy3"  # 預設 LLM 模型 (agent_loop)
     updated_at: str = ""
 
     model_config = {"extra": "forbid"}
@@ -280,5 +281,6 @@ class SiteConfigUpdate(BaseModel):
     risk_guard_daily_loss_pct: float | None = None
     risk_guard_max_drawdown_pct: float | None = None
     maintenance_mode: bool | None = None
+    llm_model: str | None = None
 
     model_config = {"extra": "forbid"}

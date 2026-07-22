@@ -160,6 +160,10 @@ export const api = {
     request<SiteConfig>('/admin/config'),
   updateSiteConfig: (patch: Partial<SiteConfigUpdate>) =>
     request<SiteConfig>('/admin/config', { method: 'PATCH', body: JSON.stringify(patch) }),
+  getLlmModel: () =>
+    request<SiteConfig>('/admin/config').then((c: SiteConfig) => c.llm_model),
+  setLlmModel: (model: string) =>
+    request<SiteConfig>('/admin/config', { method: 'PATCH', body: JSON.stringify({ llm_model: model }) }),
 
   // ── Experiments (Qlib-style Recorder) ──
   listExperiments: (kind?: string) =>

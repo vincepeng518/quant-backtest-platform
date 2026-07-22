@@ -65,6 +65,17 @@ function OptimizeView() {
   const [strategyOptions, setStrategyOptions] = useState<{ label: string; value: string }[]>(FALLBACK_STRATEGIES);
   const [templates, setTemplates] = useState<any[]>([]);
   const [userStrategies, setUserStrategies] = useState<any[]>([]);
+  const [llmModel, setLlmModel] = useState('novita/tencent-hy3');
+  const [llmModels] = useState([
+    { label: 'Novita (hy3)', value: 'novita/tencent-hy3' },
+    { label: 'OpenRouter (auto)', value: 'openrouter/openrouter/auto-beta' },
+    { label: 'Qwen (deepseek-v4-flash)', value: 'qwen/deepseek-v4-flash' },
+    { label: 'Qwen (deepseek-v4-pro)', value: 'qwen/deepseek-v4-pro' },
+    { label: 'Qwen (qwen3.7-max)', value: 'qwen/qwen3.7-max' },
+    { label: 'Qwen (qwen3.6-flash)', value: 'qwen/qwen3.6-flash' },
+    { label: 'TokenFlux (gpt-5.6-luna)', value: 'tokenflux/gpt-5.6-luna' },
+    { label: 'Ollama (gemma4-31b)', value: 'ollama/gemma4-31b' },
+  ]);
 
   // P8: dynamically list builtin templates + user-uploaded strategies
   useEffect(() => {
@@ -82,6 +93,8 @@ function OptimizeView() {
         if (t.status === 'fulfilled') setTemplates(t.value as any[]);
         if (u.status === 'fulfilled') setUserStrategies(u.value as any[]);
       });
+    // Load saved LLM model
+    api.getLlmModel().then((m) => setLlmModel(m)).catch(() => {});
   }, []);
 
   // Resolve a strategy's template params (for param-space rebuild on switch).
@@ -129,6 +142,16 @@ function OptimizeView() {
           type="number"
           value={maxTrials}
           onChange={(e) => useOptimizeStore.setState({ maxTrials: Number(e.target.value) })}
+        />
+        <Select
+          label="LLM Model"
+          value={llmModel}
+          onChange={(e) => {
+            const v = e.target.value;
+            setLlmModel(v);
+            api.setLlmModel(v).catch(() => {});
+          }}
+          options={llmModels}
         />
       </div>
 
