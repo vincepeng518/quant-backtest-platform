@@ -148,6 +148,7 @@ def _load_all_trades() -> dict:
         "snapshots": [{"file": latest}],
         "fees_total": round(fees_total, 4),
         "funding_total": round(funding_total, 4),
+        "metrics_30d": snap.get("metrics_30d") if snap else None,
     }
     with _cache_lock:
         _cache.update(result)
@@ -330,6 +331,7 @@ async def get_trades():
         "metrics": metrics,
         "fees_total": data["fees_total"],
         "funding_total": data.get("funding_total", 0),
+        "metrics_30d": data.get("metrics_30d"),
         "source": "bingx-all-snapshots",
         "predict": {
             "total": len(predict_records),
