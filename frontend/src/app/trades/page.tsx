@@ -12,16 +12,23 @@ interface TradeRec {
   symbol?: string;
   side?: string;
   positionAmt?: number;
+  qty?: number;
   avgPrice?: number;
   exitPrice?: number;
-  leverage?: number;
+  leverage?: number | null;
   unrealizedProfit?: number;
   realizedProfit?: number;
   pnlRatio?: number;
   positionValue?: number;
+  notional?: number;
+  margin?: number;
   liquidationPrice?: number;
+  fee?: number;
+  fundingFee?: number;
   status?: string;
   ts?: number;
+  closeTime?: number;
+  holdDuration?: number;
   _snapshot?: string;
 }
 
@@ -33,6 +40,36 @@ function pnlOf(r: TradeRec): number {
 
 function fmt(n: number, d = 2): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+// 動態精度: 價格越大精度越低, 越小精度越高
+function fmtPrice(n: number | undefined | null): string {
+  if (n == null) return '—';
+  const a = Math.abs(n);
+  if (a >= 1000) return fmt(n, 2);
+  if (a >= 1) return fmt(n, 4);
+  if (a >= 0.01) return fmt(n, 5);
+  return fmt(n, 6);
+}
+
+function fmtQty(n: number | undefined | null): string {
+  if (n == null) return '—';
+  const a = Math.abs(n);
+  if (a >= 100) return fmt(n, 2);
+  if (a >= 1) return fmt(n, 4);
+  return fmt(n, 6);
+}
+
+function fmtDuration(ms: number | undefined | null): string {
+  if (ms == null || ms <= 0) return '—';
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h${m % 60 ? ` ${m % 60}m` : ''}`;
+  const d = Math.floor(h / 24);
+  return `${d}d${h % 24 ? ` ${h % 24}h` : ''}`;
 }
 
 // BingX symbol 簡化 (與 bot 規則同步) — 防禦層, 避免後端漏簡化
@@ -69,6 +106,7 @@ export default function TradesPage() {
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [feesTotal, setFeesTotal] = useState<number | null>(null);
+  const [fundingTotal, setFundingTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
@@ -82,6 +120,7 @@ export default function TradesPage() {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
         setFeesTotal(d.fees_total ?? null);
+        setFundingTotal(d.funding_total ?? null);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
@@ -239,13 +278,18 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 手續費總和 (另計, 不併入 P/L) */}
+          {/* 手續費 + 資金費用 (另計, 不併入 P/L) */}
           {feesTotal != null && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <Card className="p-4 col-span-2 md:col-span-1">
-                <p className="text-xs text-textSecondary font-mono mb-1">手續費總和 (Fees)</p>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
                 <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
-                <p className="text-xs text-textSecondary font-mono">不計入 P/L 面板</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">資金費用 (Funding)</p>
+                <p className={`text-xl font-mono font-semibold ${(fundingTotal ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)}
+                </p>
               </Card>
             </div>
           )}
@@ -342,32 +386,45 @@ export default function TradesPage() {
                 <tr className="text-textSecondary text-xs border-b border-border/20">
                   <th className="text-left px-3 py-2">Symbol</th>
                   <th className="text-left px-3 py-2">Side</th>
+                  <th className="text-right px-3 py-2">Qty</th>
                   <th className="text-right px-3 py-2">開倉價</th>
                   <th className="text-right px-3 py-2">平倉價</th>
                   <th className="text-right px-3 py-2">槓桿</th>
-                  <th className="text-right px-3 py-2">總倉位</th>
+                  <th className="text-right px-3 py-2">名義</th>
                   <th className="text-right px-3 py-2">盈虧</th>
-                  <th className="text-left px-3 py-2">開倉時間</th>
+                  <th className="text-right px-3 py-2">費用</th>
+                  <th className="text-left px-3 py-2">開倉</th>
+                  <th className="text-left px-3 py-2">平倉</th>
+                  <th className="text-left px-3 py-2">持倉</th>
                   <th className="text-left px-3 py-2">狀態</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r, i) => {
                   const p = pnlOf(r);
+                  const fee = Number(r.fee ?? 0) + Number(r.fundingFee ?? 0);
+                  const openTs = sortKey(r);
+                  const closeTs = r.closeTime ?? 0;
                   return (
                     <tr key={i} className="border-b border-border/10 hover:bg-surface/40">
                       <td className="px-3 py-2 text-text">{simplifySymbol(r.symbol)}</td>
                       <td className="px-3 py-2 text-textSecondary">{r.side}</td>
-                      <td className="px-3 py-2 text-right text-text">{r.avgPrice ? fmt(r.avgPrice) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-text">{r.exitPrice ? fmt(r.exitPrice) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-textSecondary">{r.leverage ? `${r.leverage}x` : '—'}</td>
-                      <td className="px-3 py-2 text-right text-text">{r.positionValue ? fmt(r.positionValue) : '—'}</td>
+                      <td className="px-3 py-2 text-right text-textSecondary">{fmtQty(r.qty ?? r.positionAmt)}</td>
+                      <td className="px-3 py-2 text-right text-text">{fmtPrice(r.avgPrice)}</td>
+                      <td className="px-3 py-2 text-right text-text">{fmtPrice(r.exitPrice)}</td>
+                      <td className="px-3 py-2 text-right text-textSecondary">{r.leverage != null ? `${r.leverage}x` : '—'}</td>
+                      <td className="px-3 py-2 text-right text-text">{r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—')}</td>
                       <td className={`px-3 py-2 text-right ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         {p >= 0 ? '+' : ''}{fmt(p)}
                       </td>
+                      <td className="px-3 py-2 text-right text-danger">{fee !== 0 ? `-${fmt(Math.abs(fee), 4)}` : '—'}</td>
                       <td className="px-3 py-2 text-textSecondary">
-                        {sortKey(r) ? new Date(sortKey(r)).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        {openTs ? new Date(openTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                       </td>
+                      <td className="px-3 py-2 text-textSecondary">
+                        {closeTs ? new Date(closeTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-textSecondary">{fmtDuration(r.holdDuration)}</td>
                       <td className="px-3 py-2 text-textSecondary">{r.status}</td>
                     </tr>
                   );
