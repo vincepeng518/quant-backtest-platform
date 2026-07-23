@@ -107,6 +107,7 @@ export default function TradesPage() {
   const [metrics, setMetrics] = useState<any>(null);
   const [feesTotal, setFeesTotal] = useState<number | null>(null);
   const [fundingTotal, setFundingTotal] = useState<number | null>(null);
+  const [metrics30d, setMetrics30d] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
@@ -121,6 +122,7 @@ export default function TradesPage() {
         setMetrics(d.metrics ?? null);
         setFeesTotal(d.fees_total ?? null);
         setFundingTotal(d.funding_total ?? null);
+        setMetrics30d(d.metrics_30d ?? null);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
@@ -277,6 +279,35 @@ export default function TradesPage() {
               <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
             </Card>
           </div>
+
+          {/* 官方風格 30d 統計 (對齊 BingX 交易分析) */}
+          {metrics30d && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">已實現盈虧 (30d)</p>
+                <p className={`text-xl font-mono font-semibold ${(metrics30d.pnl ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">交易額/總倉位 (30d)</p>
+                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
+                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.win_rate ?? 0, 1)}%</p>
+                <p className="text-xs text-textSecondary font-mono">{metrics30d.wins}W / {metrics30d.losses}L</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額</p>
+                <p className="text-sm font-mono">
+                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)}</span>
+                  {' / '}
+                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)}</span>
+                </p>
+              </Card>
+            </div>
+          )}
 
           {/* 手續費 + 資金費用 (另計, 不併入 P/L) */}
           {feesTotal != null && (
