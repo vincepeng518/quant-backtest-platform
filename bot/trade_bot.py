@@ -12,7 +12,7 @@ Trade Bot — 自動抓取 BingX 交易數據並永久寫入 GitHub。
 
 from __future__ import annotations
 import os, sys, time, json, argparse, logging, base64, urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -37,7 +37,7 @@ TRADES_PREFIX = "trades"
 KNOWN_SYMBOLS = [
     "BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT", "XMR/USDT:USDT",
     "BCH/USDT:USDT", "LDO/USDT:USDT", "JTO/USDT:USDT", "VIRTUAL/USDT:USDT",
-    "LONGXIA/USDT:USDT",
+    "LONGXIA/USDT:USDT", "HYPE/USDT:USDT", "DOGE/USDT:USDT", "PEPE/USDT:USDT",
     "NCCOGOLD2USD/USDT:USDT", "NCSINASDAQ1002USD/USDT:USDT",
     "NCFXEUR2USD/USDT:USDT", "NCFXGBP2USD/USDT:USDT",
     "NCCO1OILWTI2USD/USDT:USDT",
@@ -106,14 +106,26 @@ def fetch_positions(ex) -> list:
     return out
 
 
-def fetch_all_trades(ex, symbols: list[str]) -> list[dict]:
-    """逐 symbol 抓 fetchMyTrades"""
+def fetch_all_trades(ex, symbols: list[str], days: int = 30) -> list[dict]:
+    """逐 symbol 分頁抓 fetchMyTrades, 覆蓋近 N 天"""
     all_trades = []
+    since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     for sym in symbols:
         try:
-            trades = ex.fetch_my_trades(sym, limit=200)
-            all_trades.extend(trades)
-            logger.info("  %s: %d trades", sym, len(trades))
+            since = since_ms
+            page_trades = []
+            for _ in range(20):  # 最多 20 頁 × 200 = 4000 筆/symbol
+                trades = ex.fetch_my_trades(sym, since=since, limit=200)
+                if not trades:
+                    break
+                page_trades.extend(trades)
+                last_ts = trades[-1].get("timestamp") or 0
+                if last_ts <= since or len(trades) < 200:
+                    break
+                since = last_ts + 1
+                time.sleep(0.3)
+            all_trades.extend(page_trades)
+            logger.info("  %s: %d trades", sym, len(page_trades))
         except Exception as e:
             err = str(e)
             if "100410" in err:
@@ -348,7 +360,7 @@ def build_snapshot() -> dict:
 
     symbols = sorted(KNOWN_SYMBOLS)
     logger.info("fetching trades for %d symbols...", len(symbols))
-    raw_trades = fetch_all_trades(ex, symbols)
+    raw_trades = fetch_all_trades(ex, symbols, days=60)
     logger.info("total raw trades: %d", len(raw_trades))
 
     # 先聚合分批成交, 再配對
@@ -358,18 +370,48 @@ def build_snapshot() -> dict:
     closed, fees = pair_trades(aggregated, leverage_map)
     logger.info("paired closed: %d, fees: %.4f", len(closed), fees)
 
+    # 近 30 天窗口 (對齊 BingX 官方「交易分析」)
+    cutoff_ms = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp() * 1000)
+    closed_30d = [r for r in closed if (r.get("ts") or 0) >= cutoff_ms]
+    logger.info("closed in 30d window: %d / %d", len(closed_30d), len(closed))
+
+    # 官方風格 metrics
+    wins = [r for r in closed_30d if r["realizedProfit"] > 0]
+    losses = [r for r in closed_30d if r["realizedProfit"] <= 0]
+    profit_amt = sum(r["realizedProfit"] for r in wins)
+    loss_amt = sum(r["realizedProfit"] for r in losses)
+    total_pnl = sum(r["realizedProfit"] for r in closed_30d)
+    total_notional = sum(
+        (r.get("positionValue") or 0) + (float(r.get("exitPrice") or 0) * float(r.get("positionAmt") or 0))
+        for r in closed_30d
+    )
+    win_rate = len(wins) / len(closed_30d) * 100 if closed_30d else 0
+
+    metrics_30d = {
+        "pnl": round(total_pnl, 2),
+        "total_notional": round(total_notional, 2),
+        "win_rate": round(win_rate, 2),
+        "profit_amount": round(profit_amt, 2),
+        "loss_amount": round(loss_amt, 2),
+        "wins": len(wins),
+        "losses": len(losses),
+        "total_closed": len(closed_30d),
+    }
+    logger.info("30d metrics: %s", metrics_30d)
+
     # 資金費用
     funding = fetch_funding_fees(ex, symbols)
     logger.info("funding fees: %.4f", funding)
 
-    recs = positions + closed
+    recs = positions + closed_30d
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-ccxt-trades-v4",
+        "source": "bingx-ccxt-trades-v5",
         "repo": REPO,
         "count": len(recs),
         "fees_total": round(fees, 4),
         "funding_total": funding,
+        "metrics_30d": metrics_30d,
         "records": recs,
     }
 
