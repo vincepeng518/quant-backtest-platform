@@ -107,12 +107,14 @@ def _load_all_trades() -> dict:
     snap = _read_raw(latest)
     records = []
     fees_total = 0.0
+    funding_total = 0.0
     if snap:
         for rec in snap.get("records", []):
             rec["_snapshot"] = latest
             rec["symbol"] = norm_sym(rec.get("symbol"))
             records.append(rec)
         fees_total = float(snap.get("fees_total") or 0)
+        funding_total = float(snap.get("funding_total") or 0)
 
     # 沒有跨快照重複問題, 但 OPEN 同持倉可能出現在多份快照中
     # 用 (symbol, side, avgPrice, positionAmt) 去重 OPEN
@@ -137,6 +139,7 @@ def _load_all_trades() -> dict:
         "records": deduped,
         "snapshots": [{"file": latest}],
         "fees_total": round(fees_total, 4),
+        "funding_total": round(funding_total, 4),
     }
     with _cache_lock:
         _cache.update(result)
@@ -318,6 +321,7 @@ async def get_trades():
         "records": records,
         "metrics": metrics,
         "fees_total": data["fees_total"],
+        "funding_total": data.get("funding_total", 0),
         "source": "bingx-all-snapshots",
         "predict": {
             "total": len(predict_records),
