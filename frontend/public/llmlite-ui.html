@@ -1,63 +1,242 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LLMLite Router</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0f1115; --panel:#1a1d24; --accent:#4f8cff; --txt:#e6e6e6; --mut:#8a8f98; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--txt); height:100vh; display:flex; flex-direction:column; }
-  header { padding:12px 16px; background:var(--panel); border-bottom:1px solid #2a2e38; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  header h1 { font-size:15px; margin:0; font-weight:600; }
-  select, button, input { background:#242832; color:var(--txt); border:1px solid #333845; border-radius:6px; padding:7px 10px; font-size:13px; }
-  button { background:var(--accent); border:none; cursor:pointer; font-weight:600; }
-  button:hover { filter:brightness(1.1); }
-  #status { font-size:12px; color:var(--mut); margin-left:auto; }
-  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-  .msg { max-width:80%; padding:10px 13px; border-radius:10px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
-  .user { align-self:flex-end; background:var(--accent); }
-  .assistant { align-self:flex-start; background:var(--panel); border:1px solid #2a2e38; }
-  .meta { font-size:11px; color:var(--mut); margin-bottom:3px; }
-  #inputbar { padding:12px 16px; background:var(--panel); border-top:1px solid #2a2e38; display:flex; gap:10px; }
-  #inputbar textarea { flex:1; resize:none; height:42px; background:#242832; color:var(--txt); border:1px solid #333845; border-radius:6px; padding:10px; font-family:inherit; font-size:13px; }
-  .reasoning { font-size:11px; color:var(--mut); font-style:italic; margin-top:6px; border-top:1px dashed #2a2e38; padding-top:5px; }
+  :root {
+    --void: #0A0B0D;
+    --panel: #141619;
+    --ink: #E8E6E1;
+    --signal: #C8A961;
+    --dim: #5A5E66;
+    --line: #23262B;
+    --bubble-user: #1C1F24;
+    --shadow: rgba(0,0,0,0.4);
+  }
+  [data-theme="light"] {
+    --void: #F4F2ED;
+    --panel: #FFFFFF;
+    --ink: #1A1C1F;
+    --signal: #9A7B33;
+    --dim: #767B82;
+    --line: #E2DFD8;
+    --bubble-user: #EDEAE2;
+    --shadow: rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--void);
+    color: var(--ink);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  /* signature: 1px signal line at top, pulses on model switch */
+  #signalbar {
+    height: 1px;
+    background: var(--signal);
+    opacity: 0.5;
+    transition: opacity 0.2s;
+    flex: none;
+  }
+  #signalbar.pulse { animation: pulse 0.6s ease; }
+  @keyframes pulse {
+    0% { opacity: 0.5; box-shadow: 0 0 0 var(--signal); }
+    50% { opacity: 1; box-shadow: 0 0 12px 1px var(--signal); }
+    100% { opacity: 0.5; box-shadow: 0 0 0 var(--signal); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #signalbar.pulse { animation: none; }
+  }
+  header {
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  h1 .dot { color: var(--signal); }
+  select, button, input {
+    background: var(--void);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  select { max-width: 240px; }
+  button {
+    background: var(--signal);
+    color: var(--void);
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+  }
+  button:hover { filter: brightness(1.08); }
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    padding: 7px 9px;
+    font-size: 14px;
+  }
+  .icon-btn:hover { color: var(--ink); }
+  #status {
+    font-size: 11px;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 82%;
+    padding: 10px 13px;
+    border-radius: 6px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 14px;
+  }
+  .user {
+    align-self: flex-end;
+    background: var(--bubble-user);
+    border: 1px solid var(--signal);
+  }
+  .assistant {
+    align-self: flex-start;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  .meta {
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+  .reasoning {
+    font-size: 11px;
+    color: var(--dim);
+    font-style: italic;
+    margin-top: 6px;
+    border-top: 1px dashed var(--line);
+    padding-top: 5px;
+  }
+  #inputbar {
+    padding: 12px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  #inputbar textarea {
+    flex: 1;
+    resize: none;
+    height: 42px;
+    background: var(--void);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+  #inputbar textarea:focus, select:focus, input:focus {
+    outline: none;
+    border-color: var(--signal);
+  }
+  optgroup { font-family: 'Inter', sans-serif; }
+  @media (max-width: 560px) {
+    header { padding: 10px 12px; }
+    select { max-width: 160px; }
+    #status { width: 100%; margin: 4px 0 0; order: 5; }
+  }
 </style>
 </head>
 <body>
+<div id="signalbar"></div>
 <header>
-  <h1>LLMLite Router</h1>
-  <select id="model">
+  <h1><a href="/" style="color:inherit; text-decoration:none;">LLMLite<span class="dot">.</span></a></h1>
+  <a href="/" class="icon-btn" title="返回主頁" aria-label="back to home" style="text-decoration:none;">←</a>
+  <select id="model" aria-label="model">
     <optgroup label="Novita">
       <option value="novita/tencent/hy3">novita/tencent-hy3</option>
+      <option value="novita/deepseek-v3.2">novita/deepseek-v3.2</option>
     </optgroup>
-    <optgroup label="OpenRouter (wildcard)">
+    <optgroup label="OpenRouter (任意模型名)">
       <option value="openrouter/tencent/hy3">openrouter/tencent-hy3</option>
       <option value="openrouter/anthropic/claude-3.5-sonnet">openrouter/claude-3.5-sonnet</option>
+      <option value="openrouter/anthropic/claude-sonnet-4">openrouter/claude-sonnet-4</option>
       <option value="openrouter/google/gemini-2.0-pro">openrouter/gemini-2.0-pro</option>
+      <option value="openrouter/openai/gpt-4o">openrouter/gpt-4o</option>
+      <option value="openrouter/deepseek/deepseek-r1">openrouter/deepseek-r1</option>
+      <option value="openrouter/meta-llama/llama-3.3-70b-instruct">openrouter/llama-3.3-70b</option>
     </optgroup>
     <optgroup label="Qwen token-plan">
       <option value="qwen/qwen3.8-max-preview">qwen/qwen3.8-max-preview</option>
       <option value="qwen/qwen3.7-max">qwen/qwen3.7-max</option>
+      <option value="qwen/qwen3.7-plus">qwen/qwen3.7-plus</option>
+      <option value="qwen/qwen3.6-plus">qwen/qwen3.6-plus</option>
       <option value="qwen/qwen3.6-flash">qwen/qwen3.6-flash</option>
       <option value="qwen/deepseek-v3.2">qwen/deepseek-v3.2</option>
+      <option value="qwen/deepseek-v4-flash">qwen/deepseek-v4-flash</option>
+      <option value="qwen/glm-5">qwen/glm-5</option>
+      <option value="qwen/kimi-k2.5">qwen/kimi-k2.5</option>
+      <option value="qwen/MiniMax-M2.5">qwen/MiniMax-M2.5</option>
     </optgroup>
     <optgroup label="Ollama Cloud">
       <option value="ollama/nemotron-3-super">ollama/nemotron-3-super</option>
       <option value="ollama/deepseek-v4-flash">ollama/deepseek-v4-flash</option>
+      <option value="ollama/llama3.2">ollama/llama3.2</option>
     </optgroup>
     <optgroup label="TokenFlux">
       <option value="tokenflux/gpt-5.6-sol">tokenflux/gpt-5.6-sol</option>
       <option value="tokenflux/gpt-5.6-terra">tokenflux/gpt-5.6-terra</option>
+      <option value="tokenflux/gpt-5.6-luna">tokenflux/gpt-5.6-luna</option>
+      <option value="tokenflux/gpt-5.5">tokenflux/gpt-5.5</option>
       <option value="tokenflux/gpt-5.4">tokenflux/gpt-5.4</option>
+      <option value="tokenflux/codex-auto-review">tokenflux/codex-auto-review</option>
+    </optgroup>
+    <optgroup label="自訂（手打 prefix/model）">
+      <option value="__custom__">➕ 自訂模型…</option>
     </optgroup>
   </select>
-  <input id="apikey" type="password" placeholder="master_key (leave if hardcoded)" style="width:220px;">
+  <input id="customModel" type="text" placeholder="自訂: openrouter/xxx" style="width:190px; display:none;">
+  <input id="apikey" type="password" placeholder="master_key" style="width:200px;">
+  <button class="icon-btn" id="themeToggle" title="切換深淺模式" aria-label="toggle theme">◐</button>
   <span id="status">ready</span>
 </header>
 <div id="chat"></div>
 <div id="inputbar">
-  <textarea id="prompt" placeholder="輸入訊息，Enter 發送（Shift+Enter 換行）"></textarea>
+  <textarea id="prompt" placeholder="輸入訊息，Enter 發送（Shift+Enter 換行）" aria-label="message"></textarea>
   <button id="send">發送</button>
 </div>
 
@@ -66,7 +245,26 @@ const PROXY = "/litellm/v1/chat/completions";
 const MASTER_KEY = ""; // 留空則用上方輸入框；或在此硬編碼
 const chat = document.getElementById("chat");
 const statusEl = document.getElementById("status");
+const signalbar = document.getElementById("signalbar");
 let messages = [];
+
+// theme: persist to localStorage
+const savedTheme = localStorage.getItem("llmlite-theme") || "dark";
+document.documentElement.setAttribute("data-theme", savedTheme);
+document.getElementById("themeToggle").textContent = savedTheme === "dark" ? "◐" : "◑";
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("llmlite-theme", next);
+  document.getElementById("themeToggle").textContent = next === "dark" ? "◐" : "◑";
+});
+
+function pulse() {
+  signalbar.classList.remove("pulse");
+  void signalbar.offsetWidth; // reflow to restart animation
+  signalbar.classList.add("pulse");
+}
 
 function addMsg(role, content, meta, reasoning) {
   const div = document.createElement("div");
@@ -90,13 +288,18 @@ async function send() {
   const text = ta.value.trim();
   if (!text) return;
   ta.value = "";
-  const model = document.getElementById("model").value;
+  const modelSel = document.getElementById("model");
+  const model = modelSel.value === "__custom__"
+    ? document.getElementById("customModel").value.trim()
+    : modelSel.value;
+  if (!model || model === "__custom__") { statusEl.textContent = "⚠ 請填自訂模型名"; return; }
   const keyInput = document.getElementById("apikey").value.trim();
   const key = keyInput || MASTER_KEY;
   if (!key) { statusEl.textContent = "⚠ 需要 master_key"; return; }
 
   messages.push({ role: "user", content: text });
   addMsg("user", text, model);
+  pulse();
   statusEl.textContent = "思考中…";
   const assistantDiv = document.createElement("div");
   assistantDiv.className = "msg assistant";
@@ -126,6 +329,12 @@ async function send() {
     statusEl.textContent = "fetch error";
   }
 }
+
+document.getElementById("model").addEventListener("change", e => {
+  const custom = document.getElementById("customModel");
+  custom.style.display = e.target.value === "__custom__" ? "inline-block" : "none";
+  pulse();
+});
 
 document.getElementById("send").addEventListener("click", send);
 document.getElementById("prompt").addEventListener("keydown", e => {

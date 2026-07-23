@@ -12,3 +12,24 @@
 {"name": "RSI_MACD_BBand_AlphaCrossover", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.107964279406162, "mdd": 7.81639525048232, "oos_sharpe": -3.6243362597251165, "ts": "2026-07-21T03:25:34.322978"}
 {"name": "MeanReversionWithVolatilityBreakout", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.388934974041624, "mdd": 5.824514207988993, "oos_sharpe": -4.060953178048713, "ts": "2026-07-21T03:42:46.067228"}
 {"name": "RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.388934974041624, "mdd": 5.824514207988993, "oos_sharpe": -1.2165884066539872, "ts": "2026-07-21T08:21:13.709328"}
+{"name": "RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.260074973573812, "mdd": 9.4073829140682, "oos_sharpe": 0.4631355030919979, "ts": "2026-07-22T02:30:37.959886"}
+{"name": "RSI_Mean_Reversion_35_65", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.223459515389765, "mdd": 7.7444279338941575, "oos_sharpe": 0.5688103140228103, "ts": "2026-07-22T02:34:45.773332"}
+{"name": "RSI_Mean_Reversion_35_65", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.1145273123431982, "mdd": 7.407018080592624, "oos_sharpe": 1.1029469585519087, "ts": "2026-07-22T03:14:09.458324"}
+{"name": "Classic_RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.107964279406162, "mdd": 7.81639525048232, "oos_sharpe": 0.33967413276835157, "ts": "2026-07-22T03:50:11.526006"}
+{"name": "RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.107964279406162, "mdd": 7.81639525048232, "oos_sharpe": 0.7624461085028071, "ts": "2026-07-22T04:51:47.741726"}
+{"name": "RSI_Mild_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.147922207784095, "mdd": 9.993742486135746, "oos_sharpe": 0.5688103140228103, "ts": "2026-07-22T06:07:55.894600"}
+{"name": "RSI_MeanReversion_Wide", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.223459515389765, "mdd": 7.7444279338941575, "oos_sharpe": 0.5434407909333293, "ts": "2026-07-22T06:15:21.738028"}
+{"name": "RSI_Mean_Reversion_14", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.260074973573812, "mdd": 9.4073829140682, "oos_sharpe": 1.1074309972660257, "ts": "2026-07-22T06:21:27.602784"}
+{"name": "RSI_Mean_Reversion_Mild", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.2322826038367873, "mdd": 8.941834547218154, "oos_sharpe": 0.5434407909333293, "ts": "2026-07-22T07:41:13.845771"}
+{"name": "Extreme_RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.8222613377727184, "mdd": 5.855274286873701, "oos_sharpe": 1.1384476548698297, "ts": "2026-07-23T02:07:38.456842"}
+{"name": "RSI_Mean_Reversion_Moderate", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.2322826038367873, "mdd": 8.941834547218154, "oos_sharpe": 0.5688103140228103, "ts": "2026-07-23T02:16:27.498747"}
+{"name": "RSI_Moderate_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 3.5379841951203055, "mdd": 9.148170198868197, "oos_sharpe": 1.3554032170521342, "ts": "2026-07-23T02:59:33.359694"}
+{"name": "RSI_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.107964279406162, "mdd": 7.81639525048232, "oos_sharpe": 3.181851119854458, "ts": "2026-07-23T03:18:10.583171"}
+{"name": "RSI Deep Mean Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 3.1259232308059683, "mdd": 7.50298195193685, "oos_sharpe": 1.0761417858457307, "ts": "2026-07-23T04:40:50.404852"}
+{"name": "RSI_Mean_Reversion_Balanced", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.199940279468713, "mdd": 8.191790799854628, "oos_sharpe": 0.5434407909333293, "ts": "2026-07-23T04:47:04.812006"}
+{"name": "RSI_Conservative_Mean_Reversion", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.223459515389765, "mdd": 7.7444279338941575, "oos_sharpe": 0.5434407909333293, "ts": "2026-07-23T05:10:17.706280"}
+{"name": "RSI_Momentum_Trend", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.9209956834886452, "mdd": 4.814770017214703, "oos_sharpe": 0.9614724612754936, "ts": "2026-07-23T05:21:16.646210"}
+{"name": "RSI_Trend_Following", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.9209956834886452, "mdd": 4.814770017214703, "oos_sharpe": 0.06853267828467524, "ts": "2026-07-23T05:56:24.667486"}
+{"name": "RSI Momentum Trend", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.9209956834886452, "mdd": 4.814770017214703, "oos_sharpe": 0.651694812589692, "ts": "2026-07-23T06:12:59.260516"}
+{"name": "RSI_Mean_Reversion_30_60", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 3.5904643084081296, "mdd": 5.614918288230851, "oos_sharpe": 4.385751124602182, "ts": "2026-07-23T06:21:34.561438"}
+{"name": "RSI_Momentum_Trend_Following", "symbol": "BTC_USDT", "tf": "1h", "sharpe": 2.9209956834886452, "mdd": 4.814770017214703, "oos_sharpe": 0.8069581756283155, "ts": "2026-07-23T07:36:21.954511"}

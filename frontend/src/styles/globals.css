@@ -2,13 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
   --background: 255 255 255;
   --surface: 250 250 250;
   --text: 10 10 10;
   --text-secondary: 82 82 82;
   --border: 229 229 229;
-  --accent: 37 99 235;
+  --accent: 200 169 97;
+  --signal: 154 123 51;
 }
 
 .dark {
@@ -17,17 +20,25 @@
   --text: 209 212 220;
   --text-secondary: 120 123 134;
   --border: 54 60 78;
-  --accent: 59 130 246;
+  --accent: 200 169 97;
+  --signal: 200 169 97;
 }
 
 body {
   background-color: rgb(var(--background));
   color: rgb(var(--text));
-  font-family: 'Trebuchet MS', 'Segoe UI', 'PingFang TC',
+  font-family: 'Space Grotesk', 'Trebuchet MS', 'Segoe UI', 'PingFang TC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
   transition: background-color 150ms ease, color 150ms ease;
   overflow-x: hidden;
+}
+
+/* LLMLite signature: 1px signal line */
+.signal-line {
+  height: 1px;
+  background: rgb(var(--signal));
+  opacity: 0.6;
 }
 
 /* 隱藏滾動條但保持滾動 */
