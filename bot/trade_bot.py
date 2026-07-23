@@ -1,11 +1,12 @@
 """
 Trade Bot — 自動抓取 BingX 交易數據並永久寫入 GitHub。
 
-修正:
-- 用 info.volume (合約數) 取代 ccxt amount (有解析錯誤)
-- 槓桿 = 名義本金 / 保證金 (info.volume * price / info.amount)
-- 價格保持原始精度 (不強制四捨五入)
-- 加入 close_time / fee / margin 欄位
+修正 v3:
+- actual_qty = info.amount / price (info.amount 是名義價值 USDT, 非保證金)
+- info.volume 是合約張數, 不可直接用
+- PnL = (exit - entry) * actual_qty
+- 槓桿從 positions 帶入 (歷史單無法取得則標記 null)
+- 價格保持原始精度
 - 同 orderId 分批成交先聚合再配對
 """
 
@@ -127,7 +128,11 @@ def fetch_all_trades(ex, symbols: list[str]) -> list[dict]:
 
 
 def aggregate_fills(trades: list[dict]) -> list[dict]:
-    """同 orderId 的分批成交先聚合 (加總合約數/保證金, 加權均價)"""
+    """同 orderId 的分批成交先聚合 (加總名義/數量, 加權均價)
+    
+    關鍵: info.amount = 名義價值 (USDT), info.volume = 合約張數 (不可直接用)
+    actual_qty = info.amount / price
+    """
     groups: dict[str, list] = defaultdict(list)
     for t in trades:
         order_id = str(t.get("info", {}).get("orderId", ""))
@@ -139,41 +144,43 @@ def aggregate_fills(trades: list[dict]) -> list[dict]:
             out.append(grp[0])
         else:
             base = grp[0]
-            total_vol = 0.0
-            total_margin = 0.0
-            weighted_price = 0.0
+            total_notional = 0.0  # sum of info.amount (USDT)
+            total_qty = 0.0       # sum of actual coin qty
             total_fee = 0.0
             ts = base.get("timestamp", 0)
             for t in grp:
                 info = t.get("info", {})
-                vol = float(info.get("volume", 0) or 0)
-                margin = float(info.get("amount", 0) or 0)
+                notional = float(info.get("amount", 0) or 0)
                 price = float(t.get("price", 0))
+                qty = notional / price if price > 0 else 0
                 fee = float((t.get("fee") or {}).get("cost", 0) or 0)
-                weighted_price += price * vol
-                total_vol += vol
-                total_margin += margin
+                total_notional += notional
+                total_qty += qty
                 total_fee += fee
                 ts = max(ts, t.get("timestamp", 0))
-            avg_price = weighted_price / total_vol if total_vol > 0 else 0
-            # 用 info.volume 做 ccxt amount (因 ccxt amount 有解析錯誤)
-            # 複製 base 並覆蓋關鍵欄位
+            avg_price = total_notional / total_qty if total_qty > 0 else 0
             merged = dict(base)
-            merged["amount"] = total_vol  # 用 info.volume 總和
+            merged["amount"] = total_qty
             merged["price"] = avg_price
-            merged["cost"] = total_vol * avg_price
+            merged["cost"] = total_notional
             merged["fee"] = {"currency": "USDT", "cost": total_fee}
             merged["timestamp"] = ts
             merged["info"] = dict(base.get("info", {}))
-            merged["info"]["volume"] = str(total_vol)
-            merged["info"]["amount"] = str(total_margin)
+            merged["info"]["amount"] = str(total_notional)
             merged["info"]["commission"] = str(-total_fee)
             out.append(merged)
     return out
 
 
-def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
-    """FIFO 配對: 同 (symbol, positionSide) 分組, 開倉入隊, 平倉出隊配對"""
+def pair_trades(trades: list[dict], leverage_map: dict | None = None) -> tuple[list[dict], float]:
+    """FIFO 配對: 同 (symbol, positionSide) 分組, 開倉入隊, 平倉出隊配對
+    
+    關鍵公式:
+    - actual_qty = info.amount / price  (info.amount = 名義價值 USDT)
+    - PnL = (exit - entry) * actual_qty
+    - leverage 從 positions 帶入 (leverage_map), 歷史單無法取得則 null
+    """
+    leverage_map = leverage_map or {}
     groups: dict[tuple, list] = {}
     for t in trades:
         info = t.get("info", {})
@@ -192,76 +199,64 @@ def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
         grp.sort(key=lambda x: x.get("timestamp") or 0)
         open_side = "buy" if pos_side == "LONG" else "sell"
         queue: list[dict] = []
+        lev = leverage_map.get(sym)  # 從 positions 帶入的槓桿
 
         for t in grp:
             side = (t.get("side") or "").lower()
-            # 使用 info.volume 作為合約數 (ccxt amount 有解析錯誤)
             info = t.get("info", {})
-            contracts = float(info.get("volume", 0) or 0)
-            margin = float(info.get("amount", 0) or 0)  # 保證金
+            notional = float(info.get("amount", 0) or 0)  # 名義價值 USDT
             price = float(t.get("price") or 0)
+            qty = notional / price if price > 0 else 0     # 實際幣數
             fee = float((t.get("fee") or {}).get("cost") or 0)
             fees_total += fee
             ts = int(t.get("timestamp") or 0)
             order_id = str(info.get("orderId") or "")
 
-            # 計算實際槓桿 = 名義本金 / 保證金
-            notional = contracts * price
-            leverage = round(notional / margin, 1) if margin > 0 else 1.0
-
             if side == open_side:
                 queue.append({
-                    "price": price, "contracts": contracts, "margin": margin,
-                    "ts": ts, "fee": fee, "order_id": order_id, "leverage": leverage,
+                    "price": price, "qty": qty, "notional": notional,
+                    "ts": ts, "fee": fee, "order_id": order_id,
                 })
             else:
-                remaining = contracts
-                while remaining > 0.0000001 and queue:
+                remaining = qty
+                while remaining > 1e-10 and queue:
                     entry = queue[0]
-                    matched = min(remaining, entry["contracts"])
+                    matched = min(remaining, entry["qty"])
                     if pos_side == "LONG":
                         pnl = (price - entry["price"]) * matched
                     else:
                         pnl = (entry["price"] - price) * matched
-                    entry_fee_share = entry["fee"] * (matched / entry["contracts"]) if entry["contracts"] > 0 else 0
-                    close_fee_share = fee * (matched / contracts) if contracts > 0 else 0
+                    entry_fee_share = entry["fee"] * (matched / entry["qty"]) if entry["qty"] > 0 else 0
+                    close_fee_share = fee * (matched / qty) if qty > 0 else 0
                     net_pnl = pnl - entry_fee_share - close_fee_share
-                    close_order_id = order_id
-                    open_order_id = entry["order_id"]
-
-                    # 合併槓桿 (取開倉與平倉較大者)
-                    lev = max(entry["leverage"], leverage)
-
-                    # 手續費明細
-                    entry_fee_str = round(entry_fee_share, 4)
-                    close_fee_str = round(close_fee_share, 4)
+                    entry_notional_share = entry["notional"] * (matched / entry["qty"]) if entry["qty"] > 0 else 0
 
                     closed.append({
                         "symbol": sym,
                         "side": pos_side,
-                        "positionAmt": matched,
-                        "avgPrice": round(entry["price"], 6),
-                        "exitPrice": round(price, 6),
-                        "leverage": lev,
+                        "positionAmt": round(matched, 8),
+                        "avgPrice": round(entry["price"], 8),
+                        "exitPrice": round(price, 8),
+                        "leverage": lev,  # 從 positions 帶入, 歷史單可能為 null
                         "unrealizedProfit": 0.0,
                         "realizedProfit": round(net_pnl, 4),
-                        "pnlRatio": round(net_pnl / (entry["price"] * matched) * 100, 4) if entry["price"] * matched > 0 else 0.0,
-                        "positionValue": round(entry["price"] * matched, 2),
+                        "pnlRatio": round(net_pnl / entry_notional_share * 100, 4) if entry_notional_share > 0 else 0.0,
+                        "positionValue": round(entry_notional_share, 2),
                         "liquidationPrice": 0.0,
                         "status": "CLOSED",
                         "openTs": entry["ts"],
                         "ts": ts,
-                        "open_order_id": open_order_id,
-                        "close_order_id": close_order_id,
-                        "entry_fee": entry_fee_str,
-                        "exit_fee": close_fee_str,
-                        "margin": round(entry["margin"] * (matched / entry["contracts"]) if entry["contracts"] > 0 else 0, 4),
+                        "open_order_id": entry["order_id"],
+                        "close_order_id": order_id,
+                        "entry_fee": round(entry_fee_share, 6),
+                        "exit_fee": round(close_fee_share, 6),
+                        "margin": round(entry_notional_share / lev, 4) if lev and lev > 0 else None,
                     })
-                    entry["contracts"] -= matched
+                    entry["qty"] -= matched
                     entry["fee"] -= entry_fee_share
-                    entry["margin"] *= (entry["contracts"] / (entry["contracts"] + matched)) if (entry["contracts"] + matched) > 0 else 0
+                    entry["notional"] -= entry_notional_share
                     remaining -= matched
-                    if entry["contracts"] <= 0.0000001:
+                    if entry["qty"] <= 1e-10:
                         queue.pop(0)
 
     # 去重 (order_id fingerprint)
@@ -285,6 +280,15 @@ def build_snapshot() -> dict:
     positions = fetch_positions(ex)
     logger.info("positions: %d", len(positions))
 
+    # 從 positions 建立 leverage_map (symbol → leverage)
+    leverage_map = {}
+    for p in positions:
+        sym = p.get("symbol")
+        lev = p.get("leverage")
+        if sym and lev and lev > 0:
+            leverage_map[sym] = lev
+    logger.info("leverage_map: %s", leverage_map)
+
     symbols = sorted(KNOWN_SYMBOLS)
     logger.info("fetching trades for %d symbols...", len(symbols))
     raw_trades = fetch_all_trades(ex, symbols)
@@ -294,13 +298,13 @@ def build_snapshot() -> dict:
     aggregated = aggregate_fills(raw_trades)
     logger.info("after aggregation: %d", len(aggregated))
 
-    closed, fees = pair_trades(aggregated)
+    closed, fees = pair_trades(aggregated, leverage_map)
     logger.info("paired closed: %d, fees: %.4f", len(closed), fees)
 
     recs = positions + closed
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-ccxt-trades-v2",
+        "source": "bingx-ccxt-trades-v3",
         "repo": REPO,
         "count": len(recs),
         "fees_total": round(fees, 4),
