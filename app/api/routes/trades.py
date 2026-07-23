@@ -112,6 +112,14 @@ def _load_all_trades() -> dict:
         for rec in snap.get("records", []):
             rec["_snapshot"] = latest
             rec["symbol"] = norm_sym(rec.get("symbol"))
+            # Enrich: 前端需要的衍生欄位
+            rec["qty"] = rec.get("positionAmt")
+            rec["notional"] = rec.get("positionValue")
+            rec["fee"] = round(float(rec.get("entry_fee") or 0) + float(rec.get("exit_fee") or 0), 6)
+            rec["closeTime"] = rec.get("ts")
+            open_ts = rec.get("openTs") or 0
+            close_ts = rec.get("ts") or 0
+            rec["holdDuration"] = (close_ts - open_ts) if open_ts and close_ts and close_ts > open_ts else None
             records.append(rec)
         fees_total = float(snap.get("fees_total") or 0)
         funding_total = float(snap.get("funding_total") or 0)
