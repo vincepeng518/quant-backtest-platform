@@ -268,7 +268,64 @@ def pair_trades(trades: list[dict], leverage_map: dict | None = None) -> tuple[l
             seen.add(fp)
             deduped.append(r)
 
-    return deduped, fees_total
+    # 過濾零量 FIFO 殘渣 (浮點精度造成)
+    deduped = [r for r in deduped if r["positionAmt"] >= 0.0001]
+
+    # 按 close_order_id 聚合 (同一平倉單的 FIFO 拆分合併為 1 筆, 與 BingX 官方計數一致)
+    agg: dict[str, list] = defaultdict(list)
+    for r in deduped:
+        key = r["close_order_id"] or f"{r['symbol']}_{r['side']}_{r['ts']}"
+        agg[key].append(r)
+
+    merged = []
+    for key, group in agg.items():
+        if len(group) == 1:
+            merged.append(group[0])
+        else:
+            # 合併: 加權均價 entry, 加總 qty/pnl/fee/notional
+            total_qty = sum(r["positionAmt"] for r in group)
+            total_pnl = sum(r["realizedProfit"] for r in group)
+            total_val = sum(r["positionValue"] for r in group)
+            total_entry_fee = sum(r["entry_fee"] for r in group)
+            total_exit_fee = sum(r["exit_fee"] for r in group)
+            wavg_entry = sum(r["avgPrice"] * r["positionAmt"] for r in group) / total_qty if total_qty > 0 else 0
+            first = group[0]
+            merged.append({
+                "symbol": first["symbol"],
+                "side": first["side"],
+                "positionAmt": round(total_qty, 8),
+                "avgPrice": round(wavg_entry, 8),
+                "exitPrice": first["exitPrice"],
+                "leverage": first["leverage"],
+                "unrealizedProfit": 0.0,
+                "realizedProfit": round(total_pnl, 4),
+                "pnlRatio": round(total_pnl / total_val * 100, 4) if total_val > 0 else 0.0,
+                "positionValue": round(total_val, 2),
+                "liquidationPrice": 0.0,
+                "status": "CLOSED",
+                "openTs": min(r["openTs"] for r in group),
+                "ts": first["ts"],
+                "open_order_id": ",".join(sorted(set(r["open_order_id"] for r in group))),
+                "close_order_id": first["close_order_id"],
+                "entry_fee": round(total_entry_fee, 6),
+                "exit_fee": round(total_exit_fee, 6),
+                "margin": first["margin"],
+            })
+
+    return merged, fees_total
+
+
+def fetch_funding_fees(ex, symbols: list[str]) -> float:
+    """抓取所有 symbol 的資金費用總和"""
+    total = 0.0
+    for s in symbols:
+        try:
+            fh = ex.fetch_funding_history(s, limit=100)
+            for f in fh:
+                total += float(f.get("amount", 0) or 0)
+        except Exception:
+            pass
+    return round(total, 4)
 
 
 def build_snapshot() -> dict:
@@ -301,13 +358,18 @@ def build_snapshot() -> dict:
     closed, fees = pair_trades(aggregated, leverage_map)
     logger.info("paired closed: %d, fees: %.4f", len(closed), fees)
 
+    # 資金費用
+    funding = fetch_funding_fees(ex, symbols)
+    logger.info("funding fees: %.4f", funding)
+
     recs = positions + closed
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-ccxt-trades-v3",
+        "source": "bingx-ccxt-trades-v4",
         "repo": REPO,
         "count": len(recs),
         "fees_total": round(fees, 4),
+        "funding_total": funding,
         "records": recs,
     }
 
