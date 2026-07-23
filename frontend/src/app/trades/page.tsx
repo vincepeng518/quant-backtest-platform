@@ -65,7 +65,7 @@ function heatClass(pnl: number): string {
 }
 
 export default function TradesPage() {
-  const [source, setSource] = useState<'bingx' | 'arb'>('bingx');
+  const [source, setSource] = useState<'bingx' | 'arb' | 'predict'>('bingx');
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [feesTotal, setFeesTotal] = useState<number | null>(null);
@@ -76,7 +76,7 @@ export default function TradesPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const fetcher = source === 'arb' ? api.getArbTrades() : api.getTrades();
+    const fetcher = source === 'arb' ? api.getArbTrades() : source === 'predict' ? api.getPredictTrades() : api.getTrades();
     fetcher
       .then((d: any) => {
         setRecords(d.records ?? []);
@@ -179,11 +179,12 @@ export default function TradesPage() {
       <div className="flex items-center justify-between mb-4">
         <Link href="/history" className="text-xs font-mono text-accent hover:underline">回測歷史 ↗</Link>
       </div>
-      {/* 來源切換: BingX / Arb Bot */}
+      {/* 來源切換: BingX / Arb Bot / Predict.fun */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {([
           { key: 'bingx', label: 'BingX 紀錄' },
           { key: 'arb', label: 'Arb Bot' },
+          { key: 'predict', label: 'Predict.fun' },
         ] as const).map((s) => (
           <button
             key={s.key}
@@ -333,7 +334,7 @@ export default function TradesPage() {
         ) : error ? (
           <p className="text-sm font-mono text-danger p-6">{error}</p>
         ) : records.length === 0 ? (
-          <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : "Run bot/trade_bot.py to capture BingX data."} />
+          <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "Run bot/trade_bot.py to capture BingX data."} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-mono">

@@ -181,5 +181,6 @@ export const api = {
   // ── Trades (BingX auto journal, persisted on GitHub) ──
   getTrades: () => request<any>('/trades'),
   getArbTrades: () => request<any>('/trades/arb'),
+  getPredictTrades: () => request<any>('/trades/predict'),
 };
 export default api;
