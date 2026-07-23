@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-07-23T08:09:02.110571+00:00",
+  "source": "bingx-ccxt+orders",
+  "repo": "vincepeng518/quant-backtest-platform",
+  "count": 2,
+  "fees_total": 0.0,
+  "records": [
+    {
+      "symbol": "NZD-USD",
+      "side": "LONG",
+      "positionAmt": 686.73,
+      "avgPrice": 0.58161,
+      "exitPrice": 0.0,
+      "leverage": 50.0,
+      "unrealizedProfit": -0.4874,
+      "realizedProfit": -0.012,
+      "pnlRatio": 0.0,
+      "positionValue": 398.92,
+      "liquidationPrice": 0.0,
+      "status": "OPEN",
+      "ts": 1784794142110
+    },
+    {
+      "symbol": "BTC",
+      "side": "SHORT",
+      "positionAmt": 0.0211,
+      "avgPrice": 65940.7,
+      "exitPrice": 0.0,
+      "leverage": 150.0,
+      "unrealizedProfit": 11.355,
+      "realizedProfit": -0.6009,
+      "pnlRatio": 0.0,
+      "positionValue": 1379.99,
+      "liquidationPrice": 0.0,
+      "status": "OPEN",
+      "ts": 1784794142110
+    }
+  ]
+}
