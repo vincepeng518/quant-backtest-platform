@@ -1,106 +1,78 @@
 """
 Trade Bot — 自動抓取 BingX 交易數據並永久寫入 GitHub。
 
-抓取來源 (BingX swap API, 已驗證):
-  - /openApi/swap/v2/user/positions  : 當前持倉 (開倉價/槓桿/未實現盈虧/清算價)
-  - /openApi/swap/v2/user/income     : 已實現 PnL / 費用 / 資金費 (近3月)
-  - /openApi/swap/v2/trade/allOrders : 訂單歷史 (開平價/方向/數量)
+抓取來源 (ccxt, 避開 allOrders 限流):
+  - fetch_positions()   : 當前持倉 (開倉價/槓桿/未實現盈虧/清算價)
+  - fetch_my_trades()   : 歷史成交 (逐 symbol, 含 positionSide/side/price/amount)
 
-永久儲存: 調用 app.services.strategy_git 寫入 GitHub repo 的 trades/ 目錄
-  (git-tracked, 不會因容器重啟/重建丟失, 與 backtest_history/ 同機制)
+配對邏輯:
+  同 (symbol, positionSide) 分組, 按時間排序:
+  - LONG:  BUY=開倉, SELL=平倉
+  - SHORT: SELL=開倉, BUY=平倉
+  FIFO 配對 → 每筆 round-trip 含 entry/exit/PnL
 
-客觀欄位 (不含情緒/策略主觀填寫):
-  symbol, side, positionAmt, avgPrice(開), exitPrice(平), leverage,
-  unrealizedProfit / realizedProfit(盈虧), pnlRatio(盈虧比),
-  positionValue(總倉位大小), liquidationPrice, closeTime
+永久儲存: GitHub repo trades/ 目錄 (git-tracked)
 
 用法:
   python bot/trade_bot.py            # 抓一次, 寫一筆快照
-  python bot/trade_bot.py --daemon   # 每 300s 跑一次 (或由 systemd timer 調用)
+  python bot/trade_bot.py --daemon   # 每 300s 跑一次
 """
 from __future__ import annotations
-import os, sys, time, json, argparse, logging, base64, urllib.request, urllib.error
+import os, sys, time, json, argparse, logging, base64, urllib.request
 from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("trade_bot")
 
-# 讓此檔能 import app.services.strategy_git
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 try:
-    from app.services.strategy_git import git_persist, REPO  # type: ignore
-except Exception as e:  # noqa
-    logger.warning("strategy_git import failed: %s", e)
-    git_persist = None
+    from app.services.strategy_git import REPO  # type: ignore
+except Exception:
     REPO = "vincepeng518/quant-backtest-platform"
 
-# ccxt 統一交易所介面 (抓持倉, 穩定)
 try:
     import ccxt
-except Exception as e:  # noqa
+except Exception as e:
     logger.warning("ccxt import failed: %s", e)
     ccxt = None
 
-# 私有簽名僅用於抓歷史成交 (ccxt 無法逐 symbol 掃歷史 allOrders)
-import hmac as _hmac
-import hashlib as _hashlib
-import requests as _requests
+TRADES_PREFIX = "trades"
 
-BASE = "https://open-api.bingx.com"
-
-
-def _sign(path: str, params: dict) -> str:
-    qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-    secret = os.environ.get("BINGX_API_SECRET", "")
-    sig = _hmac.new(secret.encode(), qs.encode(), _hashlib.sha256).hexdigest()
-    return f"{path}?{qs}&signature={sig}"
-
-
-def _call_private(path: str, params: dict | None = None) -> dict:
-    params = params or {}
-    params.update({"timestamp": int(time.time() * 1000), "recvWindow": 5000})
-    url = f"{BASE}{_sign(path, params)}"
-    last_err = None
-    for attempt in range(3):
-        try:
-            r = _requests.get(url, headers={
-                "X-BX-APIKEY": os.environ.get("BINGX_API_KEY", ""),
-                "X-SOURCE-KEY": "BX-AI-SKILL",
-            }, timeout=15)
-            if r.status_code == 429:
-                # 限流: 退避後重試
-                wait = 2 * (attempt + 1)
-                logger.warning("BingX 429 rate limit on %s, retry in %ss", path, wait)
-                time.sleep(wait)
-                last_err = "429"
-                continue
-            return r.json()
-        except Exception as e:  # noqa
-            last_err = e
-            logger.warning("private call %s err (attempt %d): %s", path, attempt + 1, e)
-            if attempt < 2:
-                time.sleep(2 * (attempt + 1))
-    return {}
+# 用戶已知交易 symbol (ccxt 格式)
+KNOWN_SYMBOLS = [
+    "BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT", "XMR/USDT:USDT",
+    "BCH/USDT:USDT", "LDO/USDT:USDT", "JTO/USDT:USDT", "VIRTUAL/USDT:USDT",
+    "LONGXIA/USDT:USDT",
+    # TradFi
+    "NCCOGOLD2USD/USDT:USDT", "NCSINASDAQ1002USD/USDT:USDT",
+    "NCFXEUR2USD/USDT:USDT", "NCFXGBP2USD/USDT:USDT",
+    "NCCO1OILWTI2USD/USDT:USDT",
+]
 
 
-def _parse_lev(v) -> float:
-    """BingX leverage 可能為 '150X' 字串 -> 150.0"""
-    if v is None:
-        return 0.0
-    s = str(v).replace("X", "").replace("x", "").strip()
-    try:
-        return float(s)
-    except Exception:
-        return 0.0
-
-
-TRADES_PREFIX = "trades"  # GitHub 路徑 trades/
+def simplify_symbol(raw: str | None) -> str | None:
+    """BingX symbol 簡化: BTC-USDT→BTC, NCCOGOLD2USD-USDT→GOLD, NCFXEUR2USD-USDT→EUR/USD"""
+    if not raw:
+        return raw
+    import re
+    s = raw.strip().replace("/", "-").replace(":USDT", "").replace(":USDC", "")
+    m = re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}"
+    m = re.match(r"^NC(CO|SK|SI)\d*(.+?)2USD-USDT$", s)
+    if m:
+        return m.group(2)
+    m = re.match(r"^NC(\w+)-USDT$", s)
+    if m:
+        return m.group(1)
+    if s.endswith("-USDT"):
+        return s[:-len("-USDT")]
+    return s
 
 
 def _client():
-    """建立 BingX ccxt client (從環境變數讀 key/secret)。"""
     if ccxt is None:
         return None
     return ccxt.bingx({
@@ -110,242 +82,194 @@ def _client():
     })
 
 
-def simplify_symbol(raw: str | None) -> str | None:
-    """BingX symbol 簡化 (用戶規則):
-    - Crypto:     BTC-USDT → BTC (也處理 ccxt 原始 ETH/USDT:USDT → ETH)
-    - TradFi 商品: NCCOGOLD2USD-USDT → GOLD
-    - TradFi 股票: NCSKTSLA2USD-USDT → TSLA
-    - TradFi 股指: NCSINASDAQ1002USD-USDT → NASDAQ100
-    - TradFi 外匯: NCFXEUR2USD-USDT → EUR/USD, NCFXGBP2JPY-USDT → GBP/JPY
-    """
-    if not raw:
-        return raw
-    import re
-    s = raw.strip().replace("/", "-").replace(":USDT", "").replace(":USDC", "")
-    # 外匯: NCFX<BASE>2<QUOTE>-USDT → BASE/QUOTE
-    m = re.match(r"^NCFX(\w+?)2(\w+)-USDT$", s)
-    if m:
-        return f"{m.group(1)}/{m.group(2)}"
-    # 商品/股票/股指: NC{CO|SK|SI}[數字]<NAME>2USD-USDT → NAME (前導數字如 1OILWTI 去掉)
-    m = re.match(r"^NC(CO|SK|SI)\d*(.+?)2USD-USDT$", s)
-    if m:
-        return m.group(2)
-    # TradFi 變體: NC<NAME>-USDT → NAME (無 2USD 後綴, 例 NCOILWTI-USDT → OILWTI)
-    m = re.match(r"^NC(\w+)-USDT$", s)
-    if m:
-        return m.group(1)
-    # Crypto: 去尾部 -USDT
-    if s.endswith("-USDT"):
-        return s[: -len("-USDT")]
-    return s
-
-
-def fetch_positions() -> list:
-    """用 ccxt 抓 BingX 持倉 (替代私有簽名 API)。"""
-    ex = _client()
-    if ex is None:
-        logger.warning("ccxt client 不可用")
-        return []
+def fetch_positions(ex) -> list:
+    """當前持倉 → OPEN records"""
     try:
         raw = ex.fetch_positions()
-        out = []
-        for p in raw:
-            sym = simplify_symbol(p.get("symbol"))
-            side = (p.get("side") or "").upper()  # long/short -> LONG/SHORT
-            if not sym:
-                continue
-            out.append({
-                "symbol": sym,
-                "positionSide": side,
-                "avgPrice": float(p.get("entryPrice") or 0),
-                "leverage": float(p.get("leverage") or 0),
-                "unrealizedProfit": float(p.get("unrealizedPnl") or 0),
-                "realisedProfit": float(p.get("realizedPnl") or 0),
-                "pnlRatio": 0.0,
-                "positionValue": float(p.get("notional") or p.get("contracts") or 0),
-                "liquidationPrice": float(p.get("liquidationPrice") or 0),
-                "positionAmt": float(p.get("contracts") or p.get("amount") or 0),
-            })
-        return out
-    except Exception as e:  # noqa
-        logger.warning("ccxt positions err: %s", e)
+    except Exception as e:
+        logger.warning("fetch_positions err: %s", e)
         return []
-
-
-def fetch_order_history(limit: int = 200) -> list:
-    """私有 allOrders: 歷史成交 (含開平價, ccxt 無法逐 symbol 掃歷史)。
-    分頁拉取: BingX 單次最多 100 筆, 用 id 游標往回翻頁, 直到達 limit 或無更多。
-    """
-    all_orders: list = []
-    seen_ids: set = set()
-    cursor_id = None
-    page = 0
-    while len(all_orders) < limit and page < 50:
-        params = {"limit": min(100, limit - len(all_orders))}
-        if cursor_id is not None:
-            params["idLessThan"] = cursor_id  # BingX 分頁: 上一頁最後一筆 id
-        try:
-            d = _call_private("/openApi/swap/v2/trade/allOrders", params)
-            # BingX 限流: code 100410 = 端點頻率限制禁用期, 需等解封
-            if d.get("code") == 100410:
-                msg = str(d.get("msg", ""))
-                import re as _re
-                m = _re.search(r"unblocked after (\d+)", msg)
-                wait = (int(m.group(1)) - int(__import__("time").time() * 1000)) / 1000 + 2 if m else 30
-                wait = max(5, min(wait, 120))
-                logger.warning("BingX allOrders rate-limited (100410), wait %.0fs", wait)
-                time.sleep(wait)
-                continue  # 重試同頁
-            data = d.get("data", {})
-            batch = data.get("orders", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-            if not batch:
-                break
-            for o in batch:
-                oid = o.get("id")
-                if oid in seen_ids:
-                    continue  # 分頁重疊去重
-                seen_ids.add(oid)
-                all_orders.append(o)
-            cursor_id = batch[-1].get("id")  # 下一頁游標
-            page += 1
-        except Exception as e:  # noqa
-            logger.warning("order history err: %s", e)
-            break
-    return all_orders[:limit]
-
-
-def build_snapshot() -> dict:
-    """組合一次快照: 當前持倉 (ccxt) + 歷史成交 (私有 allOrders)。
-    只記有開平價的完整數據 (過濾無價格的)。"""
-    positions = fetch_positions()
-    orders = fetch_order_history(1000)
-
-    recs = []
-    MAX_SAFE_LEV = 20
-    # 1) 當前持倉 (ccxt, status=OPEN)
-    for p in positions:
+    out = []
+    for p in raw:
         sym = simplify_symbol(p.get("symbol"))
-        pside = p.get("positionSide")  # LONG/SHORT
-        avg = float(p.get("avgPrice", 0) or 0)
-        amt = float(p.get("positionAmt", 0) or 0)
-        lev = float(p.get("leverage", 0) or 0)
-        if lev > MAX_SAFE_LEV:
-            # 高槓桿持倉: 不阻止, 但標記穿倉風險
-            logger.warning("高槓桿持倉 %s %sx — 穿倉風險, 建議降到 %dx 以下", sym, lev, MAX_SAFE_LEV)
-        if avg <= 0:  # 無開倉價不記
+        side = (p.get("side") or "").upper()
+        avg = float(p.get("entryPrice") or 0)
+        if not sym or avg <= 0:
             continue
-        recs.append({
+        lev = float(p.get("leverage") or 0)
+        if lev > 20:
+            logger.warning("高槓桿 %s %sx", sym, lev)
+        out.append({
             "symbol": sym,
-            "side": pside,
-            "positionAmt": amt,
+            "side": side,
+            "positionAmt": float(p.get("contracts") or p.get("amount") or 0),
             "avgPrice": avg,
-            "exitPrice": 0.0,       # 持倉中尚未平倉
-            "leverage": float(p.get("leverage", 0) or 0),
-            "unrealizedProfit": float(p.get("unrealizedProfit", 0) or 0),
-            "realizedProfit": float(p.get("realisedProfit", 0) or 0),
+            "exitPrice": 0.0,
+            "leverage": lev,
+            "unrealizedProfit": float(p.get("unrealizedPnl") or 0),
+            "realizedProfit": 0.0,
             "pnlRatio": 0.0,
-            "positionValue": float(p.get("positionValue", 0) or 0),
-            "liquidationPrice": float(p.get("liquidationPrice", 0) or 0),
+            "positionValue": float(p.get("notional") or 0),
+            "liquidationPrice": float(p.get("liquidationPrice") or 0),
             "status": "OPEN",
             "ts": int(time.time() * 1000),
         })
+    return out
 
-    # 2) 歷史成交 (私有 allOrders) -> 配對成 round-trip (開倉+平倉)
-    #    BingX 每筆 order 只有單邊價; 一筆完整交易 = 開倉單 + 平倉單
-    #    配對: 同 symbol+positionSide, 按時間排序, 開倉方向單入棧, 平倉方向單出棧配對
-    fees_total = 0.0
-    # 過濾有效成交單
-    valid = []
-    for o in orders:
-        if o.get("status") != "FILLED":
-            continue
-        avg = float(o.get("avgPrice", 0) or 0)
-        if avg <= 0:
-            continue
-        valid.append(o)
 
-    # 分組 (symbol, positionSide)
-    groups: dict = {}
-    for o in valid:
-        key = (simplify_symbol(o.get("symbol")), o.get("positionSide"))
-        groups.setdefault(key, []).append(o)
-
-    recs_closed: list = []
-    for (sym, pside), grp in groups.items():
-        # 按時間升序
-        grp.sort(key=lambda x: int(x.get("time", 0) or 0))
-        # 開倉方向: LONG->BUY, SHORT->SELL; 平倉方向相反
-        open_side = "BUY" if pside == "LONG" else "SELL"
-        stack: list = []
-        for o in grp:
-            oside = (o.get("side") or "").upper()
-            avg = float(o.get("avgPrice", 0) or 0)
-            rpnl = float(o.get("profit", 0) or 0)
-            fees_total += float(o.get("commission", 0) or 0)
-            if oside == open_side:
-                # 開倉單: 入棧 (攜帶開倉價/時間/數量)
-                stack.append({
-                    "avgPrice": avg,
-                    "time": int(o.get("time", 0) or 0),
-                    "qty": float(o.get("executedQty", 0) or 0),
-                })
+def fetch_all_trades(ex, symbols: list[str]) -> list[dict]:
+    """逐 symbol 抓 fetchMyTrades, 合併所有成交"""
+    all_trades = []
+    for sym in symbols:
+        try:
+            trades = ex.fetch_my_trades(sym, limit=200)
+            all_trades.extend(trades)
+            logger.info("  %s: %d trades", sym, len(trades))
+        except Exception as e:
+            err = str(e)
+            if "100410" in err:
+                logger.warning("  %s: rate limited, skip", sym)
+            elif "does not have" in err or "not found" in err.lower():
+                pass  # symbol not traded
             else:
-                # 平倉單: 與棧頂開倉單配對 (無開倉則單獨記一筆 FILLED)
-                entry = stack.pop() if stack else None
-                entry_price = entry["avgPrice"] if entry else avg
-                recs_closed.append({
-                    "symbol": sym,
-                    "side": pside,
-                    "positionAmt": float(o.get("executedQty", 0) or 0),
-                    "avgPrice": entry_price,       # 開倉價 (來自開倉單)
-                    "exitPrice": avg,              # 平倉價 (來自平倉單)
-                    "leverage": _parse_lev(o.get("leverage")),
-                    "unrealizedProfit": 0.0,
-                    "realizedProfit": rpnl,
-                    "pnlRatio": 0.0,
-                    "positionValue": float(o.get("cumQuote", 0) or 0),
-                    "liquidationPrice": 0.0,
-                    "status": "CLOSED",
-                    "ts": int(o.get("time", 0) or 0),
-                })
-
-    # 最終整筆去重 (防配對/分頁邊緣產生的重複): 指紋 = sym+side+entry+exit+ts+rpnl
-    seen_rec: set = set()
-    deduped: list = []
-    for r in recs_closed:
-        fp = (r["symbol"], r["side"], r["avgPrice"], r["exitPrice"], r["ts"], r["realizedProfit"])
-        if fp in seen_rec:
+                logger.warning("  %s: %s", sym, err[:100])
             continue
-        seen_rec.add(fp)
-        deduped.append(r)
-    recs_closed = deduped
+        time.sleep(0.3)  # rate limit buffer
+    return all_trades
 
-    recs.extend(recs_closed)
 
+def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
+    """FIFO 配對: 同 (symbol, positionSide) 分組, 開倉入隊, 平倉出隊配對 → round-trip"""
+    # 分組
+    groups: dict[tuple, list] = {}
+    for t in trades:
+        info = t.get("info", {})
+        pos_side = (info.get("positionSide") or "").upper()  # LONG/SHORT
+        if not pos_side:
+            continue
+        sym = simplify_symbol(info.get("symbol") or t.get("symbol"))
+        if not sym:
+            continue
+        groups.setdefault((sym, pos_side), []).append(t)
+
+    closed = []
+    fees_total = 0.0
+
+    for (sym, pos_side), grp in groups.items():
+        grp.sort(key=lambda x: x.get("timestamp") or 0)
+        # LONG: buy=open, sell=close; SHORT: sell=open, buy=close
+        open_side = "buy" if pos_side == "LONG" else "sell"
+        queue: list[dict] = []  # FIFO of open fills
+
+        for t in grp:
+            side = (t.get("side") or "").lower()
+            price = float(t.get("price") or 0)
+            amount = float(t.get("amount") or 0)
+            fee = float((t.get("fee") or {}).get("cost") or 0)
+            fees_total += fee
+            ts = int(t.get("timestamp") or 0)
+
+            if side == open_side:
+                queue.append({"price": price, "amount": amount, "ts": ts, "fee": fee})
+            else:
+                # 平倉: FIFO 配對
+                remaining = amount
+                while remaining > 0.0000001 and queue:
+                    entry = queue[0]
+                    matched = min(remaining, entry["amount"])
+                    # PnL: LONG=(exit-entry)*qty, SHORT=(entry-exit)*qty
+                    if pos_side == "LONG":
+                        pnl = (price - entry["price"]) * matched
+                    else:
+                        pnl = (entry["price"] - price) * matched
+                    # 按比例分攤手續費
+                    entry_fee_share = entry["fee"] * (matched / entry["amount"]) if entry["amount"] > 0 else 0
+                    close_fee_share = fee * (matched / amount) if amount > 0 else 0
+                    net_pnl = pnl - entry_fee_share - close_fee_share
+
+                    closed.append({
+                        "symbol": sym,
+                        "side": pos_side,
+                        "positionAmt": matched,
+                        "avgPrice": entry["price"],
+                        "exitPrice": price,
+                        "leverage": 0.0,
+                        "unrealizedProfit": 0.0,
+                        "realizedProfit": round(net_pnl, 4),
+                        "pnlRatio": round(net_pnl / (entry["price"] * matched) * 100, 2) if entry["price"] * matched > 0 else 0.0,
+                        "positionValue": round(entry["price"] * matched, 2),
+                        "liquidationPrice": 0.0,
+                        "status": "CLOSED",
+                        "ts": ts,
+                        "openTs": entry["ts"],
+                    })
+                    entry["amount"] -= matched
+                    entry["fee"] -= entry_fee_share
+                    remaining -= matched
+                    if entry["amount"] <= 0.0000001:
+                        queue.pop(0)
+
+    # 去重
+    seen = set()
+    deduped = []
+    for r in closed:
+        fp = (r["symbol"], r["side"], r["avgPrice"], r["exitPrice"], r["ts"], r["realizedProfit"])
+        if fp not in seen:
+            seen.add(fp)
+            deduped.append(r)
+
+    return deduped, fees_total
+
+
+def build_snapshot() -> dict:
+    ex = _client()
+    if ex is None:
+        logger.error("ccxt client 不可用")
+        return {"generated_at": datetime.now(timezone.utc).isoformat(), "source": "bingx", "count": 0, "records": []}
+
+    # 1) 當前持倉
+    positions = fetch_positions(ex)
+    logger.info("positions: %d", len(positions))
+
+    # 2) 收集所有要查的 symbol (持倉 + 已知)
+    symbols = set(KNOWN_SYMBOLS)
+    for p in positions:
+        # 反推 ccxt symbol (简化版: 加回 /USDT:USDT)
+        pass  # KNOWN_SYMBOLS 已涵蓋
+    symbols = sorted(symbols)
+
+    # 3) 抓歷史成交
+    logger.info("fetching trades for %d symbols...", len(symbols))
+    raw_trades = fetch_all_trades(ex, symbols)
+    logger.info("total raw trades: %d", len(raw_trades))
+
+    # 4) 配對
+    closed, fees = pair_trades(raw_trades)
+    logger.info("paired closed: %d, fees: %.4f", len(closed), fees)
+
+    recs = positions + closed
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "bingx-ccxt+orders",
+        "source": "bingx-ccxt-trades",
         "repo": REPO,
         "count": len(recs),
-        "fees_total": round(fees_total, 4),
+        "fees_total": round(fees, 4),
         "records": recs,
     }
 
 
 def _gh_put(path: str, content: str, message: str) -> tuple[bool, str]:
-    """直接寫 GitHub contents API 到 trades/ 目錄。"""
     token = os.environ.get("GITHUB_TOKEN", "")
     if not token:
         return False, "GITHUB_TOKEN missing"
     h = {"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}"}
     api = f"https://api.github.com/repos/{REPO}/contents/{path}"
-    # 查現有 sha (更新用)
     existing = None
     try:
         with urllib.request.urlopen(urllib.request.Request(api, headers=h), timeout=20) as r:
             existing = json.loads(r.read().decode())
     except Exception:
-        existing = None
+        pass
     payload = {
         "message": message,
         "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
@@ -354,60 +278,37 @@ def _gh_put(path: str, content: str, message: str) -> tuple[bool, str]:
     if existing and existing.get("sha"):
         payload["sha"] = existing["sha"]
     req = urllib.request.Request(api, data=json.dumps(payload).encode(), method="PUT", headers=h)
-    last_err = None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
-                return True, "pushed" if r.status == 201 or r.status == 200 else str(r.status)
-        except Exception as e:  # noqa
-            last_err = e
+                return True, "pushed" if r.status in (200, 201) else str(r.status)
+        except Exception as e:
             if attempt < 2:
-                time.sleep(2 * (attempt + 1))  # 指數退避
-    return False, str(last_err)[:200] if last_err else "unknown"
+                time.sleep(2 * (attempt + 1))
+            else:
+                return False, str(e)[:200]
+    return False, "unknown"
 
 
 def persist(snap: dict) -> str:
-    """寫入本地 + 永久 GitHub trades/ 目錄。
-
-    防護: 若 count==0 (抓取限流/失敗), 不覆蓋既有好數據, 跳過並告警。
-    """
-    # 空快照防護: 不寫入 0 筆覆蓋有效數據
     if snap.get("count", 0) == 0:
-        # 檢查本地是否已有非空 snapshot
-        existing_files = sorted(
-            f for f in os.listdir(os.path.join(ROOT, TRADES_PREFIX))
-            if f.startswith("trades_") and f.endswith(".json")
-        ) if os.path.isdir(os.path.join(ROOT, TRADES_PREFIX)) else []
-        has_good = False
-        for ef in reversed(existing_files[-5:]):
-            try:
-                with open(os.path.join(ROOT, TRADES_PREFIX, ef)) as fh:
-                    if len(json.load(fh).get("records", [])) > 0:
-                        has_good = True
-                        break
-            except Exception:
-                continue
-        if has_good:
-            logger.warning("skip empty snapshot (count=0): 保留既有有效數據, 不覆蓋")
-            return ""
-        logger.warning("empty snapshot but no prior good data: still writing (first run?)")
-
+        logger.warning("skip empty snapshot")
+        return ""
     os.makedirs(os.path.join(ROOT, TRADES_PREFIX), exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     fname = f"trades_{ts}.json"
     local = os.path.join(ROOT, TRADES_PREFIX, fname)
     with open(local, "w", encoding="utf-8") as f:
         json.dump(snap, f, ensure_ascii=False, indent=2)
-    logger.info("local written: %s (%d records)", local, snap["count"])
-
+    logger.info("local: %s (%d records)", local, snap["count"])
     ok, detail = _gh_put(f"{TRADES_PREFIX}/{fname}", json.dumps(snap, ensure_ascii=False, indent=2), f"trade bot: {fname}")
-    logger.info("github persist: %s %s", ok, detail)
+    logger.info("github: %s %s", ok, detail)
     return fname
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--daemon", action="store_true", help="每300s循環")
+    ap.add_argument("--daemon", action="store_true")
     ap.add_argument("--interval", type=int, default=300)
     args = ap.parse_args()
 
@@ -416,12 +317,11 @@ def main():
         raise SystemExit(1)
 
     if args.daemon:
-        logger.info("daemon mode, interval=%ss", args.interval)
         while True:
             try:
                 snap = build_snapshot()
                 persist(snap)
-            except Exception as e:  # noqa
+            except Exception as e:
                 logger.exception("loop err: %s", e)
             time.sleep(args.interval)
     else:
