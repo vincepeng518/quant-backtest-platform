@@ -92,7 +92,7 @@ def _read_raw(filename: str) -> dict | None:
 
 
 def _load_all_trades() -> dict:
-    """Read ALL snapshot files, merge + dedupe records."""
+    """只讀取最新一份快照 (每份快照已含全量歷史交易, 無需累積)"""
     now = time.time()
     with _cache_lock:
         if _cache["ts"] and (now - _cache["ts"]) < CACHE_TTL and _cache["records"]:
@@ -102,46 +102,40 @@ def _load_all_trades() -> dict:
     if not names:
         return {"records": [], "snapshots": [], "fees_total": None}
 
-    # Read all files in parallel (raw.githubusercontent.com, no auth needed)
-    all_records: list = []
+    # 只讀最新一份快照
+    latest = names[-1]
+    snap = _read_raw(latest)
+    records = []
     fees_total = 0.0
-    snapshots = [{"file": n} for n in names]
+    if snap:
+        for rec in snap.get("records", []):
+            rec["_snapshot"] = latest
+            rec["symbol"] = norm_sym(rec.get("symbol"))
+            records.append(rec)
+        fees_total = float(snap.get("fees_total") or 0)
 
-    with ThreadPoolExecutor(max_workers=10) as pool:
-        futures = {pool.submit(_read_raw, n): n for n in names}
-        for fut in as_completed(futures):
-            snap = fut.result()
-            if not snap:
-                continue
-            for rec in snap.get("records", []):
-                rec["_snapshot"] = futures[fut]
-                rec["symbol"] = norm_sym(rec.get("symbol"))
-                all_records.append(rec)
-            fees_total += float(snap.get("fees_total") or 0)
-
-    # Dedupe: OPEN positions by identity (same position in every snapshot),
-    # CLOSED by full trade fingerprint
+    # 沒有跨快照重複問題, 但 OPEN 同持倉可能出現在多份快照中
+    # 用 (symbol, side, avgPrice, positionAmt) 去重 OPEN
     seen: set = set()
     deduped: list = []
-    for r in all_records:
+    for r in records:
         if r.get("status") == "OPEN":
             fp = ("OPEN", r.get("symbol"), r.get("side"), r.get("avgPrice"), r.get("positionAmt"))
         else:
+            # CLOSED 用 order_id fingerprint 去重 (同一筆交易可能被多次配對)
             fp = ("CLOSED", r.get("symbol"), r.get("side"),
-                  r.get("avgPrice"), r.get("exitPrice"),
-                  r.get("ts"), r.get("realizedProfit"))
+                  r.get("open_order_id"), r.get("close_order_id"), r.get("realizedProfit"))
         if fp in seen:
             continue
         seen.add(fp)
         deduped.append(r)
 
-    # Sort by ts descending (newest first)
     deduped.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
 
     result = {
         "ts": now,
         "records": deduped,
-        "snapshots": snapshots,
+        "snapshots": [{"file": latest}],
         "fees_total": round(fees_total, 4),
     }
     with _cache_lock:

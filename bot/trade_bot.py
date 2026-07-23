@@ -140,11 +140,10 @@ def fetch_all_trades(ex, symbols: list[str]) -> list[dict]:
 
 def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
     """FIFO 配對: 同 (symbol, positionSide) 分組, 開倉入隊, 平倉出隊配對 → round-trip"""
-    # 分組
     groups: dict[tuple, list] = {}
     for t in trades:
         info = t.get("info", {})
-        pos_side = (info.get("positionSide") or "").upper()  # LONG/SHORT
+        pos_side = (info.get("positionSide") or "").upper()
         if not pos_side:
             continue
         sym = simplify_symbol(info.get("symbol") or t.get("symbol"))
@@ -157,9 +156,8 @@ def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
 
     for (sym, pos_side), grp in groups.items():
         grp.sort(key=lambda x: x.get("timestamp") or 0)
-        # LONG: buy=open, sell=close; SHORT: sell=open, buy=close
         open_side = "buy" if pos_side == "LONG" else "sell"
-        queue: list[dict] = []  # FIFO of open fills
+        queue: list[dict] = []
 
         for t in grp:
             side = (t.get("side") or "").lower()
@@ -168,24 +166,27 @@ def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
             fee = float((t.get("fee") or {}).get("cost") or 0)
             fees_total += fee
             ts = int(t.get("timestamp") or 0)
+            info = t.get("info", {})
+            order_id = str(info.get("orderId") or "")
 
             if side == open_side:
-                queue.append({"price": price, "amount": amount, "ts": ts, "fee": fee})
+                queue.append({"price": price, "amount": amount, "ts": ts, "fee": fee, "order_id": order_id})
             else:
-                # 平倉: FIFO 配對
                 remaining = amount
                 while remaining > 0.0000001 and queue:
                     entry = queue[0]
                     matched = min(remaining, entry["amount"])
-                    # PnL: LONG=(exit-entry)*qty, SHORT=(entry-exit)*qty
                     if pos_side == "LONG":
                         pnl = (price - entry["price"]) * matched
                     else:
                         pnl = (entry["price"] - price) * matched
-                    # 按比例分攤手續費
                     entry_fee_share = entry["fee"] * (matched / entry["amount"]) if entry["amount"] > 0 else 0
                     close_fee_share = fee * (matched / amount) if amount > 0 else 0
                     net_pnl = pnl - entry_fee_share - close_fee_share
+
+                    # 同符號等量平倉: 用 order_id 計算唯一 fingerprint
+                    close_order_id = order_id
+                    open_order_id = entry["order_id"]
 
                     closed.append({
                         "symbol": sym,
@@ -202,6 +203,8 @@ def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
                         "status": "CLOSED",
                         "ts": ts,
                         "openTs": entry["ts"],
+                        "open_order_id": open_order_id,
+                        "close_order_id": close_order_id,
                     })
                     entry["amount"] -= matched
                     entry["fee"] -= entry_fee_share
@@ -209,11 +212,11 @@ def pair_trades(trades: list[dict]) -> tuple[list[dict], float]:
                     if entry["amount"] <= 0.0000001:
                         queue.pop(0)
 
-    # 去重
+    # 去重: 用 order_id 做唯一 fingerprint, 保證跨 run 穩定
     seen = set()
     deduped = []
     for r in closed:
-        fp = (r["symbol"], r["side"], r["avgPrice"], r["exitPrice"], r["ts"], r["realizedProfit"])
+        fp = (r["symbol"], r["side"], r["open_order_id"], r["close_order_id"], r["realizedProfit"])
         if fp not in seen:
             seen.add(fp)
             deduped.append(r)
@@ -231,11 +234,14 @@ def build_snapshot() -> dict:
     positions = fetch_positions(ex)
     logger.info("positions: %d", len(positions))
 
-    # 2) 收集所有要查的 symbol (持倉 + 已知)
-    symbols = set(KNOWN_SYMBOLS)
+    # 建立 leverage lookup: (symbol, side) -> leverage
+    leverage_map: dict[tuple, float] = {}
     for p in positions:
-        # 反推 ccxt symbol (简化版: 加回 /USDT:USDT)
-        pass  # KNOWN_SYMBOLS 已涵蓋
+        key = (p.get("symbol"), p.get("side"))
+        leverage_map[key] = float(p.get("leverage") or 1.0)
+
+    # 2) 收集所有要查的 symbol
+    symbols = set(KNOWN_SYMBOLS)
     symbols = sorted(symbols)
 
     # 3) 抓歷史成交
@@ -246,6 +252,11 @@ def build_snapshot() -> dict:
     # 4) 配對
     closed, fees = pair_trades(raw_trades)
     logger.info("paired closed: %d, fees: %.4f", len(closed), fees)
+
+    # 5) 從 leverage_map 補上 leverage
+    for r in closed:
+        key = (r.get("symbol"), r.get("side"))
+        r["leverage"] = leverage_map.get(key, 1.0)
 
     recs = positions + closed
     return {
