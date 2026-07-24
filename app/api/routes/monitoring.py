@@ -243,7 +243,7 @@ async def heartbeat(req: Request):
 
 
 @router.get("/heartbeat")
-async def get_heartbeat(_: None = Depends(auth_required)):
+async def get_heartbeat():
     """Get predict bot heartbeat status."""
     c = _conn()
     try:
