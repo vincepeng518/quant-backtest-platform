@@ -4,64 +4,67 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Database, Activity, Sliders, Code2, History, Wallet, Bot } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
 
   const navItems = [
-    { name: 'Backtest', path: '/backtest', icon: Activity },
-    { name: 'History', path: '/history', icon: History },
-    { name: 'Optimize', path: '/optimize', icon: Sliders },
-    { name: 'Strategies', path: '/strategies', icon: Code2 },
-    { name: 'Trades', path: '/trades', icon: Wallet },
+    { name: 'Backtest', path: '/backtest' },
+    { name: 'History', path: '/history' },
+    { name: 'Optimize', path: '/optimize' },
+    { name: 'Strategies', path: '/strategies' },
+    { name: 'Trades', path: '/trades' },
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
-      <div className="signal-line" />
+    <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/85 backdrop-blur-md">
+      <div className="gold-rule" />
       <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6 max-w-7xl mx-auto">
         {/* Brand */}
-        <Link href="/" className="flex shrink-0 items-center space-x-2 font-semibold tracking-tight text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-          <Database className="h-4 w-4 shrink-0 text-accent" />
-          <span className="font-mono whitespace-nowrap">QUANT.LAB</span>
+        <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center border border-accent/40 bg-accent/10 transition-colors group-hover:bg-accent/20">
+            <span className="h-2 w-2 bg-accent" />
+          </span>
+          <span className="font-display text-sm font-semibold tracking-tight whitespace-nowrap">
+            QUANT<span className="text-accent">.LAB</span>
+          </span>
         </Link>
 
-        {/* Nav */}
-        <nav className="flex flex-1 items-center justify-center space-x-1 sm:space-x-2 text-sm overflow-x-auto no-scrollbar">
+        {/* Nav — mono index, gold underline on active */}
+        <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto no-scrollbar text-sm">
           {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.path || (item.path === '/backtest' && pathname === '/');
+            const active =
+              pathname === item.path || (item.path === '/backtest' && pathname === '/');
             return (
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex shrink-0 items-center space-x-1.5 rounded-md px-2 py-1 transition-colors duration-150 ${
-                  active
-                    ? 'text-text font-medium bg-surface'
-                    : 'text-textSecondary hover:text-text font-normal'
+                className={`relative shrink-0 whitespace-nowrap px-2.5 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors duration-150 ${
+                  active ? 'text-accent' : 'text-textSecondary hover:text-text'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="whitespace-nowrap">{item.name}</span>
+                {item.name}
+                {active && (
+                  <span className="absolute bottom-0 left-2.5 right-2.5 h-px bg-accent" />
+                )}
               </Link>
             );
           })}
           <a
             href="/llmlite-ui.html"
             target="_self"
-            className="flex shrink-0 items-center space-x-1.5 rounded-md px-2 py-1 transition-colors duration-150 text-accent font-normal hover:opacity-80"
+            className="shrink-0 whitespace-nowrap px-2.5 py-1.5 font-mono text-xs uppercase tracking-wider text-accent/70 transition-colors hover:text-accent"
           >
-            <Bot className="h-3.5 w-3.5 shrink-0" />
-            <span className="whitespace-nowrap">LLMLite</span>
+            LLMLite
           </a>
         </nav>
 
         {/* Theme toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="shrink-0 p-1 rounded text-textSecondary hover:text-text transition-colors"
+          className="shrink-0 p-1.5 text-textSecondary transition-colors hover:text-accent"
           aria-label="Toggle theme"
         >
           <Sun className="h-4 w-4 dark:hidden" />
