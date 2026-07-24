@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useId } from 'react';
 import { PerformanceMetrics, EquityPoint, TradeRecord, PositionStatusPoint } from '@/types/api';
 import { EquityPnlChart } from '@/components/charts/EquityPnlChart';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -25,6 +25,7 @@ const EquitySparkline: React.FC<{ data: EquityPoint[]; width?: number; height?: 
   width = 100,
   height = 28,
 }) => {
+  const gid = useId();
   if (!data || data.length < 2) return null;
   const values = data.map((d) => d.equity);
   const min = Math.min(...values);
@@ -39,18 +40,16 @@ const EquitySparkline: React.FC<{ data: EquityPoint[]; width?: number; height?: 
     })
     .join(' ');
   const color = values[values.length - 1] >= values[0] ? TV_UP : TV_DOWN;
-  const fillColor = values[values.length - 1] >= values[0] ? 'rgba(8,153,129,0.08)' : 'rgba(242,54,69,0.08)';
-  const area = `${pts}`;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="shrink-0 opacity-80">
       <defs>
-        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
           <stop offset="100%" stopColor={color} stopOpacity="0.01" />
         </linearGradient>
       </defs>
       <polyline fill="none" stroke={color} strokeWidth={1.2} points={pts} />
-      <polygon fill="url(#spark-fill)" points={`0,${height} ${pts} ${width},${height}`} />
+      <polygon fill={`url(#${gid})`} points={`0,${height} ${pts} ${width},${height}`} />
     </svg>
   );
 };
@@ -68,18 +67,18 @@ interface KpiBlockProps {
 
 const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit', tip, mega, sparkline }) => {
   const colorClass =
-    color === 'pos' ? 'text-[#089981]' : color === 'neg' ? 'text-[#f23645]' : 'text-[#d1d4dc]';
+    color === 'pos' ? 'text-success' : color === 'neg' ? 'text-danger' : 'text-text';
   const valueSize = mega ? 'text-xl sm:text-2xl' : 'text-sm sm:text-base';
   const subSize = mega ? 'text-xs' : 'text-[10px]';
 
   const inner = (
     <div
-      className={`group relative bg-[#161a25] px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 border border-[#363c4e]/15 hover:border-[#363c4e]/40 rounded-sm ${
+      className={`group relative bg-surface px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 border border-border/15 hover:border-accent/30 rounded-sm ${
         mega ? 'py-3 sm:py-4' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-2 min-w-0">
-        <span className="text-[10px] font-medium text-[#787b86] uppercase tracking-wider truncate">
+        <span className="text-[10px] font-medium text-textSecondary uppercase tracking-wider truncate">
           {label}
         </span>
         {sparkline && <div className="shrink-0">{sparkline}</div>}
@@ -101,8 +100,8 @@ const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit
 
 // ── Section Header ──
 const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
-  <div className="col-span-full bg-[#161a25] px-4 pt-3 pb-1">
-    <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#787b86]">
+  <div className="col-span-full bg-surface px-4 pt-3 pb-1 border-l-2 border-accent/40">
+    <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-textSecondary">
       {title}
     </span>
   </div>
@@ -119,8 +118,8 @@ const ToggleBtn: React.FC<{
     onClick={onClick}
     className={`px-2.5 py-1 rounded text-[10px] font-mono border transition-colors duration-150 active:scale-[0.97] ${
       active
-        ? 'border-[#089981]/40 bg-[#089981]/10 text-[#089981]'
-        : 'border-[#363c4e]/30 text-[#787b86] hover:text-[#d1d4dc]'
+        ? 'border-accent/40 bg-accent/10 text-accent'
+        : 'border-border/30 text-textSecondary hover:text-text'
     }`}
   >
     {children}
@@ -214,9 +213,9 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
     v == null ? '—' : v.toFixed(d);
 
   return (
-    <div className="bg-[#161a25] border-t border-[#363c4e]/10">
+    <div className="bg-surface border-t border-border/10">
       {/* ── Mega KPIs Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <KpiBlock
           label="總損益 Net Profit"
           value={safeSigned(netProfit)}
@@ -251,7 +250,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── Mega KPIs Row 2 ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <KpiBlock
           label="勝率 Win Rate"
           value={safePct(winRate, { signed: false })}
@@ -286,7 +285,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 回報類 (Returns) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <SectionHeader title="回報類 Returns" />
         <KpiBlock
           label="年化回報 Annual Return"
@@ -316,7 +315,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 風險類 (Risk) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <SectionHeader title="風險類 Risk" />
         <KpiBlock
           label="卡瑪比率 Calmar"
@@ -348,7 +347,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 交易類 (Trades) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <SectionHeader title="交易類 Trades" />
         <KpiBlock
           label="總交易數 Total Trades"
@@ -398,7 +397,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── #2 擴充指標 (Rolling Sharpe / 超額 α / β-相關) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[#363c4e]/20 border-b border-[#363c4e]/10">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
         <SectionHeader title="擴充指標 Extended" />
         <KpiBlock
           label="Rolling 30D Sharpe"
@@ -431,9 +430,9 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── 進階風險指標 (用戶指定 13 項) ── */}
-      <div className="border-t border-[#363c4e]/10 px-4 py-4">
+      <div className="border-t border-border/10 px-4 py-4">
         <p className="text-xs text-textSecondary mb-2 font-medium">進階風險指標 · Advanced Risk Metrics</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-px bg-[#363c4e]/20">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-px bg-border/20">
           <KpiBlock label="短期勝率 <24K" value={adv.tfWinShort == null ? '—' : `${adv.tfWinShort.toFixed(1)}%`} color={adv.tfWinShort == null ? 'neutral' : adv.tfWinShort >= 50 ? 'pos' : 'neg'} tip="持有 <24 根 K 線的交易勝率" />
           <KpiBlock label="中期勝率 24-96K" value={adv.tfWinMid == null ? '—' : `${adv.tfWinMid.toFixed(1)}%`} color={adv.tfWinMid == null ? 'neutral' : adv.tfWinMid >= 50 ? 'pos' : 'neg'} tip="持有 24-96 根 K 線的交易勝率" />
           <KpiBlock label="長期勝率 >96K" value={adv.tfWinLong == null ? '—' : `${adv.tfWinLong.toFixed(1)}%`} color={adv.tfWinLong == null ? 'neutral' : adv.tfWinLong >= 50 ? 'pos' : 'neg'} tip="持有 >96 根 K 線的交易勝率" />
@@ -452,7 +451,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
       </div>
 
       {/* ── Legend / Control Panel ── */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-[#363c4e]/10">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-border/10">
         <ToggleBtn active={showEquity} onClick={() => setShowEquity((v) => !v)}>
           累計損益
         </ToggleBtn>

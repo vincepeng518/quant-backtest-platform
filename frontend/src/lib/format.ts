@@ -1,14 +1,33 @@
-/** TV-grade number formatting shared across panels, blotter, batch. */
+/** Ink & Bullion palette — semantic data colors + surface tokens. */
 
 export const TV_UP = '#089981';
 export const TV_DOWN = '#f23645';
-export const TV_NEUTRAL = '#787b86';
-export const TV_STRATEGY = '#2962FF';
-export const TV_BH = '#787b86';
-export const TV_BG = '#131722';
-export const TV_SURFACE = '#161a25';
-export const TV_BORDER = '#363c4e';
-export const TV_TEXT = '#d1d4dc';
+export const TV_NEUTRAL = '#808694';
+export const TV_STRATEGY = '#c9a962';
+export const TV_BH = '#808694';
+export const TV_BG = '#0d111a';
+export const TV_SURFACE = '#121722';
+export const TV_BORDER = '#2c3446';
+export const TV_TEXT = '#d8dce4';
+
+/** Light-mode counterparts (for theme-aware chart components). */
+export const IB_LIGHT = {
+  bg: '#faf9f6',
+  surface: '#ffffff',
+  border: '#dedad0',
+  text: '#141820',
+  textSecondary: '#606674',
+  accent: '#9a7b33',
+};
+
+export const IB_DARK = {
+  bg: '#0d111a',
+  surface: '#121722',
+  border: '#2c3446',
+  text: '#d8dce4',
+  textSecondary: '#808694',
+  accent: '#c9a962',
+};
 
 /** Safe Numeric: Infinity/null → '∞' / '—'; adds thousands seps + dynamic digits. */
 export const safeFmt = (n: number | null | undefined, decimals = 2): string => {
