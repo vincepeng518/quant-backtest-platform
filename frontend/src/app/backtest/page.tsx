@@ -15,6 +15,8 @@ import { Select } from '@/components/ui/Select';
 import { SymbolSearch } from '@/components/ui/SymbolSearch';
 import { Input } from '@/components/ui/Input';
 import { PerformancePanel } from '@/components/backtest/PerformancePanel';
+import { LongShortPanel } from '@/components/backtest/LongShortPanel';
+import { MaeMfeScatter } from '@/components/backtest/MaeMfeScatter';
 import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
@@ -837,6 +839,32 @@ function BacktestView() {
               onSelectTrade={setSelectedTrade}
             />
           </Card>
+
+          {/* Long/Short split breakdown */}
+          <Card className="p-0 overflow-hidden">
+            <div className="p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                多空分析
+              </h3>
+            </div>
+            <div className="p-6">
+              <LongShortPanel metrics={results.metrics} />
+            </div>
+          </Card>
+
+          {/* MAE/MFE scatter */}
+          {results.trades && results.trades.some((t) => t.mae != null && t.mfe != null) && (
+            <Card className="p-0 overflow-hidden">
+              <div className="p-6 pb-0">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                  MAE / MFE 散佈圖
+                </h3>
+              </div>
+              <div className="p-6">
+                <MaeMfeScatter trades={results.trades} />
+              </div>
+            </Card>
+          )}
 
           {/* Trade blotter */}
           {results.trades && results.trades.length > 0 && (

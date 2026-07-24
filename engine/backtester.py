@@ -39,6 +39,8 @@ class Trade:
     direction: str = "long"  # long / short, derived from position.size sign
     exit_reason: str = ""  # signal / liquidation / end
     holding_bars: int = 0  # exit_bar_index - entry_bar_index
+    mae: float = 0.0  # Maximum Adverse Excursion: worst unrealized loss during hold
+    mfe: float = 0.0  # Maximum Favorable Excursion: best unrealized gain during hold
 
 
 @dataclass
@@ -67,6 +69,17 @@ class BacktestResult:
     annual_return_pct: float = 0.0  # CAGR
     avg_holding_bars: float = 0.0
     trade_freq: float = 0.0  # trades per day
+    # Long/Short split metrics
+    long_trades: int = 0
+    short_trades: int = 0
+    long_win_rate: float = 0.0
+    short_win_rate: float = 0.0
+    long_pnl: float = 0.0
+    short_pnl: float = 0.0
+    long_expectancy: float = 0.0
+    short_expectancy: float = 0.0
+    long_profit_factor: float = 0.0
+    short_profit_factor: float = 0.0
     trades: list[Trade] = field(default_factory=list)
     equity_curve: list[float] = field(default_factory=list)
     drawdown_curve: list[float] = field(default_factory=list)
@@ -123,6 +136,9 @@ class Backtester:
         trades: list[Trade] = []
         entry_bar: Optional[pd.Timestamp] = None
         entry_bar_index: Optional[int] = None
+        # MAE/MFE tracking: worst/best unrealized PnL during each trade
+        trade_mae: float = 0.0  # max adverse (most negative unrealized pnl)
+        trade_mfe: float = 0.0  # max favorable (most positive unrealized pnl)
 
         # Latency queue: pending (signal_bar_index, bar, signal) entries executed
         # once the current bar index has advanced fill_delay_bars() past the signal.
@@ -151,7 +167,7 @@ class Backtester:
             return (capital * self.leverage) / price if self.perp is not None else capital / price
 
         def _execute(sig: Any, current_bar: Any, current_bar_index: int) -> None:
-            nonlocal capital, position, entry_bar, entry_bar_index
+            nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe
             order_type = "limit" if self.force_limit else getattr(sig, "order_type", "market")
             is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
             direction = 1 if sig.action == "buy" else -1
@@ -175,6 +191,8 @@ class Backtester:
                 capital -= fee
                 entry_bar = current_bar.timestamp
                 entry_bar_index = current_bar_index
+                trade_mae = 0.0
+                trade_mfe = 0.0
 
             elif sig.action in ("close",) and position is not None:
                 if order_type == "limit" and self.market_engine is not None:
@@ -209,6 +227,8 @@ class Backtester:
                     direction="long" if position.size > 0 else "short",
                     exit_reason="signal",
                     holding_bars=(current_bar_index - entry_bar_index) if entry_bar_index is not None else 0,
+                    mae=trade_mae,
+                    mfe=trade_mfe,
                 )
                 trades.append(trade)
                 capital += pnl
@@ -254,6 +274,12 @@ class Backtester:
                 position.current_price = bar.close
                 position.pnl = position.size * (bar.close - position.entry_price)
                 position.pnl_pct = position.pnl / capital * 100
+                # MAE/MFE: track worst/best unrealized PnL during hold
+                unrealized = position.pnl
+                if unrealized < trade_mae:
+                    trade_mae = unrealized
+                if unrealized > trade_mfe:
+                    trade_mfe = unrealized
             # Sync position back to strategy so strategies can read their own book
             self.strategy.position = position
 
@@ -275,7 +301,8 @@ class Backtester:
                                   pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=hook.get("funding_fee", 0.0),
                                   liquidated=True, direction="long" if position.size > 0 else "short",
                                   exit_reason="liquidation",
-                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0)
+                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0,
+                                  mae=trade_mae, mfe=trade_mfe)
                     trades.append(trade)
                     capital += pnl
                     position = None
@@ -297,7 +324,8 @@ class Backtester:
                                   pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=getattr(self, '_last_funding', 0.0), liquidated=True,
                                   direction="long" if position.size > 0 else "short",
                                   exit_reason="liquidation",
-                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0)
+                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0,
+                                  mae=trade_mae, mfe=trade_mfe)
                     trades.append(trade)
                     capital += pnl
                     position = None
@@ -376,6 +404,32 @@ class Backtester:
 
         position_status = self._build_position_status(trades)
 
+        # Long/Short split metrics
+        long_trades = [t for t in trades if t.direction == "long" and t.pnl is not None]
+        short_trades = [t for t in trades if t.direction == "short" and t.pnl is not None]
+        long_winners = [t for t in long_trades if t.pnl > 0]
+        short_winners = [t for t in short_trades if t.pnl > 0]
+        long_losers = [t for t in long_trades if t.pnl <= 0]
+        short_losers = [t for t in short_trades if t.pnl <= 0]
+
+        long_pnl = sum(t.pnl for t in long_trades)
+        short_pnl = sum(t.pnl for t in short_trades)
+        long_wr = (len(long_winners) / len(long_trades) * 100) if long_trades else 0.0
+        short_wr = (len(short_winners) / len(short_trades) * 100) if short_trades else 0.0
+
+        long_avg_win = sum(t.pnl for t in long_winners) / len(long_winners) if long_winners else 0.0
+        long_avg_loss = abs(sum(t.pnl for t in long_losers) / len(long_losers)) if long_losers else 0.0
+        short_avg_win = sum(t.pnl for t in short_winners) / len(short_winners) if short_winners else 0.0
+        short_avg_loss = abs(sum(t.pnl for t in short_losers) / len(short_losers)) if short_losers else 0.0
+
+        long_wr_frac = len(long_winners) / len(long_trades) if long_trades else 0.0
+        short_wr_frac = len(short_winners) / len(short_trades) if short_trades else 0.0
+        long_expectancy = (long_wr_frac * long_avg_win - (1 - long_wr_frac) * long_avg_loss) if long_trades else 0.0
+        short_expectancy = (short_wr_frac * short_avg_win - (1 - short_wr_frac) * short_avg_loss) if short_trades else 0.0
+
+        long_pf = abs(sum(t.pnl for t in long_winners) / sum(t.pnl for t in long_losers)) if long_losers else 0.0
+        short_pf = abs(sum(t.pnl for t in short_winners) / sum(t.pnl for t in short_losers)) if short_losers else 0.0
+
         return BacktestResult(
             total_trades=len(trades),
             winning_trades=len(winners),
@@ -404,6 +458,16 @@ class Backtester:
             calmar_ratio=calmar,
             avg_holding_bars=avg_holding_bars,
             trade_freq=trade_freq,
+            long_trades=len(long_trades),
+            short_trades=len(short_trades),
+            long_win_rate=long_wr,
+            short_win_rate=short_wr,
+            long_pnl=long_pnl,
+            short_pnl=short_pnl,
+            long_expectancy=long_expectancy,
+            short_expectancy=short_expectancy,
+            long_profit_factor=long_pf,
+            short_profit_factor=short_pf,
             trades=trades,
             equity_curve=equity,
             drawdown_curve=dd,

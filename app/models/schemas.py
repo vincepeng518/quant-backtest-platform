@@ -130,6 +130,8 @@ class TradeRecord(BaseModel):
     direction: str = "long"
     exit_reason: str = ""
     holding_bars: int = 0
+    mae: float | None = None
+    mfe: float | None = None
 
 
 class MetricsOut(BaseModel):
@@ -156,6 +158,17 @@ class MetricsOut(BaseModel):
     calmar_ratio: float = 0.0
     avg_holding_bars: float = 0.0
     trade_freq: float = 0.0
+    # Long/Short split
+    long_trades: int = 0
+    short_trades: int = 0
+    long_win_rate: float = 0.0
+    short_win_rate: float = 0.0
+    long_pnl: float = 0.0
+    short_pnl: float = 0.0
+    long_expectancy: float = 0.0
+    short_expectancy: float = 0.0
+    long_profit_factor: float = 0.0
+    short_profit_factor: float = 0.0
 
 
 class BacktestResultOut(BaseModel):
