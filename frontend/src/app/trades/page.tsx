@@ -117,7 +117,7 @@ export default function TradesPage() {
     if (source !== 'predict') return;
     api.getPredictHeartbeat()
       .then((d: any) => setHeartbeat({ alive: d.alive, updated_at: d.updated_at }))
-      .catch(() => setHeartbeat({ alive: false, updated_at: null }));
+      .catch(() => setHeartbeat(null)); // Hide status if endpoint doesn't exist
   }, [source]);
 
   useEffect(() => {
