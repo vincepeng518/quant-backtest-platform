@@ -18,7 +18,7 @@ export const ToastViewport: React.FC = () => {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`bg-surface border border-border/10 border-l-2 ${KIND_STYLE[t.kind]} rounded-md px-4 py-3 shadow-lg backdrop-blur-sm`}
+          className={`bg-surface border border-border/40 border-l-2 ${KIND_STYLE[t.kind]} px-4 py-3 shadow-lg`}
           role="status"
         >
           <div className="flex items-start justify-between gap-2">

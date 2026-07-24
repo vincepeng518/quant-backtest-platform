@@ -2,43 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+/* ── Ink & Bullion — paper (light) ── */
 :root {
-  --background: 255 255 255;
-  --surface: 250 250 250;
-  --text: 10 10 10;
-  --text-secondary: 82 82 82;
-  --border: 229 229 229;
-  --accent: 200 169 97;
+  --background: 250 249 246;
+  --surface: 255 255 255;
+  --surface-2: 244 242 236;
+  --text: 20 24 32;
+  --text-secondary: 96 102 116;
+  --border: 222 218 208;
+  --accent: 154 123 51;
+  --accent-strong: 132 104 40;
+  --accent-ink: 16 19 26;
   --signal: 154 123 51;
 }
 
+/* ── Ink & Bullion — desk (dark, default scene) ── */
 .dark {
-  --background: 19 23 34;
-  --surface: 22 26 37;
-  --text: 209 212 220;
-  --text-secondary: 120 123 134;
-  --border: 54 60 78;
-  --accent: 200 169 97;
-  --signal: 200 169 97;
+  --background: 13 17 26;
+  --surface: 18 23 34;
+  --surface-2: 24 30 44;
+  --text: 216 220 228;
+  --text-secondary: 128 134 148;
+  --border: 44 52 70;
+  --accent: 201 169 98;
+  --accent-strong: 218 188 124;
+  --accent-ink: 16 19 26;
+  --signal: 201 169 98;
 }
 
 body {
   background-color: rgb(var(--background));
   color: rgb(var(--text));
-  font-family: 'Space Grotesk', 'Trebuchet MS', 'Segoe UI', 'PingFang TC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'PingFang TC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
   font-variant-numeric: tabular-nums;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 200ms ease, color 200ms ease;
   overflow-x: hidden;
 }
 
-/* LLMLite signature: 1px signal line */
-.signal-line {
+.font-display {
+  font-family: 'Space Grotesk', 'PingFang TC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+}
+
+/* ── Signature: gold hairline rule ── */
+.gold-rule {
   height: 1px;
-  background: rgb(var(--signal));
-  opacity: 0.6;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--accent) / 0.7),
+    rgb(var(--accent) / 0.12)
+  );
+}
+
+/* ── Ledger row hover ── */
+.ledger-row {
+  transition: background-color 150ms ease;
+}
+.ledger-row:hover {
+  background-color: rgb(var(--surface-2) / 0.65);
+}
+
+/* ── P&L line draws itself ── */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--line-len, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.pnl-draw {
+  stroke-dasharray: var(--line-len, 1000);
+  animation: draw-line 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Scroll reveal ── */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── TV-grade micro-interaction ── */
+.card-lift {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-lift:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  transform: translateY(-1px);
 }
 
 /* 隱藏滾動條但保持滾動 */
@@ -50,14 +112,6 @@ body {
   scrollbar-width: none;
 }
 
-/* ── TV 級微互動 ── */
-.card-lift {
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-.card-lift:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
-  transform: translateY(-1px);
-}
 /* 客製化滾動條（TV 風格） */
 ::-webkit-scrollbar {
   width: 6px;
@@ -67,15 +121,15 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 123, 134, 0.3);
+  background: rgb(var(--text-secondary) / 0.25);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 123, 134, 0.5);
+  background: rgb(var(--text-secondary) / 0.45);
 }
 
 /* 等寬數字字體（TV 級對齊） */
 .font-mono {
-  font-family: ui-monospace, 'Roboto Mono', 'SF Mono', 'Menlo', 'Consolas',
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', 'Consolas',
     'Liberation Mono', monospace;
 }

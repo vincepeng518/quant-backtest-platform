@@ -20,9 +20,9 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       </head>
       <body className="min-h-screen flex flex-col bg-background text-text">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <Header />
-          <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
+          <main className="flex-1 w-full">
             {children}
           </main>
           <ToastViewport />

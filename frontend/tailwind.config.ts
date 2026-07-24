@@ -12,10 +12,13 @@ const config: Config = {
       colors: {
         background: "rgb(var(--background) / <alpha-value>)",
         surface: "rgb(var(--surface) / <alpha-value>)",
+        surface2: "rgb(var(--surface-2) / <alpha-value>)",
         text: "rgb(var(--text) / <alpha-value>)",
         textSecondary: "rgb(var(--text-secondary) / <alpha-value>)",
         border: "rgb(var(--border) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
+        accentStrong: "rgb(var(--accent-strong) / <alpha-value>)",
+        accentInk: "rgb(var(--accent-ink) / <alpha-value>)",
         success: "#089981",
         danger: "#f23645",
         tv: {
@@ -29,6 +32,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
+        display: ["Space Grotesk", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
     },

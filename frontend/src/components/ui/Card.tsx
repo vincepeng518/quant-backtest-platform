@@ -16,10 +16,10 @@ export const Card: React.FC<CardProps> = ({
     <div
       className={twMerge(
         clsx(
-          // TV-style surface: subtle border + soft shadow for depth hierarchy
-          'bg-surface p-6 duration-150 ease-out select-none border border-border/10 shadow-[0_1px_3px_rgba(0,0,0,0.12)]',
+          'bg-surface p-6 select-none border border-border/40',
           {
-            'hover:border-accent/35 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] transition-all': hoverEffect,
+            'transition-all duration-150 ease-out hover:border-accent/40 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)]':
+              hoverEffect,
           }
         ),
         className
