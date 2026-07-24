@@ -31,6 +31,8 @@ export interface TradeRecord {
   commission: number;
   holding_bars: number;
   exit_reason: string;
+  mae?: number;
+  mfe?: number;
 }
 
 export interface PerformanceMetrics {
@@ -60,6 +62,17 @@ export interface PerformanceMetrics {
   win_loss_ratio?: number;
   annual_return_pct?: number;
   trade_freq?: number;
+  // Long/Short split
+  long_trades?: number;
+  short_trades?: number;
+  long_win_rate?: number;
+  short_win_rate?: number;
+  long_pnl?: number;
+  short_pnl?: number;
+  long_expectancy?: number;
+  short_expectancy?: number;
+  long_profit_factor?: number;
+  short_profit_factor?: number;
 }
 
 export interface EquityPoint {
