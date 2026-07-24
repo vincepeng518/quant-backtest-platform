@@ -197,7 +197,7 @@ def _predict_auth() -> str | None:
 
 
 def _fetch_predict_positions() -> list:
-    """Fetch Predict.fun positions (trade history for 15m markets)."""
+    """Fetch Predict.fun filled orders (trade history for 15m markets)."""
     now = time.time()
     if _predict_cache["ts"] and (now - _predict_cache["ts"]) < PREDICT_CACHE_TTL and _predict_cache["data"]:
         return _predict_cache["data"]
@@ -209,27 +209,57 @@ def _fetch_predict_positions() -> list:
     key = os.environ.get("PREDICT_API_KEY", "")
     try:
         import requests as _req
-        r = _req.get(f"{PREDICT_BASE}/positions",
-            headers={"x-api-key": key, "Authorization": f"Bearer {token}"}, timeout=15)
-        data = r.json()
-
-        positions = data.get("data", [])
+        headers = {"x-api-key": key, "Authorization": f"Bearer {token}"}
+        
+        # Fetch filled orders with pagination
+        all_orders = []
+        cursor = None
+        for _ in range(10):  # Max 10 pages
+            params = {"status": "FILLED", "limit": 50}
+            if cursor:
+                params["cursor"] = cursor
+            r = _req.get(f"{PREDICT_BASE}/orders", params=params, headers=headers, timeout=15)
+            data = r.json()
+            orders = data.get("data", [])
+            all_orders.extend(orders)
+            cursor = data.get("cursor")
+            if not cursor:
+                break
+        
+        # Cache market details to avoid duplicate queries
+        market_cache = {}
         records = []
-        for p in positions:
-            market = p.get("market", {})
+        
+        for order in all_orders:
+            market_id = order.get("marketId")
+            if not market_id:
+                continue
+            
+            # Get market detail (cached)
+            if market_id not in market_cache:
+                try:
+                    mr = _req.get(f"{PREDICT_BASE}/markets/{market_id}", headers=headers, timeout=10)
+                    market_cache[market_id] = mr.json().get("data", {})
+                except Exception:
+                    market_cache[market_id] = {}
+            
+            market = market_cache[market_id]
             outcomes = market.get("outcomes", [])
-            # Find the outcome we hold (indexSet=1 = Up/YES)
+            
+            # Find outcome status (indexSet=1 = Up/YES for 15m markets)
             outcome_status = "PENDING"
             for o in outcomes:
                 if o.get("indexSet") == 1:
                     outcome_status = o.get("status", "PENDING")
                     break
-
-            amount_wei = int(p.get("amount", "0"))
+            
+            # Extract order data
+            amount_wei = int(order.get("amountFilled", "0"))
             amount = amount_wei / 1e18
-            avg_buy = float(p.get("averageBuyPriceUsd", 0))
-            cost = amount * avg_buy
-
+            maker_amount_wei = int(order.get("order", {}).get("makerAmount", "0"))
+            cost = maker_amount_wei / 1e18
+            avg_buy = cost / amount if amount > 0 else 0
+            
             # Determine P&L based on outcome status
             if outcome_status == "WON":
                 pnl = amount * 1.0 - cost  # payout = $1 per share
@@ -240,13 +270,12 @@ def _fetch_predict_positions() -> list:
             else:
                 pnl = 0.0
                 status = "OPEN"
-
+            
             # Extract market info
             slug = market.get("categorySlug", "")
-            # e.g. "btc-updown-15m-1784803500" -> BTC 15m
             sym = "BTC" if "btc" in slug.lower() else ("ETH" if "eth" in slug.lower() else slug)
             end_time = market.get("boostEndsAt", "")
-
+            
             records.append({
                 "symbol": f"{sym}-15m",
                 "side": "YES",
@@ -271,7 +300,7 @@ def _fetch_predict_positions() -> list:
         _predict_cache["data"] = records
         return records
     except Exception as e:
-        logger.warning("predict positions failed: %s", e)
+        logger.warning("predict orders failed: %s", e)
         return _predict_cache.get("data", [])
 
 
