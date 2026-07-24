@@ -9,7 +9,7 @@ COPY . .
 
 # Cache-bust: this RUN depends on the COPY above and changes every deploy,
 # forcing Docker to re-evaluate (and re-COPY) the source layer on Railway.
-RUN echo "railway-deploy-20260715T03" > /app/.deploy_nonce
+RUN echo "railway-deploy-20260724T19" > /app/.deploy_nonce
 
 EXPOSE 8000
 
