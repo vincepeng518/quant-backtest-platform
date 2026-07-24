@@ -182,5 +182,6 @@ export const api = {
   getTrades: () => request<any>('/trades'),
   getArbTrades: () => request<any>('/trades/arb'),
   getPredictTrades: () => request<any>('/trades/predict'),
+  getPredictHeartbeat: () => request<any>('/monitoring/heartbeat'),
 };
 export default api;

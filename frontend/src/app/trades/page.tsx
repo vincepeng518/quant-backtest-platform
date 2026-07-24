@@ -111,6 +111,14 @@ export default function TradesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
+  const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
+
+  useEffect(() => {
+    if (source !== 'predict') return;
+    api.getPredictHeartbeat()
+      .then((d: any) => setHeartbeat({ alive: d.alive, updated_at: d.updated_at }))
+      .catch(() => setHeartbeat({ alive: false, updated_at: null }));
+  }, [source]);
 
   useEffect(() => {
     setLoading(true);
@@ -237,6 +245,18 @@ export default function TradesPage() {
             {s.label}
           </button>
         ))}
+        {source === 'predict' && heartbeat && (
+          <span className={`ml-2 px-2 py-1 rounded text-xs font-mono ${
+            heartbeat.alive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+          }`}>
+            {heartbeat.alive ? '● ALIVE' : '● DEAD'}
+            {heartbeat.updated_at && (
+              <span className="ml-1 opacity-70">
+                {new Date(heartbeat.updated_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </span>
+        )}
       </div>
       {/* 範圍切換 */}
       <div className="flex flex-wrap items-center gap-2 mb-4">

@@ -212,3 +212,53 @@ async def grid_history(limit: int = 30, _: None = Depends(auth_required)):
                     except Exception:
                         pass
     return {"signals": rows[-limit:], "count": len(rows)}
+
+
+# ── Predict Bot Heartbeat ──
+@router.post("/heartbeat")
+async def heartbeat(req: Request):
+    """Predict bot heartbeat endpoint."""
+    key = req.headers.get("x-monitor-key", "")
+    if key != PUSH_KEY:
+        raise HTTPException(status_code=401, detail="bad key")
+    body = await req.json()
+    c = _conn()
+    try:
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS predict_heartbeat (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                payload TEXT,
+                updated_at TEXT
+            )"""
+        )
+        c.execute(
+            "INSERT OR REPLACE INTO predict_heartbeat (id, payload, updated_at) VALUES (1, ?, ?)",
+            (_json.dumps(body), datetime.now(timezone.utc).isoformat()),
+        )
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True}
+
+
+@router.get("/heartbeat")
+async def get_heartbeat(_: None = Depends(auth_required)):
+    """Get predict bot heartbeat status."""
+    c = _conn()
+    try:
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS predict_heartbeat (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                payload TEXT,
+                updated_at TEXT
+            )"""
+        )
+        row = c.execute(
+            "SELECT payload, updated_at FROM predict_heartbeat WHERE id=1"
+        ).fetchone()
+    finally:
+        c.close()
+    if not row:
+        return {"alive": False, "updated_at": None}
+    import json
+    return {"alive": True, "updated_at": row[1], "data": json.loads(row[0])}
