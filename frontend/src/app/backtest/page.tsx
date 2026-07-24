@@ -21,7 +21,7 @@ import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
-import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty } from '@/lib/format';
+import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, TV_UP, TV_DOWN, TV_STRATEGY } from '@/lib/format';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 // Robust to both backend shapes so the chart markers survive format changes.
@@ -248,7 +248,7 @@ function BacktestView() {
       time: toUnixSec(selectedTrade.entry_time),
       position: 'belowBar',
       shape: 'arrowUp',
-      color: '#f0b90b',
+      color: TV_STRATEGY,
       text: `★ 選中`,
     };
   }, [selectedTrade]);
@@ -265,7 +265,7 @@ function BacktestView() {
         time: toUnixSec(t.entry_time),
         position: 'belowBar',
         shape: isShort ? 'arrowDown' : 'arrowUp',
-        color: isShort ? '#f23645' : '#089981',
+        color: isShort ? TV_DOWN : TV_UP,
         text: isShort ? '空' : '多',
       });
       // Exit marker
@@ -273,7 +273,7 @@ function BacktestView() {
         time: toUnixSec(t.exit_time),
         position: 'aboveBar',
         shape: 'circle',
-        color: pnl >= 0 ? '#089981' : '#f23645',
+        color: pnl >= 0 ? TV_UP : TV_DOWN,
         text: `${(() => {
           const p = Number(t.pnl_pct);
           if (!Number.isFinite(p)) return '—';
@@ -621,7 +621,7 @@ function BacktestView() {
         ) : (
           <Card>
             <div className="flex items-center gap-3 text-sm text-textSecondary">
-              <span className="rounded bg-[#2962FF]/10 px-2 py-1 font-mono text-[#2962FF]">
+              <span className="rounded bg-accent/10 px-2 py-1 font-mono text-accent">
                 {market === 'equity' ? 'EQUITY' : 'FOREX'}
               </span>
               <span>
@@ -652,7 +652,7 @@ function BacktestView() {
         )}
 
         {status === 'lookahead_warning' && lookaheadWarning && (
-          <div className="mt-3 rounded-lg border border-[#f23645]/40 bg-[#f23645]/10 p-4 text-sm text-[#f23645]">
+          <div className="mt-3 rounded-sm border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
             <p className="font-semibold">⚠ 未來函數偵測（Lookahead Bias）</p>
             <p className="mt-1 font-mono text-xs">{lookaheadWarning.detail}</p>
             <ul className="mt-2 list-disc pl-5 space-y-1">
@@ -732,7 +732,7 @@ function BacktestView() {
                     <td className="px-4 py-2 font-semibold text-text">{r.symbol}</td>
                     {r.status === 'completed' && r.metrics ? (
                       <>
-                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.total_return_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'}`}>
+                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.total_return_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
                           {safePct(Number(r.metrics.total_return_pct))}
                         </td>
                         <td className="px-4 py-2 text-right text-text tabular-nums">{r.metrics.total_trades ?? '—'}</td>
@@ -745,7 +745,7 @@ function BacktestView() {
                         <td className="px-4 py-2 text-right text-text tabular-nums">
                           {safeFmt(Number(r.metrics.profit_factor))}
                         </td>
-                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.annual_return_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'}`}>
+                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.annual_return_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
                           {safePct(Number(r.metrics.annual_return_pct))}
                         </td>
                       </>
@@ -907,17 +907,17 @@ function BacktestView() {
                     {sortedTrades.map((t: any, i: number) => (
                       <tr
                         key={i}
-                        className={`border-t border-[#363c4e]/10 transition-colors duration-150 cursor-pointer ${
+                        className={`border-t border-border/10 transition-colors duration-150 cursor-pointer ${
                           selectedTrade?.trade_id === t.trade_id
-                            ? 'bg-[#089981]/5'
-                            : 'hover:bg-white/[0.02]'
+                            ? 'bg-success/5'
+                            : 'hover:bg-text/[0.02]'
                         }`}
                         onClick={() => setSelectedTrade(selectedTrade?.trade_id === t.trade_id ? null : t)}
                       >
                         <td className="px-6 py-3 text-textSecondary tabular-nums">{i + 1}</td>
                         <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>
                         <td className={`px-6 py-3 font-semibold ${
-                          t.direction === 'short' ? 'text-[#f23645]' : 'text-[#089981]'
+                          t.direction === 'short' ? 'text-danger' : 'text-success'
                         }`}>
                           {t.direction === 'short' ? '空' : '多'}
                         </td>
@@ -932,14 +932,14 @@ function BacktestView() {
                         </td>
                         <td
                           className={`px-6 py-3 text-right font-semibold tabular-nums ${
-                            Number(t.pnl) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'
+                            Number(t.pnl) >= 0 ? 'text-success' : 'text-danger'
                           }`}
                         >
                           {safeSigned(Number(t.pnl))}
                         </td>
                         <td
                           className={`px-6 py-3 text-right tabular-nums ${
-                            Number(t.pnl_pct) >= 0 ? 'text-[#089981]' : 'text-[#f23645]'
+                            Number(t.pnl_pct) >= 0 ? 'text-success' : 'text-danger'
                           }`}
                         >
                           {t.pnl_pct != null ? safePct(Number(t.pnl_pct)) : '—'}

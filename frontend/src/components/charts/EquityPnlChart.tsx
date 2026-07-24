@@ -11,6 +11,10 @@ import {
   CrosshairMode,
 } from 'lightweight-charts';
 import { EquityPoint, TradeRecord } from '@/types/api';
+import { TV_UP, TV_DOWN, TV_STRATEGY, TV_BH, IB_DARK, IB_LIGHT } from '@/lib/format';
+
+const STRATEGY = TV_STRATEGY;
+const BH_GRAY = TV_BH;
 
 interface EquityPnlChartProps {
   equity: EquityPoint[];
@@ -21,11 +25,6 @@ interface EquityPnlChartProps {
   showSpread?: boolean;
   theme?: 'light' | 'dark';
 }
-
-const STRATEGY = '#2962FF';
-const TV_UP = '#089981';
-const TV_DOWN = '#f23645';
-const BH_GRAY = '#787b86';
 
 const toTs = (raw: any): number => {
   if (raw == null || raw === '' || raw === undefined) return 0;
@@ -89,11 +88,12 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
     if (!containerRef.current) return;
 
     const isDark = theme === 'dark';
-    const BG = isDark ? '#131722' : '#ffffff';
-    const TXT = isDark ? '#d1d4dc' : '#131722';
-    const GRID = isDark ? '#2a2e39' : '#e0e3eb';
-    const BORDER = isDark ? '#363c4e' : '#e0e3eb';
-    const CROSS = '#758696';
+    const pal = isDark ? IB_DARK : IB_LIGHT;
+    const BG = pal.bg;
+    const TXT = pal.text;
+    const GRID = isDark ? '#1c2233' : '#e8e5dd';
+    const BORDER = pal.border;
+    const CROSS = pal.textSecondary;
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
@@ -197,7 +197,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         .filter((d): d is LineData => d != null);
       if (spreadData.length > 0) {
         spreadLine = chart.addLineSeries({
-          color: '#f59e0b',
+          color: TV_STRATEGY,
           lineWidth: 1,
           title: '策略−基準',
           priceLineVisible: false,
@@ -246,7 +246,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
         return {
           time: t2 as UTCTimestamp,
           value: pnl,
-          color: pnl >= 0 ? 'rgba(8,153,129,0.5)' : 'rgba(242,54,69,0.5)',
+          color: pnl >= 0 ? TV_UP + '80' : TV_DOWN + '80',
         };
       })
       .filter((d) => Number.isFinite(d.time) && d.time > 0);
@@ -282,27 +282,27 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       legendEl.style.display = 'flex';
       legendEl.replaceChildren();
       const mk = (txt: string, col: string, gap = '0 6px') => { const s = document.createElement('span'); s.style.color = col; s.style.margin = gap; s.style.fontSize = '11px'; s.textContent = txt; return s; };
-      legendEl.appendChild(mk(dt, '#d1d4dc', '0 8px 0 0'));
+      legendEl.appendChild(mk(dt, pal.text, '0 8px 0 0'));
       if (eq) {
         const up = eq.value! >= initialCapital;
         const c = up ? TV_UP : TV_DOWN;
-        legendEl.appendChild(mk('權益', '#787b86'));
+        legendEl.appendChild(mk('權益', pal.textSecondary));
         legendEl.appendChild(mk(fmt(eq.value!), c));
       }
       if (bh) {
-        legendEl.appendChild(mk('B&H', '#787b86'));
+        legendEl.appendChild(mk('B&H', pal.textSecondary));
         legendEl.appendChild(mk(fmt(bh.value!), BH_GRAY));
       }
       if (hist) {
         const c = hist.value! >= 0 ? TV_UP : TV_DOWN;
-        legendEl.appendChild(mk('單筆', '#787b86'));
+        legendEl.appendChild(mk('單筆', pal.textSecondary));
         legendEl.appendChild(mk(`${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}`, c));
       }
       if (showSpread && spreadLine) {
         const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
         if (sp) {
           const c = sp.value! >= 0 ? TV_UP : TV_DOWN;
-          legendEl.appendChild(mk('差值', '#787b86'));
+          legendEl.appendChild(mk('差值', pal.textSecondary));
           legendEl.appendChild(mk(`${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}`, c));
         }
       }
@@ -339,7 +339,7 @@ export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
       <button
         type="button"
         onClick={toggleFullscreen}
-        className="absolute right-3 top-3 z-20 rounded bg-[#161a25]/80 px-2 py-1 text-[10px] font-mono text-[#787b86] transition-colors duration-150 hover:text-[#d1d4dc] active:scale-[0.97]"
+        className="absolute right-3 top-3 z-20 rounded bg-surface/80 px-2 py-1 text-[10px] font-mono text-textSecondary transition-colors duration-150 hover:text-text active:scale-[0.97]"
       >
         {isFullscreen ? '退出' : '⛶'}
       </button>
