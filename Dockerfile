@@ -2,14 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Store commit hash for debugging
+RUN echo "b5c3158-20260724T23" > /app/.deploy_version
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
-# Cache-bust: this RUN depends on the COPY above and changes every deploy,
-# forcing Docker to re-evaluate (and re-COPY) the source layer on Railway.
-RUN echo "railway-deploy-20260724T22" > /app/.deploy_nonce
 
 EXPOSE 8000
 
