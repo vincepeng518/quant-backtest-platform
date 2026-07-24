@@ -215,6 +215,7 @@ async def grid_history(limit: int = 30, _: None = Depends(auth_required)):
 
 
 # ── Predict Bot Heartbeat ──
+# Railway deploy fix 2026-07-24T23
 @router.post("/heartbeat")
 async def heartbeat(req: Request):
     """Predict bot heartbeat endpoint."""
