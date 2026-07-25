@@ -197,110 +197,66 @@ def _predict_auth() -> str | None:
 
 
 def _fetch_predict_positions() -> list:
-    """Fetch Predict.fun filled orders (trade history for 15m markets)."""
+    """Fetch Predict.fun trades from GitHub (persisted by bot)."""
     now = time.time()
     if _predict_cache["ts"] and (now - _predict_cache["ts"]) < PREDICT_CACHE_TTL and _predict_cache["data"]:
         return _predict_cache["data"]
 
-    token = _predict_auth()
-    if not token:
-        return _predict_cache.get("data", [])
-
-    key = os.environ.get("PREDICT_API_KEY", "")
     try:
-        import requests as _req
-        headers = {"x-api-key": key, "Authorization": f"Bearer {token}"}
+        # Read from GitHub
+        data = _gh_get(f"https://api.github.com/repos/{REPO}/contents", "trades/predict_history.json")
+        if not data or "content" not in data:
+            logger.warning("predict_history.json not found on GitHub")
+            return _predict_cache.get("data", [])
         
-        # Fetch filled orders with pagination
-        all_orders = []
-        cursor = None
-        for _ in range(10):  # Max 10 pages
-            params = {"status": "FILLED", "limit": 50}
-            if cursor:
-                params["cursor"] = cursor
-            r = _req.get(f"{PREDICT_BASE}/orders", params=params, headers=headers, timeout=15)
-            data = r.json()
-            orders = data.get("data", [])
-            all_orders.extend(orders)
-            cursor = data.get("cursor")
-            if not cursor:
-                break
+        import base64
+        content = base64.b64decode(data["content"]).decode("utf-8")
+        snapshot = json.loads(content)
+        records = snapshot.get("records", [])
         
-        # Cache market details to avoid duplicate queries
-        market_cache = {}
-        records = []
+        # Enrich with market details (outcome status)
+        token = _predict_auth()
+        if token:
+            key = os.environ.get("PREDICT_API_KEY", "")
+            headers = {"x-api-key": key, "Authorization": f"Bearer {token}"}
+            import requests as _req
+            
+            market_cache = {}
+            for rec in records:
+                market_id = rec.get("market_id")
+                if not market_id or rec.get("status") == "CLOSED":
+                    continue
+                
+                # Fetch market status
+                if market_id not in market_cache:
+                    try:
+                        mr = _req.get(f"{PREDICT_BASE}/markets/{market_id}", headers=headers, timeout=10)
+                        market_cache[market_id] = mr.json().get("data", {})
+                    except Exception:
+                        market_cache[market_id] = {}
+                
+                market = market_cache[market_id]
+                outcomes = market.get("outcomes", [])
+                
+                # Determine outcome
+                for o in outcomes:
+                    if o.get("indexSet") == 1:
+                        outcome_status = o.get("status", "PENDING")
+                        if outcome_status == "WON":
+                            rec["status"] = "CLOSED"
+                            rec["realizedProfit"] = round(rec.get("bet_usd", 0) * (1.0 / rec.get("ask_price", 1) - 1), 4)
+                            rec["exitPrice"] = 1.0
+                        elif outcome_status == "LOST":
+                            rec["status"] = "CLOSED"
+                            rec["realizedProfit"] = -rec.get("bet_usd", 0)
+                            rec["exitPrice"] = 0.0
+                        break
         
-        for order in all_orders:
-            market_id = order.get("marketId")
-            if not market_id:
-                continue
-            
-            # Get market detail (cached)
-            if market_id not in market_cache:
-                try:
-                    mr = _req.get(f"{PREDICT_BASE}/markets/{market_id}", headers=headers, timeout=10)
-                    market_cache[market_id] = mr.json().get("data", {})
-                except Exception:
-                    market_cache[market_id] = {}
-            
-            market = market_cache[market_id]
-            outcomes = market.get("outcomes", [])
-            
-            # Find outcome status (indexSet=1 = Up/YES for 15m markets)
-            outcome_status = "PENDING"
-            for o in outcomes:
-                if o.get("indexSet") == 1:
-                    outcome_status = o.get("status", "PENDING")
-                    break
-            
-            # Extract order data
-            amount_wei = int(order.get("amountFilled", "0"))
-            amount = amount_wei / 1e18
-            maker_amount_wei = int(order.get("order", {}).get("makerAmount", "0"))
-            cost = maker_amount_wei / 1e18
-            avg_buy = cost / amount if amount > 0 else 0
-            
-            # Determine P&L based on outcome status
-            if outcome_status == "WON":
-                pnl = amount * 1.0 - cost  # payout = $1 per share
-                status = "CLOSED"
-            elif outcome_status == "LOST":
-                pnl = -cost
-                status = "CLOSED"
-            else:
-                pnl = 0.0
-                status = "OPEN"
-            
-            # Extract market info
-            slug = market.get("categorySlug", "")
-            sym = "BTC" if "btc" in slug.lower() else ("ETH" if "eth" in slug.lower() else slug)
-            end_time = market.get("boostEndsAt", "")
-            
-            records.append({
-                "symbol": f"{sym}-15m",
-                "side": "YES",
-                "positionAmt": round(amount, 4),
-                "avgPrice": avg_buy,
-                "exitPrice": 1.0 if outcome_status == "WON" else (0.0 if outcome_status == "LOST" else 0.0),
-                "leverage": 1.0,
-                "unrealizedProfit": 0.0 if status == "CLOSED" else round(-cost, 4),
-                "realizedProfit": round(pnl, 4) if status == "CLOSED" else 0.0,
-                "pnlRatio": 0.0,
-                "positionValue": round(cost, 4),
-                "liquidationPrice": 0.0,
-                "status": status,
-                "ts": int(time.time() * 1000),
-                "market_slug": slug,
-                "end_time": end_time,
-                "outcome": outcome_status,
-                "source": "predict.fun",
-            })
-
         _predict_cache["ts"] = now
         _predict_cache["data"] = records
         return records
     except Exception as e:
-        logger.warning("predict orders failed: %s", e)
+        logger.warning("predict github fetch failed: %s", e)
         return _predict_cache.get("data", [])
 
 
