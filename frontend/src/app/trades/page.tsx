@@ -437,16 +437,16 @@ export default function TradesPage() {
                 <tr className="text-textSecondary text-xs border-b border-border/20">
                   <th className="text-left px-3 py-2">Symbol</th>
                   <th className="text-left px-3 py-2">Side</th>
-                  <th className="text-right px-3 py-2">Qty</th>
+                  {source !== 'predict' && <th className="text-right px-3 py-2">Qty</th>}
                   <th className="text-right px-3 py-2">開倉價</th>
-                  <th className="text-right px-3 py-2">平倉價</th>
-                  <th className="text-right px-3 py-2">槓桿</th>
-                  <th className="text-right px-3 py-2">名義</th>
+                  {source !== 'predict' && <th className="text-right px-3 py-2">平倉價</th>}
+                  {source !== 'predict' && <th className="text-right px-3 py-2">槓桿</th>}
+                  {source !== 'predict' && <th className="text-right px-3 py-2">名義</th>}
                   <th className="text-right px-3 py-2">盈虧</th>
-                  <th className="text-right px-3 py-2">費用</th>
+                  {source !== 'predict' && <th className="text-right px-3 py-2">費用</th>}
                   <th className="text-left px-3 py-2">開倉</th>
-                  <th className="text-left px-3 py-2">平倉</th>
-                  <th className="text-left px-3 py-2">持倉</th>
+                  {source !== 'predict' && <th className="text-left px-3 py-2">平倉</th>}
+                  {source !== 'predict' && <th className="text-left px-3 py-2">持倉</th>}
                   <th className="text-left px-3 py-2">狀態</th>
                 </tr>
               </thead>
@@ -460,22 +460,22 @@ export default function TradesPage() {
                     <tr key={i} className="border-b border-border/10 hover:bg-surface/40">
                       <td className="px-3 py-2 text-text">{simplifySymbol(r.symbol)}</td>
                       <td className="px-3 py-2 text-textSecondary">{r.side}</td>
-                      <td className="px-3 py-2 text-right text-textSecondary">{fmtQty(r.qty ?? r.positionAmt)}</td>
+                      {source !== 'predict' && <td className="px-3 py-2 text-right text-textSecondary">{fmtQty(r.qty ?? r.positionAmt)}</td>}
                       <td className="px-3 py-2 text-right text-text">{fmtPrice(r.avgPrice)}</td>
-                      <td className="px-3 py-2 text-right text-text">{fmtPrice(r.exitPrice)}</td>
-                      <td className="px-3 py-2 text-right text-textSecondary">{r.leverage != null ? `${r.leverage}x` : '—'}</td>
-                      <td className="px-3 py-2 text-right text-text">{r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—')}</td>
+                      {source !== 'predict' && <td className="px-3 py-2 text-right text-text">{fmtPrice(r.exitPrice)}</td>}
+                      {source !== 'predict' && <td className="px-3 py-2 text-right text-textSecondary">{r.leverage != null ? `${r.leverage}x` : '—'}</td>}
+                      {source !== 'predict' && <td className="px-3 py-2 text-right text-text">{r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—')}</td>}
                       <td className={`px-3 py-2 text-right ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         {p >= 0 ? '+' : ''}{fmt(p)}
                       </td>
-                      <td className="px-3 py-2 text-right text-danger">{fee !== 0 ? `-${fmt(Math.abs(fee), 4)}` : '—'}</td>
+                      {source !== 'predict' && <td className="px-3 py-2 text-right text-danger">{fee !== 0 ? `-${fmt(Math.abs(fee), 4)}` : '—'}</td>}
                       <td className="px-3 py-2 text-textSecondary">
                         {openTs ? new Date(openTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                       </td>
-                      <td className="px-3 py-2 text-textSecondary">
+                      {source !== 'predict' && <td className="px-3 py-2 text-textSecondary">
                         {closeTs ? new Date(closeTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-textSecondary">{fmtDuration(r.holdDuration)}</td>
+                      </td>}
+                      {source !== 'predict' && <td className="px-3 py-2 text-textSecondary">{fmtDuration(r.holdDuration)}</td>}
                       <td className="px-3 py-2 text-textSecondary">{r.status}</td>
                     </tr>
                   );
