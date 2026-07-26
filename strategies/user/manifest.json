@@ -166,5 +166,13 @@
     "category": "agent",
     "filename": "664a97cc81f5.py",
     "created_at": "2026-07-26T14:52:50.261225"
+  },
+  {
+    "id": "20a5b3e65b9f",
+    "name": "agent_r77763_24860",
+    "description": "上一轮OOS夏普为负说明存在过拟合或阈值过于极端导致样本失真。本次采用经典RSI(14)，入场设为35以增加有效交易样本量，出场设为55在回归中轨附近平仓落袋为",
+    "category": "agent",
+    "filename": "20a5b3e65b9f.py",
+    "created_at": "2026-07-26T14:52:53.594034"
   }
 ]
