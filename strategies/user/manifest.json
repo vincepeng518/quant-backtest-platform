@@ -14,5 +14,13 @@
     "category": "combo",
     "filename": "fc057f1f7881.py",
     "created_at": "2026-07-19T03:23:30.075248"
+  },
+  {
+    "id": "75fb0bf38371",
+    "name": "test_strat",
+    "description": "test",
+    "category": "custom",
+    "filename": "75fb0bf38371.py",
+    "created_at": "2026-07-26T14:51:17.692577"
   }
 ]
