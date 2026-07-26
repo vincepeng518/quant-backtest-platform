@@ -94,5 +94,13 @@
     "category": "agent",
     "filename": "30ca47afb26c.py",
     "created_at": "2026-07-26T14:52:23.534798"
+  },
+  {
+    "id": "d62a746a0e10",
+    "name": "agent_r47558_91303",
+    "description": "Moderate RSI thresholds (35/55) ensure sufficient trade frequency and avoid the ",
+    "category": "agent",
+    "filename": "d62a746a0e10.py",
+    "created_at": "2026-07-26T14:52:26.252715"
   }
 ]
