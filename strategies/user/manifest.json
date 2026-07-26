@@ -22,5 +22,13 @@
     "category": "custom",
     "filename": "75fb0bf38371.py",
     "created_at": "2026-07-26T14:51:17.692577"
+  },
+  {
+    "id": "91b5bb0536bf",
+    "name": "agent_r30778_71309",
+    "description": "Previous OOS failure (Sharpe -1.75) indicates overfitting to rare extreme events",
+    "category": "agent",
+    "filename": "91b5bb0536bf.py",
+    "created_at": "2026-07-26T14:52:00.567135"
   }
 ]
