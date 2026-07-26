@@ -110,5 +110,13 @@
     "category": "agent",
     "filename": "912ec6bc1221.py",
     "created_at": "2026-07-26T14:52:28.971726"
+  },
+  {
+    "id": "10ce0afe3c73",
+    "name": "agent_r48325_00996",
+    "description": "Using a tighter exit threshold (55 instead of 70) reduces holding time, limiting",
+    "category": "agent",
+    "filename": "10ce0afe3c73.py",
+    "created_at": "2026-07-26T14:52:31.581911"
   }
 ]
