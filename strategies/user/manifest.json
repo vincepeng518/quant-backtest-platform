@@ -54,5 +54,13 @@
     "category": "agent",
     "filename": "3efafe04d902.py",
     "created_at": "2026-07-26T14:52:08.973792"
+  },
+  {
+    "id": "e5e8e8c66d44",
+    "name": "agent_r33458_18488",
+    "description": "上一轮MDD达100%且无收益，推测因退出条件过于苛刻导致在弱势市场中长期被套或无法触发交易。本次将退出阈值降至55，在反弹初期即获利了结，提高胜率与交易频率，",
+    "category": "agent",
+    "filename": "e5e8e8c66d44.py",
+    "created_at": "2026-07-26T14:52:12.001492"
   }
 ]
