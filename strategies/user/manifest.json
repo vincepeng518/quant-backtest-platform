@@ -142,5 +142,13 @@
     "category": "agent",
     "filename": "095b027020d1.py",
     "created_at": "2026-07-26T14:52:41.402263"
+  },
+  {
+    "id": "983a01ce51de",
+    "name": "agent_r62835_04458",
+    "description": "The previous 100% MDD indicates a failed mean-reversion strategy catching fallin",
+    "category": "agent",
+    "filename": "983a01ce51de.py",
+    "created_at": "2026-07-26T14:52:44.301632"
   }
 ]
