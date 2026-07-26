@@ -46,5 +46,13 @@
     "category": "agent",
     "filename": "86c64858c6a0.py",
     "created_at": "2026-07-26T14:52:06.341654"
+  },
+  {
+    "id": "3efafe04d902",
+    "name": "agent_r32339_32094",
+    "description": "上一轮OOS Sharpe为负表明存在严重过拟合。本次回归最经典的RSI因子，并采用非对称阈值（30进，55出），旨在提高交易胜率和周转率，避免等待RSI>70",
+    "category": "agent",
+    "filename": "3efafe04d902.py",
+    "created_at": "2026-07-26T14:52:08.973792"
   }
 ]
