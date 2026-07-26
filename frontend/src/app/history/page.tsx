@@ -7,8 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 
 interface HistoryItem {
   task_id: string;
@@ -21,16 +20,17 @@ interface HistoryItem {
   total_trades: number;
 }
 
-type SortKey = 'created_at' | 'sharpe' | 'total_trades' | 'strategy';
+type SortKey = 'date' | 'sharpe' | 'trades';
 
 export default function HistoryPage() {
   const router = useRouter();
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('created_at');
+  const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [search, setSearch] = useState('');
+  const [strategyFilter, setStrategyFilter] = useState('all');
 
   useEffect(() => {
     api.getBacktestHistory()
@@ -44,36 +44,39 @@ export default function HistoryPage() {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
+  const sortIcon = (key: SortKey) =>
+    sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+  const strategies = useMemo(() => {
+    const s = new Set(items.map((i) => i.strategy).filter(Boolean));
+    return ['all', ...Array.from(s).sort()];
+  }, [items]);
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
     let f = items;
-    // Quick Sharpe filter: sr>2, sr>1
-    const srMatch = q.match(/^sr>(\d+(?:\.\d+)?)$/);
-    if (srMatch) {
-      const cutoff = parseFloat(srMatch[1]);
-      f = items.filter((it) => (it.sharpe ?? 0) > cutoff);
-    } else if (q) {
-      f = items.filter((it) =>
-        (it.strategy ?? '').toLowerCase().includes(q) ||
-        (it.symbol ?? '').toLowerCase().includes(q) ||
-        it.task_id.toLowerCase().includes(q)
+    if (search) {
+      const q = search.toLowerCase();
+      f = f.filter((i) =>
+        (i.strategy?.toLowerCase() ?? '').includes(q) ||
+        (i.symbol?.toLowerCase() ?? '').includes(q) ||
+        i.task_id.includes(q)
       );
     }
-    return [...f].sort((a, b) => {
-      let av: string | number, bv: string | number;
-      switch (sortKey) {
-        case 'sharpe': av = a.sharpe ?? 0; bv = b.sharpe ?? 0; break;
-        case 'total_trades': av = a.total_trades ?? 0; bv = b.total_trades ?? 0; break;
-        case 'strategy': av = (a.strategy ?? '').toLowerCase(); bv = (b.strategy ?? '').toLowerCase(); break;
-        default: av = a.created_at ?? ''; bv = b.created_at ?? '';
-      }
-      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-      return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
-  }, [items, search, sortKey, sortDir]);
+    if (strategyFilter !== 'all') f = f.filter((i) => i.strategy === strategyFilter);
+    return f;
+  }, [items, search, strategyFilter]);
 
-  const sortIndicator = (key: SortKey) =>
-    sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  const sorted = useMemo(() => {
+    const f = [...filtered];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    f.sort((a, b) => {
+      if (sortKey === 'date') return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      if (sortKey === 'sharpe') return dir * ((a.sharpe ?? -999) - (b.sharpe ?? -999));
+      if (sortKey === 'trades') return dir * ((a.total_trades ?? 0) - (b.total_trades ?? 0));
+      return 0;
+    });
+    return f;
+  }, [filtered, sortKey, sortDir]);
 
   return (
     <PageShell
@@ -83,19 +86,9 @@ export default function HistoryPage() {
     >
       <Card className="min-h-[300px]">
         {loading ? (
-          <div className="flex flex-col gap-3 px-4 py-8">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-3.5">
-                <div className="flex-1 space-y-2">
-                  <div className="skeleton h-4 w-48" />
-                  <div className="skeleton h-3 w-64" />
-                </div>
-                <div className="text-right space-y-2">
-                  <div className="skeleton h-4 w-20 ml-auto" />
-                  <div className="skeleton h-3 w-16 ml-auto" />
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Spinner size="lg" />
+            <p className="text-sm text-textSecondary font-mono">載入回測記錄…</p>
           </div>
         ) : error ? (
           <p className="text-sm font-mono text-danger p-6">{error}</p>
@@ -103,80 +96,66 @@ export default function HistoryPage() {
           <EmptyState title="暫無回測記錄" description="執行回測後，記錄會自動保存在這裡。" />
         ) : (
           <>
-            {/* Search + sort bar */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 pb-4 border-b border-border/10">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Input
-                  label=""
-                  placeholder="搜尋策略 / 幣種 / ID…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="max-w-[200px]"
-                />
-                {/* Quick Sharpe filters */}
-                {[
-                  { label: 'SR>2', fn: () => setSearch('sr>2') },
-                  { label: 'SR>1', fn: () => setSearch('sr>1') },
-                  { label: '60W+', fn: () => setSearch('60') },
-                ].map((f) => (
-                  <button
-                    key={f.label}
-                    onClick={f.fn}
-                    className="px-2.5 py-1 text-[10px] font-mono rounded-md border border-white/[0.08] bg-surface2/40 text-textSecondary hover:text-accent hover:border-accent/30 transition-colors"
-                  >
-                    {f.label}
-                  </button>
+            {/* Filters */}
+            <div className="flex flex-col gap-3 px-4 pb-3 sm:flex-row sm:items-center">
+              <Input
+                placeholder="搜尋策略 / 標的 / ID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="sm:max-w-xs"
+              />
+              <select
+                value={strategyFilter}
+                onChange={(e) => setStrategyFilter(e.target.value)}
+                className="rounded border border-border/20 bg-surface px-3 py-1.5 text-sm font-mono text-text outline-none focus:border-accent"
+              >
+                {strategies.map((s) => (
+                  <option key={s} value={s}>{s === 'all' ? '全部策略' : s}</option>
                 ))}
-              </div>
-              <span className="text-xs font-mono text-textSecondary">
-                {filtered.length} / {items.length} 筆
-              </span>
+              </select>
+              <span className="ml-auto text-xs text-textSecondary font-mono">{sorted.length} / {items.length} 筆</span>
             </div>
 
-            {filtered.length === 0 ? (
-              <div className="p-6"><EmptyState title="無符合結果" description="嘗試其他搜尋關鍵字" /></div>
-            ) : (
-              <div className="divide-y divide-border/10">
-                {filtered.map((it) => (
-                  <button
-                    key={it.task_id}
-                    onClick={() => router.push(`/backtest?task=${it.task_id}`)}
-                    className="w-full flex items-center justify-between px-4 md:px-5 py-3.5 hover:bg-surface/60 text-left transition-all duration-150 group border-l-2 border-transparent hover:border-accent/40"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-text group-hover:text-accent transition-colors">
-                          {it.strategy ?? '—'}
-                        </span>
-                        <span className="font-mono text-xs text-textSecondary">
-                          {it.symbol ?? '—'} · {it.timeframe ?? '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="font-mono text-[11px] text-textSecondary/60 truncate">
-                          {it.task_id}
-                        </span>
-                        <span className="font-mono text-[11px] text-textSecondary/40">·</span>
-                        <span className="font-mono text-[11px] text-textSecondary/60">
-                          {it.created_at?.slice(0, 19)?.replace('T', ' ')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 ml-4 flex items-center gap-4">
-                      <div className="text-right">
-                        <p className={`text-sm font-mono font-semibold tabular-nums ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {it.sharpe != null ? `SR ${it.sharpe.toFixed(2)}` : 'SR —'}
-                        </p>
-                        <p className="text-[11px] text-textSecondary font-mono tabular-nums">{it.total_trades ?? 0} trades</p>
-                      </div>
-                      <svg className="h-4 w-4 text-textSecondary/30 group-hover:text-accent/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </div>
-                  </button>
-                ))}
+            {/* Sortable header */}
+            <div className="hidden border-b border-border/10 px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-textSecondary sm:flex sm:justify-between">
+              <button onClick={() => toggleSort('date')} className="hover:text-text">
+                日期{sortIcon('date')}
+              </button>
+              <div className="flex gap-6">
+                <button onClick={() => toggleSort('sharpe')} className="w-20 text-right hover:text-text">
+                  Sharpe{sortIcon('sharpe')}
+                </button>
+                <button onClick={() => toggleSort('trades')} className="w-20 text-right hover:text-text">
+                  Trades{sortIcon('trades')}
+                </button>
               </div>
-            )}
+            </div>
+
+            {/* List */}
+            <div className="divide-y divide-border/10">
+              {sorted.map((it) => (
+                <button
+                  key={it.task_id}
+                  onClick={() => router.push(`/backtest?task=${it.task_id}`)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-mono text-text">
+                      {it.strategy ?? '—'} · {it.symbol ?? '—'} · {it.timeframe ?? '—'}
+                    </p>
+                    <p className="truncate text-xs text-textSecondary font-mono">
+                      {it.task_id} · {it.created_at?.slice(0, 19)?.replace('T', ' ')}
+                    </p>
+                  </div>
+                  <div className="ml-4 shrink-0 text-right">
+                    <p className={`text-sm font-mono ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
+                      {it.sharpe != null ? it.sharpe.toFixed(3) : '—'}
+                    </p>
+                    <p className="text-xs text-textSecondary font-mono">{it.total_trades ?? 0} trades</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </>
         )}
       </Card>

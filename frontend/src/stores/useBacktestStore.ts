@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { BacktestResult, BacktestConfig } from '@/types/api';
 import { useToastStore } from '@/stores/useToastStore';
-import api from '@/lib/api';
+import api, { ApiError } from '@/lib/api';
 
 interface BacktestStore {
   status: 'idle' | 'running' | 'completed' | 'error' | 'lookahead_warning';
@@ -59,8 +59,11 @@ export const useBacktestStore = create<BacktestStore>((set) => ({
       }, 1000);
 
     } catch (err: any) {
-      set({ status: 'error', error: err.message });
-      useToastStore.getState().push({ kind: 'danger', title: '回測錯誤', message: err?.message ?? String(err) });
+      const msg = err instanceof ApiError && err.status === 422
+        ? '請求格式錯誤 — 請檢查策略參數或數據源設定'
+        : err.message;
+      set({ status: 'error', error: msg });
+      useToastStore.getState().push({ kind: 'danger', title: '回測錯誤', message: msg });
     }
   },
   reset: () => set({ status: 'idle', progress: 0, results: null, error: null }),
