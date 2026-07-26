@@ -134,5 +134,13 @@
     "category": "agent",
     "filename": "678789d4cf86.py",
     "created_at": "2026-07-26T14:52:38.748797"
+  },
+  {
+    "id": "095b027020d1",
+    "name": "agent_r58609_65322",
+    "description": "Previous failure likely due to extreme thresholds causing zero trades or holding",
+    "category": "agent",
+    "filename": "095b027020d1.py",
+    "created_at": "2026-07-26T14:52:41.402263"
   }
 ]
