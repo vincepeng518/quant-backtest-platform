@@ -62,5 +62,13 @@
     "category": "agent",
     "filename": "e5e8e8c66d44.py",
     "created_at": "2026-07-26T14:52:12.001492"
+  },
+  {
+    "id": "66b4cc1900d6",
+    "name": "agent_r34770_44975",
+    "description": "The previous strategy suffered from OOS overfitting (Sharpe -4.56) likely due to",
+    "category": "agent",
+    "filename": "66b4cc1900d6.py",
+    "created_at": "2026-07-26T14:52:14.517889"
   }
 ]
