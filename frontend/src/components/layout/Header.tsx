@@ -52,13 +52,6 @@ export const Header: React.FC = () => {
               </Link>
             );
           })}
-          <a
-            href="/llmlite-ui.html"
-            target="_self"
-            className="shrink-0 whitespace-nowrap px-2.5 py-1.5 font-mono text-xs uppercase tracking-wider text-accent/70 transition-colors hover:text-accent"
-          >
-            LLMLite
-          </a>
         </nav>
 
         {/* Theme toggle */}
