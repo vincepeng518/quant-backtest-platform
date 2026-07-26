@@ -30,5 +30,13 @@
     "category": "agent",
     "filename": "91b5bb0536bf.py",
     "created_at": "2026-07-26T14:52:00.567135"
+  },
+  {
+    "id": "df0affcbf74b",
+    "name": "agent_r31077_88188",
+    "description": "Previous 100% MDD indicates severe tail risk exposure or overfitting to extreme ",
+    "category": "agent",
+    "filename": "df0affcbf74b.py",
+    "created_at": "2026-07-26T14:52:03.844741"
   }
 ]
