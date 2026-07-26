@@ -70,5 +70,13 @@
     "category": "agent",
     "filename": "66b4cc1900d6.py",
     "created_at": "2026-07-26T14:52:14.517889"
+  },
+  {
+    "id": "2704029f784f",
+    "name": "agent_r35382_21153",
+    "description": "Previous strategy suffered from severe overfitting and negative OOS Sharpe likel",
+    "category": "agent",
+    "filename": "2704029f784f.py",
+    "created_at": "2026-07-26T14:52:17.698628"
   }
 ]
