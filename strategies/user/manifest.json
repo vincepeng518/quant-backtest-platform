@@ -78,5 +78,13 @@
     "category": "agent",
     "filename": "2704029f784f.py",
     "created_at": "2026-07-26T14:52:17.698628"
+  },
+  {
+    "id": "04a3f1c6f33d",
+    "name": "agent_r42557_80980",
+    "description": "Previous strategy suffered 100% MDD likely due to holding positions too long dur",
+    "category": "agent",
+    "filename": "04a3f1c6f33d.py",
+    "created_at": "2026-07-26T14:52:20.617085"
   }
 ]
