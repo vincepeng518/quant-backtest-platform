@@ -447,14 +447,14 @@ export default function TradesPage() {
           <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "Run bot/trade_bot.py to capture BingX data."} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm font-mono">
+            <table className="w-full text-base font-mono">
               <thead>
-                <tr className="text-textSecondary text-xs border-b border-border/20">
-                  <th className="text-left px-4 py-2.5">Symbol / Side</th>
-                  <th className="text-right px-4 py-2.5">名義 / 槓桿</th>
-                  <th className="text-right px-4 py-2.5">盈虧 (PnL) / 盈虧率</th>
-                  <th className="text-right px-4 py-2.5">平倉時間</th>
-                  <th className="text-center px-4 py-2.5">操作</th>
+                <tr className="text-textSecondary text-sm border-b border-border/20">
+                  <th className="text-left px-4 py-3">Symbol / Side</th>
+                  <th className="text-right px-4 py-3">名義 / 槓桿</th>
+                  <th className="text-right px-4 py-3">盈虧 (PnL) / 盈虧率</th>
+                  <th className="text-right px-4 py-3">平倉時間</th>
+                  <th className="text-center px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -477,22 +477,22 @@ export default function TradesPage() {
                       onClick={() => setSelectedTrade(r)}
                       className="border-b border-border/10 hover:bg-surface/60 cursor-pointer transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-text">
+                      <td className="px-4 py-3.5 font-medium text-text">
                         <span>{simplifySymbol(r.symbol)}</span>{' '}
-                        <span className="text-xs text-textSecondary font-normal">{sideStr}</span>
+                        <span className="text-sm text-textSecondary font-normal">{sideStr}</span>
                       </td>
-                      <td className="px-4 py-3 text-right text-text font-mono">
+                      <td className="px-4 py-3.5 text-right text-text font-mono">
                         <span>{notionalVal}</span>{' '}
-                        <span className="text-xs text-textSecondary">{levStr}</span>
+                        <span className="text-sm text-textSecondary">{levStr}</span>
                       </td>
-                      <td className={`px-4 py-3 text-right font-medium ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
+                      <td className={`px-4 py-3.5 text-right font-medium ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         <span>{p >= 0 ? '+' : ''}{fmt(p)}</span>
-                        <span className="text-xs ml-1 font-normal opacity-90">{pnlRateStr}</span>
+                        <span className="text-sm ml-1 font-normal opacity-90">{pnlRateStr}</span>
                       </td>
-                      <td className="px-4 py-3 text-right text-textSecondary text-xs">
+                      <td className="px-4 py-3.5 text-right text-textSecondary text-sm">
                         {closeTs ? new Date(closeTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3.5 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
