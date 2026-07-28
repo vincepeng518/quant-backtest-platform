@@ -307,12 +307,12 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
               <p className={`text-xl font-mono font-semibold ${stats.avgPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)}
+                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">總倉位大小</p>
-              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
+              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)} USDT</p>
             </Card>
           </div>
 
@@ -322,12 +322,12 @@ export default function TradesPage() {
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">已實現盈虧 (30d)</p>
                 <p className={`text-xl font-mono font-semibold ${(metrics30d.pnl ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)}
+                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)} USDT
                 </p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">交易額/總倉位 (30d)</p>
-                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)}</p>
+                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)} USDT</p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
@@ -337,9 +337,9 @@ export default function TradesPage() {
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額</p>
                 <p className="text-sm font-mono">
-                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)}</span>
+                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)} USDT</span>
                   {' / '}
-                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)}</span>
+                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)} USDT</span>
                 </p>
               </Card>
             </div>
@@ -350,12 +350,12 @@ export default function TradesPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
-                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
+                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)} USDT</p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">資金費用 (Funding)</p>
                 <p className={`text-xl font-mono font-semibold ${(fundingTotal ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)}
+                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)} USDT
                 </p>
               </Card>
             </div>
@@ -366,13 +366,13 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">多頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.longPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)}
+                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">空頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.shortPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)}
+                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
