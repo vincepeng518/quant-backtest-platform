@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout/PageShell';
 import { Card } from '@/components/ui/Card';
+import { TradingCalendar } from '@/components/TradingCalendar';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { api } from '@/lib/api';
@@ -436,6 +437,9 @@ export default function TradesPage() {
           </Card>
         </>
       )}
+
+      {/* 日曆組件 */}
+      <TradingCalendar records={records} />
 
       {/* 交易表格 */}
       <Card className="min-h-[300px]">
