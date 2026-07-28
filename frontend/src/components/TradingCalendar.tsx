@@ -336,65 +336,42 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
             return (
               <div
                 key={cell.dateKey}
-                className={`min-h-[76px] p-2 rounded-lg border transition-all flex flex-col justify-between`}
+                className="flex flex-col items-center justify-center min-h-[68px] rounded-lg border transition-all text-center"
                 style={{
                   backgroundColor: cellBg,
                   borderColor: cell.isToday ? 'var(--tc-profit-text)' : cellBorder,
                   borderWidth: 1,
                   outline: cell.isToday ? `2px solid var(--tc-profit-text)` : 'none',
                   outlineOffset: '-2px',
+                  padding: '4px 2px',
                 }}
               >
                 {/* 日期數字 */}
-                <div className="flex justify-between items-start">
-                  <span
-                    className="text-xs font-bold"
-                    style={{
-                      color: cell.isToday ? 'var(--tc-profit-text)' : 'var(--tc-secondary-text)',
-                    }}
-                  >
-                    {cell.dayNum}
-                  </span>
-                  {hasTrade && mode === 'events' && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{
-                        backgroundColor: 'var(--tc-cell-default-bg)',
-                        color: 'var(--tc-secondary-text)',
-                        opacity: 0.8,
-                      }}
-                    >
-                      {dayData.totalCount} 筆
-                    </span>
-                  )}
+                <div
+                  className="text-xs font-semibold leading-tight"
+                  style={{
+                    color: cell.isToday ? 'var(--tc-profit-text)' : 'var(--tc-secondary-text)',
+                  }}
+                >
+                  {cell.dayNum}
                 </div>
 
                 {/* 內容區 */}
                 {hasTrade ? (
                   mode === 'pnl' ? (
-                    <div className="mt-1 space-y-0.5" style={{ color: cellTextColor }}>
-                      <div className="text-xs font-bold truncate">{fmtPnl(pnl)}</div>
-                      <div className="text-[10px] flex justify-between items-center" style={{ opacity: 0.8 }}>
-                        <span>勝率</span>
-                        <span className="font-semibold">{winRate}%</span>
-                      </div>
+                    <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
+                      <div className="text-[10px] font-bold">{fmtPnl(pnl)}</div>
+                      <div className="text-[8px]" style={{ opacity: 0.75 }}>{winRate}%</div>
                     </div>
                   ) : (
-                    <div className="mt-1 text-[11px] space-y-0.5" style={{ color: cellTextColor }}>
-                      <div className="truncate font-semibold">{fmtPnl(pnl)}</div>
-                      <div className="text-[10px]" style={{ opacity: 0.75 }}>
-                        {dayData.winCount}勝 / {dayData.totalCount - dayData.winCount}負
+                    <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
+                      <div className="text-[10px] font-bold">{fmtPnl(pnl)}</div>
+                      <div className="text-[8px]" style={{ opacity: 0.75 }}>
+                        {dayData.winCount}W|{dayData.totalCount - dayData.winCount}L
                       </div>
                     </div>
                   )
-                ) : (
-                  <div
-                    className="text-[10px] select-none"
-                    style={{ color: 'var(--tc-secondary-text)', opacity: 0.3 }}
-                  >
-                    -
-                  </div>
-                )}
+                ) : null}
               </div>
             );
           })}
