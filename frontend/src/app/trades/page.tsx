@@ -111,6 +111,8 @@ export default function TradesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 25;
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
 
   useEffect(() => {
@@ -131,6 +133,7 @@ export default function TradesPage() {
         setFeesTotal(d.fees_total ?? null);
         setFundingTotal(d.funding_total ?? null);
         setMetrics30d(d.metrics_30d ?? null);
+        setCurrentPage(1);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
@@ -167,6 +170,12 @@ export default function TradesPage() {
     // 開倉時間降冪: 新的在上 (ts 為毫秒, fallback 檔名時間)
     return [...list].sort((a, b) => sortKey(b) - sortKey(a));
   }, [records, range, now]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const stats = useMemo(() => {
     let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
@@ -237,7 +246,7 @@ export default function TradesPage() {
         ] as const).map((s) => (
           <button
             key={s.key}
-            onClick={() => setSource(s.key)}
+            onClick={() => { setSource(s.key); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-md text-sm font-mono transition-colors ${
               source === s.key ? 'bg-accent text-background font-medium' : 'bg-surface text-textSecondary hover:text-text'
             }`}
@@ -263,7 +272,7 @@ export default function TradesPage() {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setRange(t.key)}
+            onClick={() => { setRange(t.key); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-md text-sm font-mono transition-colors ${
               range === t.key ? 'bg-accent text-background font-medium' : 'bg-surface text-textSecondary hover:text-text'
             }`}
@@ -451,7 +460,7 @@ export default function TradesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r, i) => {
+                {pageRecords.map((r, i) => {
                   const p = pnlOf(r);
                   const fee = Number(r.fee ?? 0) + Number(r.fundingFee ?? 0);
                   const openTs = sortKey(r);
@@ -482,6 +491,35 @@ export default function TradesPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {/* Pagination controls */}
+        {!loading && !error && filtered.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border/20 text-xs font-mono">
+            <span className="text-textSecondary">
+              顯示 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filtered.length)} / 共 {filtered.length} 筆
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="上一頁"
+              >
+                &lt;
+              </button>
+              <span className="text-text font-medium px-1">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="下一頁"
+              >
+                &gt;
+              </button>
+            </div>
           </div>
         )}
       </Card>
