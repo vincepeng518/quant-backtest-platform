@@ -348,7 +348,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
               >
                 {/* 日期數字 */}
                 <div
-                  className="text-xs font-semibold leading-tight"
+                  className="text-sm font-bold leading-tight"
                   style={{
                     color: cell.isToday ? 'var(--tc-profit-text)' : 'var(--tc-secondary-text)',
                   }}
@@ -360,13 +360,13 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
                 {hasTrade ? (
                   mode === 'pnl' ? (
                     <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="text-[10px] font-bold">{fmtPnl(pnl)}</div>
-                      <div className="text-[8px]" style={{ opacity: 0.75 }}>{winRate}%</div>
+                      <div className="text-sm font-bold">{fmtPnl(pnl)}</div>
+                      <div className="text-[10px]" style={{ opacity: 0.75 }}>{winRate}%</div>
                     </div>
                   ) : (
                     <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="text-[10px] font-bold">{fmtPnl(pnl)}</div>
-                      <div className="text-[8px]" style={{ opacity: 0.75 }}>
+                      <div className="text-sm font-bold">{fmtPnl(pnl)}</div>
+                      <div className="text-[10px]" style={{ opacity: 0.75 }}>
                         {dayData.winCount}W|{dayData.totalCount - dayData.winCount}L
                       </div>
                     </div>
