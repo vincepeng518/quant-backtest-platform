@@ -24,6 +24,8 @@ interface TradeRec {
   margin?: number;
   liquidationPrice?: number;
   fee?: number;
+  entry_fee?: number;
+  exit_fee?: number;
   fundingFee?: number;
   status?: string;
   ts?: number;
@@ -290,7 +292,10 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
               <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)}
+                {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)} USDT
+              </p>
+              <p className="text-xs text-textSecondary font-mono mt-0.5">
+                ≈ {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl * 32.5)} TWD
               </p>
             </Card>
             <Card className="p-4">
@@ -591,10 +596,10 @@ export default function TradesPage() {
               <div className="flex justify-between">
                 <span className="text-textSecondary">手續費</span>
                 <span className="text-danger">
-                  {Number(selectedTrade.fee ?? 0) !== 0
-                    ? `-${fmt(Math.abs(Number(selectedTrade.fee ?? 0)), 4)}`
-                    : (selectedTrade.entry_fee || selectedTrade.exit_fee
-                        ? `-${fmt(Math.abs(Number(selectedTrade.entry_fee ?? 0) + Number(selectedTrade.exit_fee ?? 0)), 4)}`
+                  {(selectedTrade as any).fee != null && Number((selectedTrade as any).fee) !== 0
+                    ? `-${fmt(Math.abs(Number((selectedTrade as any).fee)), 4)}`
+                    : ((selectedTrade as any).entry_fee || (selectedTrade as any).exit_fee
+                        ? `-${fmt(Math.abs(Number((selectedTrade as any).entry_fee ?? 0) + Number((selectedTrade as any).exit_fee ?? 0)), 4)}`
                         : '—')}
                 </span>
               </div>
