@@ -108,8 +108,6 @@ export default function TradesPage() {
   const [source, setSource] = useState<'bingx' | 'arb' | 'predict'>('bingx');
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
-  const [feesTotal, setFeesTotal] = useState<number | null>(null);
-  const [fundingTotal, setFundingTotal] = useState<number | null>(null);
   const [metrics30d, setMetrics30d] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,14 +132,15 @@ export default function TradesPage() {
       .then((d: any) => {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
-        setFeesTotal(d.fees_total ?? null);
-        setFundingTotal(d.funding_total ?? null);
         setMetrics30d(d.metrics_30d ?? null);
         setCurrentPage(1);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
   }, [source]);
+
+  // fees 用 metrics30d 內建的 fee_total
+  const feesTotal = metrics30d?.fee_total ?? null;
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
@@ -316,19 +315,9 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 官方風格 30d 統計 (對齊 BingX 交易分析) */}
+          {/* 30d 統計 (保留勝率) */}
           {metrics30d && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">已實現盈虧 (30d)</p>
-                <p className={`text-xl font-mono font-semibold ${(metrics30d.pnl ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)} USDT
-                </p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">交易額/總倉位 (30d)</p>
-                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)} USDT</p>
-              </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
                 <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.win_rate ?? 0, 1)}%</p>
@@ -345,18 +334,12 @@ export default function TradesPage() {
             </div>
           )}
 
-          {/* 手續費 + 資金費用 (另計, 不併入 P/L) */}
-          {feesTotal != null && (
+          {/* 手續費 (另計, 不併入 P/L) */}
+          {feesTotal != null && feesTotal !== 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
                 <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)} USDT</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">資金費用 (Funding)</p>
-                <p className={`text-xl font-mono font-semibold ${(fundingTotal ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)} USDT
-                </p>
               </Card>
             </div>
           )}
@@ -385,27 +368,11 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+          {/* 專業績效指標 (保留 Sharpe + Profit Factor) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
               <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
-              <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
