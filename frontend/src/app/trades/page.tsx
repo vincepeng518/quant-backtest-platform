@@ -447,7 +447,7 @@ export default function TradesPage() {
                 <tr className="text-textSecondary text-xs border-b border-border/20">
                   <th className="text-left px-4 py-2.5">Symbol / Side</th>
                   <th className="text-right px-4 py-2.5">名義 / 槓桿</th>
-                  <th className="text-right px-4 py-2.5">盈虧 (PnL)</th>
+                  <th className="text-right px-4 py-2.5">盈虧 (PnL) / 盈虧率</th>
                   <th className="text-right px-4 py-2.5">平倉時間</th>
                   <th className="text-center px-4 py-2.5">操作</th>
                 </tr>
@@ -459,6 +459,12 @@ export default function TradesPage() {
                   const notionalVal = r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—');
                   const levStr = r.leverage != null ? `(${r.leverage}x)` : '';
                   const sideStr = r.side ? `(${r.side})` : '';
+
+                  const marginVal = Number(r.margin) || (r.notional && r.leverage ? Number(r.notional) / Number(r.leverage) : (r.positionValue && r.leverage ? Number(r.positionValue) / Number(r.leverage) : 0));
+                  const pnlRate = r.pnlRatio != null && r.pnlRatio !== 0
+                    ? Number(r.pnlRatio)
+                    : (marginVal > 0 ? (p / marginVal) * 100 : 0);
+                  const pnlRateStr = pnlRate !== 0 ? ` (${pnlRate >= 0 ? '+' : ''}${pnlRate.toFixed(2)}%)` : '';
 
                   return (
                     <tr
@@ -475,7 +481,8 @@ export default function TradesPage() {
                         <span className="text-xs text-textSecondary">{levStr}</span>
                       </td>
                       <td className={`px-4 py-3 text-right font-medium ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
-                        {p >= 0 ? '+' : ''}{fmt(p)}
+                        <span>{p >= 0 ? '+' : ''}{fmt(p)}</span>
+                        <span className="text-xs ml-1 font-normal opacity-90">{pnlRateStr}</span>
                       </td>
                       <td className="px-4 py-3 text-right text-textSecondary text-xs">
                         {closeTs ? new Date(closeTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
@@ -582,11 +589,13 @@ export default function TradesPage() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-textSecondary">手續費 / 資金費</span>
+                <span className="text-textSecondary">手續費</span>
                 <span className="text-danger">
-                  {(Number(selectedTrade.fee ?? 0) + Number(selectedTrade.fundingFee ?? 0)) !== 0
-                    ? `-${fmt(Math.abs(Number(selectedTrade.fee ?? 0) + Number(selectedTrade.fundingFee ?? 0)), 4)}`
-                    : '—'}
+                  {Number(selectedTrade.fee ?? 0) !== 0
+                    ? `-${fmt(Math.abs(Number(selectedTrade.fee ?? 0)), 4)}`
+                    : (selectedTrade.entry_fee || selectedTrade.exit_fee
+                        ? `-${fmt(Math.abs(Number(selectedTrade.entry_fee ?? 0) + Number(selectedTrade.exit_fee ?? 0)), 4)}`
+                        : '—')}
                 </span>
               </div>
               <div className="flex justify-between">
