@@ -113,6 +113,7 @@ export default function TradesPage() {
   const [range, setRange] = useState<Range>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 25;
+  const [selectedTrade, setSelectedTrade] = useState<TradeRec | null>(null);
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
 
   useEffect(() => {
@@ -444,48 +445,52 @@ export default function TradesPage() {
             <table className="w-full text-sm font-mono">
               <thead>
                 <tr className="text-textSecondary text-xs border-b border-border/20">
-                  <th className="text-left px-3 py-2">Symbol</th>
-                  <th className="text-left px-3 py-2">Side</th>
-                  {source !== 'predict' && <th className="text-right px-3 py-2">Qty</th>}
-                  <th className="text-right px-3 py-2">開倉價</th>
-                  {source !== 'predict' && <th className="text-right px-3 py-2">平倉價</th>}
-                  {source !== 'predict' && <th className="text-right px-3 py-2">槓桿</th>}
-                  {source !== 'predict' && <th className="text-right px-3 py-2">名義</th>}
-                  <th className="text-right px-3 py-2">盈虧</th>
-                  {source !== 'predict' && <th className="text-right px-3 py-2">費用</th>}
-                  <th className="text-left px-3 py-2">開倉</th>
-                  {source !== 'predict' && <th className="text-left px-3 py-2">平倉</th>}
-                  {source !== 'predict' && <th className="text-left px-3 py-2">持倉</th>}
-                  <th className="text-left px-3 py-2">狀態</th>
+                  <th className="text-left px-4 py-2.5">Symbol / Side</th>
+                  <th className="text-right px-4 py-2.5">名義 / 槓桿</th>
+                  <th className="text-right px-4 py-2.5">盈虧 (PnL)</th>
+                  <th className="text-right px-4 py-2.5">平倉時間</th>
+                  <th className="text-center px-4 py-2.5">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRecords.map((r, i) => {
                   const p = pnlOf(r);
-                  const fee = Number(r.fee ?? 0) + Number(r.fundingFee ?? 0);
-                  const openTs = sortKey(r);
-                  const closeTs = r.closeTime ?? 0;
+                  const closeTs = r.closeTime || r.ts || sortKey(r);
+                  const notionalVal = r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—');
+                  const levStr = r.leverage != null ? `(${r.leverage}x)` : '';
+                  const sideStr = r.side ? `(${r.side})` : '';
+
                   return (
-                    <tr key={i} className="border-b border-border/10 hover:bg-surface/40">
-                      <td className="px-3 py-2 text-text">{simplifySymbol(r.symbol)}</td>
-                      <td className="px-3 py-2 text-textSecondary">{r.side}</td>
-                      {source !== 'predict' && <td className="px-3 py-2 text-right text-textSecondary">{fmtQty(r.qty ?? r.positionAmt)}</td>}
-                      <td className="px-3 py-2 text-right text-text">{fmtPrice(r.avgPrice)}</td>
-                      {source !== 'predict' && <td className="px-3 py-2 text-right text-text">{fmtPrice(r.exitPrice)}</td>}
-                      {source !== 'predict' && <td className="px-3 py-2 text-right text-textSecondary">{r.leverage != null ? `${r.leverage}x` : '—'}</td>}
-                      {source !== 'predict' && <td className="px-3 py-2 text-right text-text">{r.notional ? fmt(r.notional) : (r.positionValue ? fmt(r.positionValue) : '—')}</td>}
-                      <td className={`px-3 py-2 text-right ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
+                    <tr
+                      key={i}
+                      onClick={() => setSelectedTrade(r)}
+                      className="border-b border-border/10 hover:bg-surface/60 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-text">
+                        <span>{simplifySymbol(r.symbol)}</span>{' '}
+                        <span className="text-xs text-textSecondary font-normal">{sideStr}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-text font-mono">
+                        <span>{notionalVal}</span>{' '}
+                        <span className="text-xs text-textSecondary">{levStr}</span>
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         {p >= 0 ? '+' : ''}{fmt(p)}
                       </td>
-                      {source !== 'predict' && <td className="px-3 py-2 text-right text-danger">{fee !== 0 ? `-${fmt(Math.abs(fee), 4)}` : '—'}</td>}
-                      <td className="px-3 py-2 text-textSecondary">
-                        {openTs ? new Date(openTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </td>
-                      {source !== 'predict' && <td className="px-3 py-2 text-textSecondary">
+                      <td className="px-4 py-3 text-right text-textSecondary text-xs">
                         {closeTs ? new Date(closeTs).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </td>}
-                      {source !== 'predict' && <td className="px-3 py-2 text-textSecondary">{fmtDuration(r.holdDuration)}</td>}
-                      <td className="px-3 py-2 text-textSecondary">{r.status}</td>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTrade(r);
+                          }}
+                          className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors"
+                        >
+                          詳情
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -523,6 +528,104 @@ export default function TradesPage() {
           </div>
         )}
       </Card>
+
+      {/* 交易詳情 Modal 彈窗 */}
+      {selectedTrade && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setSelectedTrade(null)}
+        >
+          <div
+            className="w-full max-w-md bg-surface border border-border/40 rounded-xl p-6 shadow-2xl font-mono"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-text">{simplifySymbol(selectedTrade.symbol)}</span>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${selectedTrade.side?.includes('LONG') ? 'bg-accent/20 text-accent' : 'bg-danger/20 text-danger'}`}>
+                  {selectedTrade.side}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedTrade(null)}
+                className="text-textSecondary hover:text-text text-xl leading-none px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-textSecondary">數量 (Qty)</span>
+                <span className="text-text">{fmtQty(selectedTrade.qty ?? selectedTrade.positionAmt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">開倉價格</span>
+                <span className="text-text">{fmtPrice(selectedTrade.avgPrice)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">平倉價格</span>
+                <span className="text-text">{fmtPrice(selectedTrade.exitPrice)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">槓桿倍數</span>
+                <span className="text-text">{selectedTrade.leverage != null ? `${selectedTrade.leverage}x` : '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">名義價值</span>
+                <span className="text-text">{selectedTrade.notional ? fmt(selectedTrade.notional) : (selectedTrade.positionValue ? fmt(selectedTrade.positionValue) : '—')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">盈虧 (PnL)</span>
+                <span className={`font-medium ${pnlOf(selectedTrade) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {pnlOf(selectedTrade) >= 0 ? '+' : ''}{fmt(pnlOf(selectedTrade))}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">手續費 / 資金費</span>
+                <span className="text-danger">
+                  {(Number(selectedTrade.fee ?? 0) + Number(selectedTrade.fundingFee ?? 0)) !== 0
+                    ? `-${fmt(Math.abs(Number(selectedTrade.fee ?? 0) + Number(selectedTrade.fundingFee ?? 0)), 4)}`
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">開倉時間</span>
+                <span className="text-text">
+                  {sortKey(selectedTrade)
+                    ? new Date(sortKey(selectedTrade)).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">平倉時間</span>
+                <span className="text-text">
+                  {selectedTrade.closeTime
+                    ? new Date(selectedTrade.closeTime).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">持倉時間</span>
+                <span className="text-text">{fmtDuration(selectedTrade.holdDuration)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-textSecondary">狀態</span>
+                <span className="text-text">{selectedTrade.status}</span>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-border/20 text-right">
+              <button
+                onClick={() => setSelectedTrade(null)}
+                className="px-4 py-1.5 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-text font-medium transition-colors"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .heat-cell {
