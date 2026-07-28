@@ -412,33 +412,10 @@ export default function TradesPage() {
               <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
             </Card>
           </div>
-
-          {/* PnL Calendar Heatmap (journalit ContributionsHeatmap 風格) */}
-          <Card className="p-4 mb-6">
-            <p className="text-xs text-textSecondary font-mono mb-3">PnL 日曆 (近 12 週, 綠=盈/紅=虧)</p>
-            <div className="flex flex-wrap gap-1">
-              {heatmap.map((d) => (
-                <div
-                  key={d.key}
-                  className={`heat-cell ${heatClass(d.pnl)}`}
-                  title={`${d.key}: ${d.pnl >= 0 ? '+' : ''}${fmt(d.pnl)}`}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-3 text-xs font-mono text-textSecondary">
-              <span>少</span>
-              <span className="heat-cell heat-empty" />
-              <span className="heat-cell heat-loss-2" />
-              <span className="heat-cell heat-loss-4" />
-              <span className="heat-cell heat-profit-2" />
-              <span className="heat-cell heat-profit-4" />
-              <span>多</span>
-            </div>
-          </Card>
         </>
       )}
 
-      {/* 日曆組件 */}
+      {/* 交易日曆組件 */}
       <TradingCalendar records={records} />
 
       {/* 交易表格 */}
