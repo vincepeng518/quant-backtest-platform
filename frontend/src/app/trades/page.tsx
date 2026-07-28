@@ -108,12 +108,14 @@ export default function TradesPage() {
   const [source, setSource] = useState<'bingx' | 'arb' | 'predict'>('bingx');
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const [feesTotal, setFeesTotal] = useState<number | null>(null);
+  const [fundingTotal, setFundingTotal] = useState<number | null>(null);
   const [metrics30d, setMetrics30d] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 50;
+  const pageSize = 25;
   const [selectedTrade, setSelectedTrade] = useState<TradeRec | null>(null);
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
 
@@ -132,15 +134,14 @@ export default function TradesPage() {
       .then((d: any) => {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
+        setFeesTotal(d.fees_total ?? null);
+        setFundingTotal(d.funding_total ?? null);
         setMetrics30d(d.metrics_30d ?? null);
         setCurrentPage(1);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
   }, [source]);
-
-  // fees 用 metrics30d 內建的 fee_total
-  const feesTotal = metrics30d?.fee_total ?? null;
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
@@ -183,7 +184,6 @@ export default function TradesPage() {
   const stats = useMemo(() => {
     let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
     let longPnl = 0, shortPnl = 0;
-    let totalFee = 0;
     let streak = 0, maxWinStreak = 0, maxLossStreak = 0;
     // 按 ts 排序算連續 (升冪)
     const sorted = [...filtered].sort((a, b) => sortKey(a) - sortKey(b));
@@ -191,8 +191,6 @@ export default function TradesPage() {
       const p = pnlOf(r);
       totalPnl += p;
       totalPos += Number(r.positionValue ?? 0);
-      const fee = Number(r.fee ?? ((r.entry_fee ?? 0) + (r.exit_fee ?? 0)));
-      totalFee += fee;
       if (p > 0) { wins++; streak = streak > 0 ? streak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, streak); }
       else if (p < 0) { losses++; streak = streak < 0 ? streak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, -streak); }
       else scr++;
@@ -203,7 +201,7 @@ export default function TradesPage() {
     const closed = wins + losses;
     const winRate = closed > 0 ? (wins / closed) * 100 : 0;
     const avgPnl = closed > 0 ? totalPnl / closed : 0;
-    return { totalPnl, totalPos, totalFee, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, maxWinStreak, maxLossStreak };
+    return { totalPnl, totalPos, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, maxWinStreak, maxLossStreak };
   }, [filtered]);
 
   // PnL Calendar Heatmap (journalit 風格)
@@ -293,12 +291,12 @@ export default function TradesPage() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">淨 P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
+              <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
               <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)} USDT
               </p>
-              <p className="text-xs text-textSecondary font-mono mt-0.5 opacity-80">
-                已扣除手續費 -{fmt(stats.totalFee)} USDT
+              <p className="text-xs text-textSecondary font-mono mt-0.5">
+                ≈ {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl * 32.5)} TWD
               </p>
             </Card>
             <Card className="p-4">
@@ -309,18 +307,28 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
               <p className={`text-xl font-mono font-semibold ${stats.avgPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)} USDT
+                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)}
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">總倉位大小</p>
-              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)} USDT</p>
+              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
             </Card>
           </div>
 
-          {/* 30d 統計 (保留勝率) */}
+          {/* 官方風格 30d 統計 (對齊 BingX 交易分析) */}
           {metrics30d && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">已實現盈虧 (30d)</p>
+                <p className={`text-xl font-mono font-semibold ${(metrics30d.pnl ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">交易額/總倉位 (30d)</p>
+                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)}</p>
+              </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
                 <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.win_rate ?? 0, 1)}%</p>
@@ -329,22 +337,25 @@ export default function TradesPage() {
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額</p>
                 <p className="text-sm font-mono">
-                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)} USDT</span>
+                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)}</span>
                   {' / '}
-                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)} USDT</span>
+                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)}</span>
                 </p>
               </Card>
             </div>
           )}
 
-          {/* 手續費明細 (已內含於淨 P/L) */}
-          {stats.totalFee > 0 && (
+          {/* 手續費 + 資金費用 (另計, 不併入 P/L) */}
+          {feesTotal != null && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">已納入扣除之手續費</p>
-                <p className="text-xl font-mono font-semibold text-textSecondary">-{fmt(stats.totalFee)} USDT</p>
-                <p className="text-xs text-textSecondary font-mono mt-0.5 opacity-70">
-                  (已內含於上方淨 P/L，不重複扣除)
+                <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
+                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-textSecondary font-mono mb-1">資金費用 (Funding)</p>
+                <p className={`text-xl font-mono font-semibold ${(fundingTotal ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)}
                 </p>
               </Card>
             </div>
@@ -355,13 +366,13 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">多頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.longPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)} USDT
+                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)}
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">空頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.shortPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)} USDT
+                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)}
               </p>
             </Card>
             <Card className="p-4">
@@ -374,21 +385,60 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 專業績效指標 (保留 Sharpe + Profit Factor) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
               <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
+              <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
+              <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
               <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
             </Card>
           </div>
+
+          {/* PnL Calendar Heatmap (journalit ContributionsHeatmap 風格) */}
+          <Card className="p-4 mb-6">
+            <p className="text-xs text-textSecondary font-mono mb-3">PnL 日曆 (近 12 週, 綠=盈/紅=虧)</p>
+            <div className="flex flex-wrap gap-1">
+              {heatmap.map((d) => (
+                <div
+                  key={d.key}
+                  className={`heat-cell ${heatClass(d.pnl)}`}
+                  title={`${d.key}: ${d.pnl >= 0 ? '+' : ''}${fmt(d.pnl)}`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-3 text-xs font-mono text-textSecondary">
+              <span>少</span>
+              <span className="heat-cell heat-empty" />
+              <span className="heat-cell heat-loss-2" />
+              <span className="heat-cell heat-loss-4" />
+              <span className="heat-cell heat-profit-2" />
+              <span className="heat-cell heat-profit-4" />
+              <span>多</span>
+            </div>
+          </Card>
         </>
       )}
 
-      {/* 交易日曆組件 */}
+      {/* 日曆組件 */}
       <TradingCalendar records={records} />
 
       {/* 交易表格 */}
@@ -428,7 +478,7 @@ export default function TradesPage() {
                   return (
                     <tr
                       key={i}
-                      onClick={() => setSelectedTrade(selectedTrade === r ? null : r)}
+                      onClick={() => setSelectedTrade(r)}
                       className="border-b border-border/10 hover:bg-surface/60 cursor-pointer transition-colors"
                     >
                       <td className="px-4 py-3.5 font-medium text-text">
@@ -452,7 +502,7 @@ export default function TradesPage() {
                             e.stopPropagation();
                             setSelectedTrade(r);
                           }}
-                          className="px-3 py-2 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors min-h-[36px]"
+                          className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors"
                         >
                           詳情
                         </button>
@@ -474,7 +524,7 @@ export default function TradesPage() {
               <button
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="flex h-10 w-10 items-center justify-center rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="上一頁"
               >
                 &lt;
@@ -485,7 +535,7 @@ export default function TradesPage() {
               <button
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="flex h-10 w-10 items-center justify-center rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="下一頁"
               >
                 &gt;
@@ -498,11 +548,11 @@ export default function TradesPage() {
       {/* 交易詳情 Modal 彈窗 */}
       {selectedTrade && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={() => setSelectedTrade(null)}
         >
           <div
-            className="w-full sm:max-w-md max-h-[85vh] overflow-y-auto bg-surface border sm:border-border/40 rounded-t-xl sm:rounded-xl p-5 sm:p-6 shadow-2xl font-mono animate-[slideUp_200ms_ease-out]"
+            className="w-full max-w-md bg-surface border border-border/40 rounded-xl p-6 shadow-2xl font-mono"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-4 border-b border-border/20">
@@ -514,7 +564,7 @@ export default function TradesPage() {
               </div>
               <button
                 onClick={() => setSelectedTrade(null)}
-                className="flex h-10 w-10 items-center justify-center text-textSecondary hover:text-text text-xl leading-none"
+                className="text-textSecondary hover:text-text text-xl leading-none px-2 py-1"
               >
                 ✕
               </button>
@@ -586,7 +636,7 @@ export default function TradesPage() {
             <div className="pt-3 border-t border-border/20 text-right">
               <button
                 onClick={() => setSelectedTrade(null)}
-                className="px-6 py-2.5 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-text font-medium transition-colors min-h-[44px]"
+                className="px-4 py-1.5 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-text font-medium transition-colors"
               >
                 關閉
               </button>

@@ -30,7 +30,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // ── Daily Group By ──
+  // 依日期 (YYYY-MM-DD) Group By 彙整 PnL 與交易筆數
   const dailySummary = useMemo(() => {
     const summary: Record<
       string,
@@ -65,13 +65,22 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
     return summary;
   }, [records]);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const handleToday = () => setCurrentDate(new Date());
+  // 切換月份
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
 
-  // ── 月曆網格 ──
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const handleToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // 生成當月日曆網格 (包含前置空白)
   const calendarCells = useMemo(() => {
-    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = SUN
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const cells: Array<{
@@ -80,6 +89,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
       isToday: boolean;
     }> = [];
 
+    // 填充第一天之前的空白格
     for (let i = 0; i < firstDayOfWeek; i++) {
       cells.push({ dayNum: null, dateKey: null, isToday: false });
     }
@@ -92,6 +102,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
       const dd = String(d).padStart(2, '0');
       const dateKey = `${year}-${mm}-${dd}`;
       const isToday = isCurrentMonthYear && now.getDate() === d;
+
       cells.push({ dayNum: d, dateKey, isToday });
     }
 
@@ -101,339 +112,169 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
   const monthLabel = `${year}年${month + 1}月`;
   const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-  // ── CSS Variables 注入：精準配色 ──
-  // 暗色（Lucid Trading）＆ 亮色（Cursor 官網）
-  const colorVars = {
-    '--tc-page-bg': '#0B0E11',
-    '--tc-card-bg': '#12151A',
-    '--tc-cell-default-bg': '#181B20',
-    '--tc-cell-default-border': '#22262E',
-    '--tc-profit-bg': '#12251E',
-    '--tc-profit-text': '#36D399',
-    '--tc-profit-border': '#1E4D3B',
-    '--tc-loss-bg': '#2A181C',
-    '--tc-loss-text': '#F87171',
-    '--tc-loss-border': '#52222B',
-    '--tc-main-text': '#EAECF0',
-    '--tc-secondary-text': '#858D9D',
-    '--tc-light-page-bg': '#F7F7F5',
-    '--tc-light-card-bg': '#FFFFFF',
-    '--tc-light-cell-default-bg': '#F2F1ED',
-    '--tc-light-cell-default-border': '#E5E4DF',
-    '--tc-light-profit-bg': '#E6F4EA',
-    '--tc-light-profit-text': '#137333',
-    '--tc-light-profit-border': '#CEEAD6',
-    '--tc-light-loss-bg': '#FCE8E6',
-    '--tc-light-loss-text': '#C5221F',
-    '--tc-light-loss-border': '#FAD2CF',
-    '--tc-light-main-text': '#1A1A1A',
-    '--tc-light-secondary-text': '#666666',
-  };
-
   return (
-    <Card className="p-5 space-y-4 relative overflow-hidden">
-      {/* 全域 CSS 變數 + 淺/暗色切換樣式 */}
-      <style jsx global>{`
-        .trading-calendar-root {
-          /* 暗色預設值 */
-          --tc-page-bg: #0B0E11;
-          --tc-card-bg: #12151A;
-          --tc-cell-default-bg: #181B20;
-          --tc-cell-default-border: #22262E;
-          --tc-profit-bg: #12251E;
-          --tc-profit-text: #36D399;
-          --tc-profit-border: #1E4D3B;
-          --tc-loss-bg: #2A181C;
-          --tc-loss-text: #F87171;
-          --tc-loss-border: #52222B;
-          --tc-main-text: #EAECF0;
-          --tc-secondary-text: #858D9D;
-          --tc-cell-empty-bg: #101318;
-          --tc-cell-empty-border: #191D24;
-        }
-        :root.dark .trading-calendar-root,
-        .dark .trading-calendar-root {
-          --tc-page-bg: #0B0E11;
-          --tc-card-bg: #12151A;
-          --tc-cell-default-bg: #181B20;
-          --tc-cell-default-border: #22262E;
-          --tc-profit-bg: #12251E;
-          --tc-profit-text: #36D399;
-          --tc-profit-border: #1E4D3B;
-          --tc-loss-bg: #2A181C;
-          --tc-loss-text: #F87171;
-          --tc-loss-border: #52222B;
-          --tc-main-text: #EAECF0;
-          --tc-secondary-text: #858D9D;
-          --tc-cell-empty-bg: #101318;
-          --tc-cell-empty-border: #191D24;
-        }
-        :root:not(.dark) .trading-calendar-root,
-        .light .trading-calendar-root {
-          --tc-page-bg: #F7F7F5;
-          --tc-card-bg: #FFFFFF;
-          --tc-cell-default-bg: #F2F1ED;
-          --tc-cell-default-border: #E5E4DF;
-          --tc-profit-bg: #E6F4EA;
-          --tc-profit-text: #137333;
-          --tc-profit-border: #CEEAD6;
-          --tc-loss-bg: #FCE8E6;
-          --tc-loss-text: #C5221F;
-          --tc-loss-border: #FAD2CF;
-          --tc-main-text: #1A1A1A;
-          --tc-secondary-text: #666666;
-          --tc-cell-empty-bg: #FDFDFC;
-          --tc-cell-empty-border: #F0EFEA;
-        }
-      `}</style>
-
-      <div className="trading-calendar-root">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4" style={{ borderColor: 'var(--tc-cell-default-border)', color: 'var(--tc-main-text)' }}>
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold font-sans" style={{ color: 'var(--tc-main-text)' }}>
-              Trading Calendar
-            </h2>
-            <div
-              className="flex items-center p-1 rounded-lg text-xs font-mono"
-              style={{
-                backgroundColor: 'var(--tc-cell-default-bg)',
-                borderColor: 'var(--tc-cell-default-border)',
-                borderWidth: 1,
-              }}
+    <Card className="p-5 space-y-4">
+      {/* 頂部 Header 控制列 */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/20 pb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-bold font-sans text-text">Trading Calendar</h2>
+          {/* PNL / Events 模式切換 */}
+          <div className="flex items-center bg-surface p-1 rounded-lg border border-border/30 text-xs font-mono">
+            <button
+              onClick={() => setMode('pnl')}
+              className={`px-3 py-1 rounded-md transition-colors ${
+                mode === 'pnl'
+                  ? 'bg-accent text-background font-medium'
+                  : 'text-textSecondary hover:text-text'
+              }`}
             >
-              <button
-                onClick={() => setMode('pnl')}
-                className="px-3 py-1 rounded-md transition-colors font-medium"
-                style={{
-                  backgroundColor: mode === 'pnl' ? 'var(--tc-profit-text)' : 'transparent',
-                  color: mode === 'pnl' ? '#000000' : 'var(--tc-secondary-text)',
-                }}
-              >
-                PNL
-              </button>
-              <button
-                onClick={() => setMode('events')}
-                className="px-3 py-1 rounded-md transition-colors font-medium"
-                style={{
-                  backgroundColor: mode === 'events' ? 'var(--tc-profit-text)' : 'transparent',
-                  color: mode === 'events' ? '#000000' : 'var(--tc-secondary-text)',
-                }}
-              >
-                Events
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 font-mono text-sm">
-            {/* Year/Month dropdown picker */}
-            <select
-              value={month}
-              onChange={(e) => setCurrentDate(new Date(year, Number(e.target.value), 1))}
-              className="rounded px-2 py-1 text-xs font-mono cursor-pointer"
-              style={{
-                backgroundColor: 'var(--tc-cell-default-bg)',
-                border: `1px solid var(--tc-cell-default-border)`,
-                color: 'var(--tc-main-text)',
-              }}
+              PNL
+            </button>
+            <button
+              onClick={() => setMode('events')}
+              className={`px-3 py-1 rounded-md transition-colors ${
+                mode === 'events'
+                  ? 'bg-accent text-background font-medium'
+                  : 'text-textSecondary hover:text-text'
+              }`}
             >
-              {Array.from({ length: 12 }).map((_, i) => (
-                <option key={i} value={i} className="bg-[#12151A]">
-                  {i + 1}月
-                </option>
-              ))}
-            </select>
-            <select
-              value={year}
-              onChange={(e) => setCurrentDate(new Date(Number(e.target.value), month, 1))}
-              className="rounded px-2 py-1 text-xs font-mono cursor-pointer"
-              style={{
-                backgroundColor: 'var(--tc-cell-default-bg)',
-                border: `1px solid var(--tc-cell-default-border)`,
-                color: 'var(--tc-main-text)',
-              }}
-            >
-              {(() => {
-                const years = new Set<number>();
-                const now = new Date().getFullYear();
-                records.forEach((r) => {
-                  const t = r.closeTime || r.ts || r.openTs;
-                  if (t) {
-                    const y = new Date(t).getFullYear();
-                    if (!isNaN(y)) years.add(y);
-                  }
-                });
-                if (years.size === 0) years.add(now);
-                const yearList = Array.from(years);
-                const min = Math.min(...yearList);
-                const max = Math.max(...yearList, now);
-                const opts: number[] = [];
-                for (let y = max; y >= min; y--) opts.push(y);
-                return opts.map((y) => (
-                  <option key={y} value={y} className="bg-[#12151A]">
-                    {y}年
-                  </option>
-                ));
-              })()}
-            </select>
-            <span className="font-bold px-2 hidden sm:inline" style={{ color: 'var(--tc-main-text)' }}>
-              {monthLabel}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handlePrevMonth}
-                className="px-2.5 py-1 rounded transition-colors"
-                style={{
-                  backgroundColor: 'var(--tc-cell-default-bg)',
-                  border: `1px solid var(--tc-cell-default-border)`,
-                  color: 'var(--tc-secondary-text)',
-                }}
-              >
-                &lt;
-              </button>
-              <button
-                onClick={handleToday}
-                className="px-2 py-1 rounded transition-colors text-xs"
-                style={{
-                  backgroundColor: 'var(--tc-cell-default-bg)',
-                  border: `1px solid var(--tc-cell-default-border)`,
-                  color: 'var(--tc-secondary-text)',
-                }}
-              >
-                Today
-              </button>
-              <button
-                onClick={handleNextMonth}
-                className="px-2.5 py-1 rounded transition-colors"
-                style={{
-                  backgroundColor: 'var(--tc-cell-default-bg)',
-                  border: `1px solid var(--tc-cell-default-border)`,
-                  color: 'var(--tc-secondary-text)',
-                }}
-              >
-                &gt;
-              </button>
-            </div>
+              Events
+            </button>
           </div>
         </div>
 
-        {/* Grid — 外層 overflow-x-auto：窄屏橫向捲動，嚴禁單元格擠壓溢出 */}
-        <div className="overflow-x-auto">
-          <div
-            className="grid min-w-[560px] grid-cols-7 gap-2 font-mono"
-            style={{ backgroundColor: 'var(--tc-card-bg)' }}
-          >
-          {weekDays.map((wd) => (
-            <div
-              key={wd}
-              className="text-center py-1 text-xs font-semibold"
-              style={{
-                color: 'var(--tc-secondary-text)',
-                borderBottom: `1px solid var(--tc-cell-default-border)`,
-              }}
+        {/* 月份切換與年月顯示 */}
+        <div className="flex items-center gap-2 font-mono text-sm">
+          <span className="font-bold text-text px-2">{monthLabel}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handlePrevMonth}
+              className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors"
+              title="上一月"
             >
-              {wd}
-            </div>
-          ))}
+              &lt;
+            </button>
+            <button
+              onClick={handleToday}
+              className="px-2 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-xs text-textSecondary hover:text-text transition-colors"
+            >
+              Today
+            </button>
+            <button
+              onClick={handleNextMonth}
+              className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors"
+              title="下一月"
+            >
+              &gt;
+            </button>
+          </div>
+        </div>
+      </div>
 
-          {calendarCells.map((cell, idx) => {
-            if (!cell.dayNum || !cell.dateKey) {
-              return (
-                <div
-                  key={`empty-${idx}`}
-                  className="min-h-[76px] rounded-lg"
-                  style={{
-                    backgroundColor: 'var(--tc-cell-empty-bg)',
-                    opacity: 0.3,
-                  }}
-                />
-              );
-            }
+      {/* 7 欄 CSS Grid 日曆網格 */}
+      <div className="grid grid-cols-7 gap-1.5 font-mono">
+        {/* 星期 Header */}
+        {weekDays.map((wd) => (
+          <div
+            key={wd}
+            className="text-center py-1 text-xs font-semibold text-textSecondary border-b border-border/10"
+          >
+            {wd}
+          </div>
+        ))}
 
-            const dayData = dailySummary[cell.dateKey];
-            const hasTrade = dayData && dayData.totalCount > 0;
-            const pnl = dayData?.totalPnl ?? 0;
-            const winRate = hasTrade
-              ? Math.round((dayData.winCount / dayData.totalCount) * 100)
-              : 0;
-
-            // ── 依據盈虧決定色系 ──
-            let cellBg: string;
-            let cellTextColor: string;
-            let cellBorder: string;
-
-            if (hasTrade) {
-              if (pnl > 0) {
-                cellBg = 'var(--tc-profit-bg)';
-                cellTextColor = 'var(--tc-profit-text)';
-                cellBorder = 'var(--tc-profit-border)';
-              } else if (pnl < 0) {
-                cellBg = 'var(--tc-loss-bg)';
-                cellTextColor = 'var(--tc-loss-text)';
-                cellBorder = 'var(--tc-loss-border)';
-              } else {
-                cellBg = 'var(--tc-cell-default-bg)';
-                cellTextColor = 'var(--tc-main-text)';
-                cellBorder = 'var(--tc-cell-default-border)';
-              }
-            } else {
-              cellBg = 'var(--tc-cell-empty-bg)';
-              cellTextColor = 'var(--tc-main-text)';
-              cellBorder = 'var(--tc-cell-empty-border)';
-            }
-
-            const fmtPnl = (val: number) => {
-              const absVal = Math.abs(val).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              });
-              return val >= 0 ? `${currencySymbol}${absVal}` : `-${currencySymbol}${absVal}`;
-            };
-
+        {/* 日期格子 */}
+        {calendarCells.map((cell, idx) => {
+          if (!cell.dayNum || !cell.dateKey) {
             return (
               <div
-                key={cell.dateKey}
-                className="flex min-w-0 flex-col items-center justify-center overflow-hidden min-h-[68px] rounded-lg border transition-all text-center"
-                style={{
-                  backgroundColor: cellBg,
-                  borderColor: cell.isToday ? 'var(--tc-profit-text)' : cellBorder,
-                  borderWidth: 1,
-                  outline: cell.isToday ? `2px solid var(--tc-profit-text)` : 'none',
-                  outlineOffset: '-2px',
-                  padding: '6px 4px',
-                }}
-              >
-                {/* 日期數字 */}
-                <div
-                  className="text-xs font-bold leading-tight sm:text-sm"
-                  style={{
-                    color: cell.isToday ? 'var(--tc-profit-text)' : 'var(--tc-secondary-text)',
-                  }}
+                key={`empty-${idx}`}
+                className="min-h-[76px] rounded-lg bg-surface/20 opacity-30"
+              />
+            );
+          }
+
+          const dayData = dailySummary[cell.dateKey];
+          const hasTrade = dayData && dayData.totalCount > 0;
+          const pnl = dayData?.totalPnl ?? 0;
+
+          // 計算勝率
+          const winRate = hasTrade
+            ? Math.round((dayData.winCount / dayData.totalCount) * 100)
+            : 0;
+
+          let bgClass = 'bg-surface/50 border-border/20 hover:border-border/50';
+          if (hasTrade) {
+            if (pnl > 0) {
+              // 綠色獲利風格
+              bgClass =
+                'bg-emerald-950/60 dark:bg-emerald-950/80 border-emerald-500/40 text-emerald-400';
+            } else if (pnl < 0) {
+              // 紅色虧損風格
+              bgClass =
+                'bg-rose-950/60 dark:bg-rose-950/80 border-rose-500/40 text-rose-400';
+            } else {
+              bgClass = 'bg-surface border-border/40 text-text';
+            }
+          }
+
+          const fmtPnl = (val: number) => {
+            const absVal = Math.abs(val).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            return val >= 0 ? `${currencySymbol}${absVal}` : `-${currencySymbol}${absVal}`;
+          };
+
+          return (
+            <div
+              key={cell.dateKey}
+              className={`min-h-[76px] p-2 rounded-lg border transition-all flex flex-col justify-between ${bgClass} ${
+                cell.isToday ? 'ring-2 ring-accent' : ''
+              }`}
+            >
+              {/* 頂部：日期數字 */}
+              <div className="flex justify-between items-start">
+                <span
+                  className={`text-xs font-bold ${
+                    cell.isToday ? 'text-accent' : 'text-textSecondary'
+                  }`}
                 >
                   {cell.dayNum}
-                </div>
-
-                {/* 內容區 */}
-                {hasTrade ? (
-                  mode === 'pnl' ? (
-                    <div className="mt-0.5 w-full text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="whitespace-nowrap text-[10px] font-bold tabular-nums sm:text-xs lg:text-sm">{fmtPnl(pnl)}</div>
-                      <div className="whitespace-nowrap text-[9px] tabular-nums sm:text-[10px]" style={{ opacity: 0.75 }}>{winRate}%</div>
-                    </div>
-                  ) : (
-                    <div className="mt-0.5 w-full text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="whitespace-nowrap text-[10px] font-bold tabular-nums sm:text-xs lg:text-sm">{fmtPnl(pnl)}</div>
-                      <div className="whitespace-nowrap text-[9px] tabular-nums sm:text-[10px]" style={{ opacity: 0.75 }}>
-                        {dayData.winCount}W|{dayData.totalCount - dayData.winCount}L
-                      </div>
-                    </div>
-                  )
-                ) : null}
+                </span>
+                {hasTrade && mode === 'events' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface/80 text-textSecondary">
+                    {dayData.totalCount} 筆
+                  </span>
+                )}
               </div>
-            );
-          })}
-          </div>
-        </div>
+
+              {/* 中央/底部：根據模式與資料顯示 */}
+              {hasTrade ? (
+                mode === 'pnl' ? (
+                  <div className="mt-1 space-y-0.5">
+                    <div className="text-xs font-bold truncate">
+                      {fmtPnl(pnl)}
+                    </div>
+                    <div className="text-[10px] opacity-80 flex justify-between items-center">
+                      <span>勝率</span>
+                      <span className="font-semibold">{winRate}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1 text-[11px] font-mono space-y-0.5">
+                    <div className="truncate font-semibold">{fmtPnl(pnl)}</div>
+                    <div className="text-[10px] opacity-75">
+                      {dayData.winCount}勝 / {dayData.totalCount - dayData.winCount}負
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="text-[10px] text-textSecondary/30 select-none">-</div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
