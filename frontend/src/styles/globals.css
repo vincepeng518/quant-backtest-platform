@@ -20,16 +20,16 @@
 
 /* ── Ink & Bullion — desk (dark, default scene) ── */
 .dark {
-  --background: 13 17 26;
-  --surface: 18 23 34;
-  --surface-2: 24 30 44;
-  --text: 216 220 228;
-  --text-secondary: 128 134 148;
-  --border: 44 52 70;
-  --accent: 0 122 255;
-  --accent-strong: 30 144 255;
-  --accent-ink: 255 255 255;
-  --signal: 0 122 255;
+  --background: 11 14 20;
+  --surface: 17 21 32;
+  --surface-2: 24 30 46;
+  --text: 241 245 249;
+  --text-secondary: 148 163 184;
+  --border: 255 255 255;
+  --accent: 56 189 248;
+  --accent-strong: 2 132 199;
+  --accent-ink: 15 23 42;
+  --signal: 56 189 248;
 }
 
 body {

@@ -256,17 +256,19 @@ export default function StrategiesPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {user.map((s) => (
-            <div key={s.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-2">
+            <div key={s.id} className="bg-surface/90 border border-white/[0.08] rounded-xl p-5 flex flex-col gap-3 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:border-accent/40 hover:shadow-[0_6px_24px_rgba(56,189,248,0.15)] hover:-translate-y-[1px] transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-text">{s.name}</span>
-                <span className={`text-xs ${s.status === 'error' ? 'text-danger' : 'text-success'}`}>{s.status ?? 'registered'}</span>
+                <span className="font-semibold text-text truncate">{s.name}</span>
+                <span className={`text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-full ${s.status === 'error' ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-success/10 text-success border border-success/20'}`}>{s.status ?? 'registered'}</span>
               </div>
-              <p className="text-sm text-textSecondary">{s.description || s.filename}</p>
-              {s.error && <p className="text-xs text-danger font-mono">{s.error}</p>}
-              <div className="flex items-center gap-3 pt-1">
-                <button onClick={() => router.push(`/backtest?strategy=user_${s.id}`)} className="text-xs text-accent hover:underline transition-colors">跑回測</button>
-                <button onClick={() => router.push(`/optimize?strategy=user_${s.id}`)} className="text-xs text-accent hover:underline transition-colors">跑優化</button>
-                <button onClick={() => remove(s.id)} className="text-xs text-textSecondary hover:text-danger transition-colors">刪除</button>
+              <p className="text-sm text-textSecondary line-clamp-2">{s.description || s.filename}</p>
+              {s.error && <p className="text-xs text-danger font-mono bg-danger/10 p-2 rounded border border-danger/20">{s.error}</p>}
+              <div className="mt-auto flex items-center justify-between pt-2 border-t border-white/[0.05]">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => router.push(`/backtest?strategy=user_${s.id}`)} className="text-xs font-medium text-slate-950 bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-1.5 rounded-md hover:shadow-[0_0_12px_rgba(56,189,248,0.4)] transition-all">跑回測</button>
+                  <button onClick={() => router.push(`/optimize?strategy=user_${s.id}`)} className="text-xs font-medium text-text bg-surface2/80 border border-white/[0.1] px-3 py-1.5 rounded-md hover:bg-surface2 transition-all">跑優化</button>
+                </div>
+                <button onClick={() => remove(s.id)} className="text-xs font-mono text-textSecondary hover:text-danger transition-colors p-1">刪除</button>
               </div>
             </div>
           ))}
