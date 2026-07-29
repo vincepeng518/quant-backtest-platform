@@ -210,8 +210,8 @@ function OptimizeView() {
           {status === 'completed' && (
             <Button variant="ghost" onClick={reset}>Reset</Button>
           )}
-          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary">
-            {status === 'running' ? 'Optimizing…' : 'Start Optimization'}
+          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary" className="!px-6 !py-3 !text-base !font-semibold min-w-[160px]">
+            {status === 'running' ? '優化中…' : '▶ 開始優化'}
           </Button>
         </div>
       </div>
