@@ -183,6 +183,7 @@ export default function TradesPage() {
   const stats = useMemo(() => {
     let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
     let longPnl = 0, shortPnl = 0;
+    let totalFee = 0;
     let streak = 0, maxWinStreak = 0, maxLossStreak = 0;
     // 按 ts 排序算連續 (升冪)
     const sorted = [...filtered].sort((a, b) => sortKey(a) - sortKey(b));
@@ -190,6 +191,8 @@ export default function TradesPage() {
       const p = pnlOf(r);
       totalPnl += p;
       totalPos += Number(r.positionValue ?? 0);
+      const fee = Number(r.fee ?? ((r.entry_fee ?? 0) + (r.exit_fee ?? 0)));
+      totalFee += fee;
       if (p > 0) { wins++; streak = streak > 0 ? streak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, streak); }
       else if (p < 0) { losses++; streak = streak < 0 ? streak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, -streak); }
       else scr++;
@@ -200,7 +203,7 @@ export default function TradesPage() {
     const closed = wins + losses;
     const winRate = closed > 0 ? (wins / closed) * 100 : 0;
     const avgPnl = closed > 0 ? totalPnl / closed : 0;
-    return { totalPnl, totalPos, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, maxWinStreak, maxLossStreak };
+    return { totalPnl, totalPos, totalFee, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, maxWinStreak, maxLossStreak };
   }, [filtered]);
 
   // PnL Calendar Heatmap (journalit 風格)
@@ -290,12 +293,12 @@ export default function TradesPage() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
+              <p className="text-xs text-textSecondary font-mono mb-1">淨 P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
               <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)} USDT
               </p>
-              <p className="text-xs text-textSecondary font-mono mt-0.5">
-                ≈ {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl * 32.5)} TWD
+              <p className="text-xs text-textSecondary font-mono mt-0.5 opacity-80">
+                已扣除手續費 -{fmt(stats.totalFee)} USDT
               </p>
             </Card>
             <Card className="p-4">
@@ -334,12 +337,15 @@ export default function TradesPage() {
             </div>
           )}
 
-          {/* 手續費 (另計, 不併入 P/L) */}
-          {feesTotal != null && feesTotal !== 0 && (
+          {/* 手續費明細 (已內含於淨 P/L) */}
+          {stats.totalFee > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
-                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)} USDT</p>
+                <p className="text-xs text-textSecondary font-mono mb-1">已納入扣除之手續費</p>
+                <p className="text-xl font-mono font-semibold text-textSecondary">-{fmt(stats.totalFee)} USDT</p>
+                <p className="text-xs text-textSecondary font-mono mt-0.5 opacity-70">
+                  (已內含於上方淨 P/L，不重複扣除)
+                </p>
               </Card>
             </div>
           )}
