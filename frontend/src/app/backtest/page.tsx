@@ -665,7 +665,7 @@ function BacktestView() {
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleRun} disabled={status === 'running'} variant="primary" className="!px-6 !py-3 !text-base !font-semibold min-w-[160px] bg-gradient-to-b from-[#1D4ED8] to-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_4px_rgba(0,0,0,0.3)] border border-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_12px_rgba(37,99,235,0.4)]">
-              {status === 'running' ? 'Running...' : '開始回測'}
+              {status === 'running' ? 'Running...' : 'Start 開始回測'}
             </Button>
             {results && (
               <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
