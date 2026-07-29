@@ -574,7 +574,7 @@ function BacktestView() {
               <button
                 key={label}
                 onClick={() => {
-                  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+                  const d = new Date(Date.now() - (days as number) * 24 * 60 * 60 * 1000);
                   setStartDate(d.toISOString().slice(0, 10));
                 }}
                 className="px-2 py-1 text-xs font-mono border border-border/40 rounded hover:border-accent hover:text-accent transition-colors"
