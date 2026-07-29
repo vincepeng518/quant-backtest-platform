@@ -138,6 +138,7 @@ function BacktestView() {
 
   const [makerProbability, setMakerProbability] = useState(0);
   const [forceLimit, setForceLimit] = useState(false);
+  const [showAllParams, setShowAllParams] = useState(false);
 
   useEffect(() => {
     loadSymbols();
@@ -569,7 +570,18 @@ function BacktestView() {
             onChange={(e) => setEndDate(e.target.value)}
           />
 
-          {params.map((p) => {
+          {params.length > 6 && (
+            <div className="col-span-full border-t border-border/10 pt-2 mt-1">
+              <button
+                onClick={() => setShowAllParams(!showAllParams)}
+                className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent hover:text-accentStrong transition-colors"
+              >
+                <span className={`transition-transform duration-200 ${showAllParams ? 'rotate-90' : ''}`}>▸</span>
+                策略參數（{params.length} 項）
+              </button>
+            </div>
+          )}
+          {(params.length <= 6 || showAllParams) && params.map((p) => {
             const isWeight = p.name.startsWith('w_');
             const label = isWeight
               ? `權重 · ${FACTOR_CN[p.name.slice(2)] || p.name.slice(2)}`
