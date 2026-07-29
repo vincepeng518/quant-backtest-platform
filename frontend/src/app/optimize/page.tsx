@@ -174,7 +174,7 @@ function OptimizeView() {
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-accent">Parameter Space</h2>
             <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-mono font-medium text-accent border border-accent/20">
-              {algo.toUpperCase()} SEARCH
+              {algorithm.toUpperCase()} SEARCH
             </span>
           </div>
           <Button variant="secondary" className="text-xs px-3 py-1.5" onClick={() => addParam(`param_${paramSpace.length + 1}`)}>+ Add Parameter</Button>
