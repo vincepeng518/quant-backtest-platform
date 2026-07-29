@@ -110,7 +110,7 @@ function DeskBoard({ loading, error, stats, rows }: ReturnType<typeof useDashboa
       {/* headline — left-aligned, the number is the hero */}
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+          <h1 className="font-display text-4xl font-semibold leading-[1.2] tracking-tight md:text-6xl">
             在市場中
             <br />
             <span className="text-accent">持續賺取 P&L</span>
@@ -155,11 +155,11 @@ function DeskBoard({ loading, error, stats, rows }: ReturnType<typeof useDashboa
       </div>
 
       {/* ledger stats strip */}
-      <div className="mt-12 grid grid-cols-2 gap-px border border-border/40 bg-border/30 lg:grid-cols-4">
+      <div className="mt-12 metrics-grid grid grid-cols-2 gap-px lg:grid-cols-4">
         {cells.map((c, i) => (
           <div
             key={c.label}
-            className="rise-in bg-surface p-5"
+            className="rise-in bg-surface p-5 metric-item"
             style={{ animationDelay: `${120 + i * 80}ms` }}
           >
             <div className="flex items-center gap-2">
@@ -234,7 +234,7 @@ function RecentRuns({ rows, loading, error }: Pick<ReturnType<typeof useDashboar
             className="ledger-row group flex items-center justify-between gap-4 px-3 py-3.5"
           >
             <div className="flex min-w-0 items-baseline gap-3">
-              <span className="hidden shrink-0 font-mono text-[11px] text-textSecondary sm:block">
+              <span className="hidden shrink-0 font-mono text-[11px] text-textSecondary/70 sm:block">
                 {r.created_at?.slice(0, 10)}
               </span>
               <span className="truncate font-medium text-text transition-colors group-hover:text-accent">

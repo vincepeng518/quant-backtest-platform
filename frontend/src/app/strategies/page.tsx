@@ -169,7 +169,7 @@ export default function StrategiesPage() {
             {gridRunning ? '執行中…' : '手動觸發'}
           </button>
         </div>
-        <div className="bg-surface border border-border/10 rounded-lg p-5 space-y-4">
+        <div className="bg-surface/50 border border-dashed border-border/20 rounded-lg p-5 space-y-4">
           {grid?.available ? (
             <>
               <div className="flex items-center gap-4 flex-wrap">

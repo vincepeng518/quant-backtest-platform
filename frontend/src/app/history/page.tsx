@@ -102,12 +102,12 @@ export default function HistoryPage() {
             {filtered.length === 0 ? (
               <div className="p-6"><EmptyState title="無符合結果" description="嘗試其他搜尋關鍵字" /></div>
             ) : (
-              <div className="divide-y divide-border/10">
+              <div className="space-y-px">
                 {filtered.map((it) => (
                   <button
                     key={it.task_id}
                     onClick={() => router.push(`/backtest?task=${it.task_id}`)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors rounded-sm [&:nth-child(odd)]:bg-surface/30"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-mono text-text truncate">

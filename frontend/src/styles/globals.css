@@ -44,6 +44,17 @@ body {
   overflow-x: hidden;
 }
 
+/* 隱藏原生 number spinner */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+}
+
 .font-display {
   font-family: 'Space Grotesk', 'PingFang TC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
@@ -94,6 +105,15 @@ body {
 }
 .rise-in {
   animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Metrics grid 強化邊界 ── */
+.metrics-grid {
+  border: 1px solid rgb(var(--border) / 0.15);
+  background: linear-gradient(180deg, rgb(var(--surface) / 0.5) 0%, transparent 100%);
+}
+.metric-item:not(:last-child) {
+  border-right: 1px solid rgb(var(--border) / 0.12);
 }
 
 /* ── TV-grade micro-interaction ── */
