@@ -33,6 +33,8 @@ export const Button: React.FC<ButtonProps> = ({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 };
