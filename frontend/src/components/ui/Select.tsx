@@ -13,16 +13,16 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full min-w-0">
         {label && (
-          <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-textSecondary">
+          <label className="mb-2 block text-xs font-medium tracking-wider text-textSecondary">
             {label}
           </label>
         )}
-        <div className="relative w-full overflow-hidden">
+        <div className="relative w-full">
           <select
             ref={ref}
             className={twMerge(
               clsx(
-                'w-full cursor-pointer appearance-none border-b border-border/60 bg-transparent py-1.5 pr-8 text-sm text-text duration-150 ease-out focus:border-accent focus:outline-none'
+                'w-full cursor-pointer appearance-none rounded-md border border-border/40 bg-surface py-2 pl-3 pr-9 text-sm text-text transition-all duration-150 ease-out hover:border-border/60 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30'
               ),
               className
             )}
@@ -34,10 +34,9 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             ))}
           </select>
-          {/* Pure CSS chevron — no SVG that can scale with parent */}
           <span
             aria-hidden
-            className="pointer-events-none absolute right-1 top-1/2 block h-2 w-2 -translate-y-[35%] rotate-45 border-b border-r border-textSecondary"
+            className="pointer-events-none absolute right-2.5 top-1/2 block h-1.5 w-1.5 -translate-y-1/2 rotate-45 border-b border-r border-textSecondary"
           />
         </div>
         {error && <p className="mt-1.5 text-xs text-danger">{error}</p>}

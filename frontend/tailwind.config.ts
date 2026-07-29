@@ -19,8 +19,8 @@ const config: Config = {
         accent: "rgb(var(--accent) / <alpha-value>)",
         accentStrong: "rgb(var(--accent-strong) / <alpha-value>)",
         accentInk: "rgb(var(--accent-ink) / <alpha-value>)",
-        success: "#089981",
-        danger: "#f23645",
+        success: "#34d399",
+        danger: "#f87171",
         tv: {
           green: "#089981",
           red: "#f23645",
