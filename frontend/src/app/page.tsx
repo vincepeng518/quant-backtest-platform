@@ -329,7 +329,7 @@ export default function Home() {
           href="/backtest"
           className="group mt-8 inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
         >
-          ▶ 開始回測
+          開始回測
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </section>

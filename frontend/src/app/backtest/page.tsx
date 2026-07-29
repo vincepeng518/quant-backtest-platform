@@ -651,7 +651,7 @@ function BacktestView() {
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleRun} disabled={status === 'running'} variant="primary" className="!px-6 !py-3 !text-base !font-semibold min-w-[160px]">
-              {status === 'running' ? 'Running...' : '▶ 開始回測'}
+              {status === 'running' ? 'Running...' : '開始回測'}
             </Button>
             {results && (
               <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
