@@ -233,15 +233,15 @@ export default function StrategiesPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t) => (
-            <div key={t.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-text">{t.name}</span>
-                <span className="text-xs text-textSecondary uppercase">{t.category}</span>
+            <div key={t.id} className="bg-surface border border-border/20 rounded-lg p-5 flex flex-col gap-3 shadow-[0_1px_3px_rgba(0,0,0,0.12)] hover:border-accent/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all duration-200">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-semibold text-text truncate">{t.name}</span>
+                <span className="shrink-0 rounded bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent">{t.category}</span>
               </div>
-              <p className="text-sm text-textSecondary line-clamp-2">{t.description}</p>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-mono text-accent">{t.params?.length ?? 0} params</span>
-                <button onClick={() => router.push(`/backtest?strategy=${t.id}`)} className="text-xs font-medium text-accentInk bg-accent px-3 py-1.5 rounded hover:bg-accentStrong transition-colors">立即回測</button>
+              <p className="text-sm text-textSecondary leading-relaxed line-clamp-2">{t.description}</p>
+              <div className="mt-auto flex items-center justify-between pt-2">
+                <span className="text-xs font-mono text-textSecondary">{t.params?.length ?? 0} params</span>
+                <button onClick={() => router.push(`/backtest?strategy=${t.id}`)} className="text-xs font-medium text-accentInk bg-accent px-3.5 py-1.5 rounded-md hover:bg-accentStrong hover:shadow-[0_2px_8px_rgba(0,122,255,0.3)] transition-all duration-150">立即回測</button>
               </div>
             </div>
           ))}
