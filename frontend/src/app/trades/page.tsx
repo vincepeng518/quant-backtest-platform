@@ -452,7 +452,7 @@ export default function TradesPage() {
                             e.stopPropagation();
                             setSelectedTrade(r);
                           }}
-                          className="px-2.5 py-1 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors"
+                          className="px-3 py-2 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-textSecondary hover:text-text transition-colors min-h-[36px]"
                         >
                           詳情
                         </button>
@@ -474,7 +474,7 @@ export default function TradesPage() {
               <button
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="上一頁"
               >
                 &lt;
@@ -485,7 +485,7 @@ export default function TradesPage() {
               <button
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="px-2.5 py-1 rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded bg-surface hover:bg-surface/80 border border-border/30 text-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="下一頁"
               >
                 &gt;
@@ -514,7 +514,7 @@ export default function TradesPage() {
               </div>
               <button
                 onClick={() => setSelectedTrade(null)}
-                className="text-textSecondary hover:text-text text-xl leading-none px-2 py-1"
+                className="flex h-10 w-10 items-center justify-center text-textSecondary hover:text-text text-xl leading-none"
               >
                 ✕
               </button>
@@ -586,7 +586,7 @@ export default function TradesPage() {
             <div className="pt-3 border-t border-border/20 text-right">
               <button
                 onClick={() => setSelectedTrade(null)}
-                className="px-4 py-1.5 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-text font-medium transition-colors"
+                className="px-6 py-2.5 text-xs rounded bg-surface hover:bg-surface/80 border border-border/30 text-text font-medium transition-colors min-h-[44px]"
               >
                 關閉
               </button>

@@ -122,14 +122,14 @@ function DeskBoard({ loading, error, stats, rows }: ReturnType<typeof useDashboa
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/backtest"
-              className="group inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
+              className="group inline-flex items-center gap-2 bg-accent px-5 py-3 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
             >
               進入平台
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/history"
-              className="inline-flex items-center gap-2 border border-border/60 px-5 py-2.5 text-sm font-medium text-text transition-colors hover:border-accent/50 hover:text-accent"
+              className="inline-flex items-center gap-2 border border-border/60 px-5 py-3 text-sm font-medium text-text transition-colors hover:border-accent/50 hover:text-accent"
             >
               回測歷史
             </Link>
@@ -337,7 +337,7 @@ export default function Home() {
         </p>
         <Link
           href="/backtest"
-          className="group mt-8 inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
+          className="group mt-8 inline-flex items-center gap-2 bg-accent px-5 py-3 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
         >
           開始回測
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

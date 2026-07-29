@@ -1,14 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Menu, X } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const [open, setOpen] = useState(false);
 
   const navItems = [
     { name: 'Backtest', path: '/backtest' },
@@ -17,6 +18,9 @@ export const Header: React.FC = () => {
     { name: 'Strategies', path: '/strategies' },
     { name: 'Trades', path: '/trades' },
   ];
+
+  const isActive = (path: string) =>
+    pathname === path || (path === '/backtest' && pathname === '/');
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/85 backdrop-blur-md">
@@ -32,11 +36,10 @@ export const Header: React.FC = () => {
           </span>
         </Link>
 
-        {/* Nav — mono index, gold underline on active */}
-        <nav className="flex flex-1 items-center justify-center gap-1 overflow-x-auto no-scrollbar text-sm">
+        {/* Nav — desktop: mono index, gold underline on active */}
+        <nav className="hidden md:flex flex-1 items-center justify-center gap-1 text-sm">
           {navItems.map((item) => {
-            const active =
-              pathname === item.path || (item.path === '/backtest' && pathname === '/');
+            const active = isActive(item.path);
             return (
               <Link
                 key={item.path}
@@ -54,16 +57,51 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="shrink-0 p-1.5 text-textSecondary transition-colors hover:text-accent"
-          aria-label="Toggle theme"
-        >
-          <Sun className="h-4 w-4 dark:hidden" />
-          <Moon className="h-4 w-4 hidden dark:block" />
-        </button>
+        {/* Right controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex h-11 w-11 items-center justify-center text-textSecondary transition-colors hover:text-accent"
+            aria-label="Toggle theme"
+          >
+            <Sun className="h-4 w-4 dark:hidden" />
+            <Moon className="h-4 w-4 hidden dark:block" />
+          </button>
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center text-textSecondary transition-colors hover:text-accent md:hidden"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile drawer */}
+      {open && (
+        <nav className="border-t border-border/50 bg-background/95 backdrop-blur-md md:hidden">
+          {navItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                onClick={() => setOpen(false)}
+                className={`flex h-12 items-center justify-between px-5 font-mono text-sm uppercase tracking-wider transition-colors ${
+                  active
+                    ? 'bg-accent/10 text-accent'
+                    : 'text-textSecondary hover:bg-surface hover:text-text'
+                }`}
+              >
+                {item.name}
+                {active && <span className="h-1.5 w-1.5 bg-accent" />}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
     </header>
   );
 };

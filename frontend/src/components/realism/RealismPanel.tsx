@@ -58,7 +58,7 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left min-h-[44px]"
       >
         <span className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
           合約仿真 / Realism

@@ -177,32 +177,32 @@ function OptimizeView() {
               {algorithm.toUpperCase()} SEARCH
             </span>
           </div>
-          <Button variant="secondary" className="text-xs px-3 py-1.5" onClick={() => addParam(`param_${paramSpace.length + 1}`)}>+ Add Parameter</Button>
+          <Button variant="secondary" className="text-xs px-3 min-h-[36px]" onClick={() => addParam(`param_${paramSpace.length + 1}`)}>+ Add Parameter</Button>
         </div>
         <div className="space-y-2">
           {paramSpace.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-surface2/40 border border-white/[0.05] transition-colors hover:border-white/[0.12]">
-              <span className="w-28 shrink-0 font-mono text-xs font-medium text-text">{p.name}</span>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 border border-white/[0.06]">
+            <div key={p.id} className="grid grid-cols-[1fr_auto] items-center gap-2 p-2.5 rounded-lg bg-surface2/40 border border-white/[0.05] transition-colors hover:border-white/[0.12] sm:grid-cols-[7rem_auto_auto_auto_1fr] sm:gap-3">
+              <span className="font-mono text-xs font-medium text-text truncate">{p.name}</span>
+              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
                 <span className="font-mono text-[10px] text-textSecondary uppercase">min</span>
                 <input type="number" value={p.min}
                   onChange={(e) => updateParam(p.id, { min: Number(e.target.value) })}
                   className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
               </div>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 border border-white/[0.06]">
+              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
                 <span className="font-mono text-[10px] text-textSecondary uppercase">max</span>
                 <input type="number" value={p.max}
                   onChange={(e) => updateParam(p.id, { max: Number(e.target.value) })}
                   className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
               </div>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 border border-white/[0.06]">
+              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
                 <span className="font-mono text-[10px] text-textSecondary uppercase">step</span>
                 <input type="number" value={p.step}
                   onChange={(e) => updateParam(p.id, { step: Number(e.target.value) })}
                   className="w-12 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
               </div>
               <button onClick={() => removeParam(p.id)} disabled={paramSpace.length <= 1}
-                className="ml-auto p-1 text-xs font-mono text-textSecondary hover:text-danger transition-colors disabled:opacity-20">✕</button>
+                className="justify-self-end flex h-8 w-8 items-center justify-center text-xs font-mono text-textSecondary hover:text-danger transition-colors disabled:opacity-20 sm:ml-auto" aria-label={`Remove ${p.name}`}>✕</button>
             </div>
           ))}
         </div>
@@ -236,15 +236,15 @@ function OptimizeView() {
       </Card>
 
       {/* Run bar */}
-      <div className="flex justify-between items-center bg-surface p-4 border-t border-border/10 select-none">
+      <div className="flex flex-col gap-3 bg-surface p-4 border-t border-border/10 select-none sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm font-mono text-textSecondary">
           {status === 'running' ? `Optimizing… ${Math.round(progress)}%` : status === 'error' ? `Error: ${error}` : 'Ready'}
         </div>
         <div className="flex gap-3">
           {status === 'completed' && (
-            <Button variant="ghost" onClick={reset}>Reset</Button>
+            <Button variant="ghost" className="flex-1 sm:flex-none min-h-[48px]" onClick={reset}>Reset</Button>
           )}
-          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary" className="!px-8 !py-3.5 !text-base !font-bold min-w-[180px] bg-accentStrong text-accentInk shadow-[0_0_12px_rgb(var(--accent-strong)/0.4)] hover:shadow-[0_0_20px_rgb(var(--accent-strong)/0.6)] transition-shadow">
+          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary" className="flex-1 sm:flex-none !px-8 !py-3.5 !text-base !font-bold min-w-[180px] bg-accentStrong text-accentInk shadow-[0_0_12px_rgb(var(--accent-strong)/0.4)] hover:shadow-[0_0_20px_rgb(var(--accent-strong)/0.6)] transition-shadow">
             {status === 'running' ? '優化中…' : '開始優化'}
           </Button>
         </div>
@@ -279,6 +279,7 @@ function OptimizeView() {
           <div className="flex justify-end">
             <Button
               variant="primary"
+              className="w-full min-h-[48px] sm:w-auto"
               onClick={() => router.push(`/backtest?strategy=${encodeURIComponent(strategyId)}&params=${encodeURIComponent(JSON.stringify(bestParams))}`)}
             >
               Apply Best Params to Backtest
