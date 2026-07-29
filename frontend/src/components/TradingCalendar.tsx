@@ -148,6 +148,8 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
           --tc-loss-border: #52222B;
           --tc-main-text: #EAECF0;
           --tc-secondary-text: #858D9D;
+          --tc-cell-empty-bg: #101318;
+          --tc-cell-empty-border: #191D24;
         }
         :root.dark .trading-calendar-root,
         .dark .trading-calendar-root {
@@ -163,6 +165,8 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
           --tc-loss-border: #52222B;
           --tc-main-text: #EAECF0;
           --tc-secondary-text: #858D9D;
+          --tc-cell-empty-bg: #101318;
+          --tc-cell-empty-border: #191D24;
         }
         :root:not(.dark) .trading-calendar-root,
         .light .trading-calendar-root {
@@ -178,6 +182,8 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
           --tc-loss-border: #FAD2CF;
           --tc-main-text: #1A1A1A;
           --tc-secondary-text: #666666;
+          --tc-cell-empty-bg: #FDFDFC;
+          --tc-cell-empty-border: #F0EFEA;
         }
       `}</style>
 
@@ -261,11 +267,12 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
           </div>
         </div>
 
-        {/* Grid */}
-        <div
-          className="grid grid-cols-7 gap-1.5 font-mono"
-          style={{ backgroundColor: 'var(--tc-card-bg)' }}
-        >
+        {/* Grid — 外層 overflow-x-auto：窄屏橫向捲動，嚴禁單元格擠壓溢出 */}
+        <div className="overflow-x-auto">
+          <div
+            className="grid min-w-[560px] grid-cols-7 gap-2 font-mono"
+            style={{ backgroundColor: 'var(--tc-card-bg)' }}
+          >
           {weekDays.map((wd) => (
             <div
               key={wd}
@@ -286,7 +293,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
                   key={`empty-${idx}`}
                   className="min-h-[76px] rounded-lg"
                   style={{
-                    backgroundColor: 'var(--tc-cell-default-bg)',
+                    backgroundColor: 'var(--tc-cell-empty-bg)',
                     opacity: 0.3,
                   }}
                 />
@@ -320,9 +327,9 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
                 cellBorder = 'var(--tc-cell-default-border)';
               }
             } else {
-              cellBg = 'var(--tc-cell-default-bg)';
+              cellBg = 'var(--tc-cell-empty-bg)';
               cellTextColor = 'var(--tc-main-text)';
-              cellBorder = 'var(--tc-cell-default-border)';
+              cellBorder = 'var(--tc-cell-empty-border)';
             }
 
             const fmtPnl = (val: number) => {
@@ -336,19 +343,19 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
             return (
               <div
                 key={cell.dateKey}
-                className="flex flex-col items-center justify-center min-h-[68px] rounded-lg border transition-all text-center"
+                className="flex min-w-0 flex-col items-center justify-center overflow-hidden min-h-[68px] rounded-lg border transition-all text-center"
                 style={{
                   backgroundColor: cellBg,
                   borderColor: cell.isToday ? 'var(--tc-profit-text)' : cellBorder,
                   borderWidth: 1,
                   outline: cell.isToday ? `2px solid var(--tc-profit-text)` : 'none',
                   outlineOffset: '-2px',
-                  padding: '4px 2px',
+                  padding: '6px 4px',
                 }}
               >
                 {/* 日期數字 */}
                 <div
-                  className="text-sm font-bold leading-tight"
+                  className="text-xs font-bold leading-tight sm:text-sm"
                   style={{
                     color: cell.isToday ? 'var(--tc-profit-text)' : 'var(--tc-secondary-text)',
                   }}
@@ -359,14 +366,14 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
                 {/* 內容區 */}
                 {hasTrade ? (
                   mode === 'pnl' ? (
-                    <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="text-sm font-bold">{fmtPnl(pnl)}</div>
-                      <div className="text-[10px]" style={{ opacity: 0.75 }}>{winRate}%</div>
+                    <div className="mt-0.5 w-full text-center leading-tight" style={{ color: cellTextColor }}>
+                      <div className="whitespace-nowrap text-[10px] font-bold tabular-nums sm:text-xs lg:text-sm">{fmtPnl(pnl)}</div>
+                      <div className="whitespace-nowrap text-[9px] tabular-nums sm:text-[10px]" style={{ opacity: 0.75 }}>{winRate}%</div>
                     </div>
                   ) : (
-                    <div className="mt-0.5 text-center leading-tight" style={{ color: cellTextColor }}>
-                      <div className="text-sm font-bold">{fmtPnl(pnl)}</div>
-                      <div className="text-[10px]" style={{ opacity: 0.75 }}>
+                    <div className="mt-0.5 w-full text-center leading-tight" style={{ color: cellTextColor }}>
+                      <div className="whitespace-nowrap text-[10px] font-bold tabular-nums sm:text-xs lg:text-sm">{fmtPnl(pnl)}</div>
+                      <div className="whitespace-nowrap text-[9px] tabular-nums sm:text-[10px]" style={{ opacity: 0.75 }}>
                         {dayData.winCount}W|{dayData.totalCount - dayData.winCount}L
                       </div>
                     </div>
@@ -375,6 +382,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     </Card>
