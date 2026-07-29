@@ -221,22 +221,42 @@ class ReplayBacktester(Backtester):
                     for tk in ticks:
                         if order["type"] == "limit":
                             if order["direction"] > 0 and tk.price <= order["price"]:
-                                _open_position(order["sig"], order["price"], bar, i) if order["sig"].action in ("buy", "sell") and position is None else None
-                                filled = True
-                                break
+                                if order["sig"].action in ("buy", "sell") and position is None:
+                                    _open_position(order["sig"], order["price"], bar, i)
+                                    filled = True
+                                    break
+                                elif order["sig"].action in ("close",) and position is not None:
+                                    _close_position(order["price"], bar, i)
+                                    filled = True
+                                    break
                             if order["direction"] < 0 and tk.price >= order["price"]:
-                                _open_position(order["sig"], order["price"], bar, i) if order["sig"].action in ("sell",) and position is None else None
-                                filled = True
-                                break
+                                if order["sig"].action in ("sell",) and position is None:
+                                    _open_position(order["sig"], order["price"], bar, i)
+                                    filled = True
+                                    break
+                                elif order["sig"].action in ("close",) and position is not None:
+                                    _close_position(order["price"], bar, i)
+                                    filled = True
+                                    break
                         elif order["type"] == "stop":
                             if order["direction"] > 0 and tk.price >= order["price"]:
-                                _open_position(order["sig"], tk.price, bar, i)
-                                filled = True
-                                break
+                                if order["sig"].action in ("buy", "sell") and position is None:
+                                    _open_position(order["sig"], tk.price, bar, i)
+                                    filled = True
+                                    break
+                                elif order["sig"].action in ("close",) and position is not None:
+                                    _close_position(tk.price, bar, i)
+                                    filled = True
+                                    break
                             if order["direction"] < 0 and tk.price <= order["price"]:
-                                _open_position(order["sig"], tk.price, bar, i)
-                                filled = True
-                                break
+                                if order["sig"].action in ("sell",) and position is None:
+                                    _open_position(order["sig"], tk.price, bar, i)
+                                    filled = True
+                                    break
+                                elif order["sig"].action in ("close",) and position is not None:
+                                    _close_position(tk.price, bar, i)
+                                    filled = True
+                                    break
                     if not filled:
                         still.append(order)
                 self._resting = still

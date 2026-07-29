@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import uuid
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -19,6 +20,10 @@ from data.providers.bingx_tradfi import BingXTradFiProvider, BINGX_TRADFI_SYMBOL
 from data.providers.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
+
+# Parquet cache directory
+_PARQUET_DIR = Path(os.getenv("PARQUET_CACHE_DIR", "./data/ohlcv"))
+_PARQUET_MAX_AGE_HOURS = int(os.getenv("PARQUET_MAX_AGE_HOURS", "12"))
 
 # In-memory task store (production → Redis)
 _backtest_tasks: dict[str, dict] = {}
@@ -34,6 +39,41 @@ class DataService:
         self.bingx_tradfi = BingXTradFiProvider()
         self.csv_loader = CSVLoader()
 
+    # ── Parquet cache layer ──
+
+    @staticmethod
+    def _parquet_path(symbol: str, timeframe: str, source: str) -> Path:
+        """Local parquet file path for (symbol, timeframe, source)."""
+        safe_sym = symbol.replace("/", "_").replace("-", "_").replace("=", "")
+        return _PARQUET_DIR / f"{safe_sym}_{timeframe}_{source}.parquet"
+
+    @staticmethod
+    def _parquet_read(path: Path) -> Optional[pd.DataFrame]:
+        """Read cached parquet; return None if stale or missing."""
+        if not path.exists():
+            return None
+        age = datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)
+        if age > timedelta(hours=_PARQUET_MAX_AGE_HOURS):
+            logger.info("Parquet cache stale for %s (%s old)", path.name, age)
+            return None
+        try:
+            return pd.read_parquet(path)
+        except Exception as e:
+            logger.warning("Parquet read error %s: %s", path.name, e)
+            return None
+
+    @staticmethod
+    def _parquet_write(path: Path, df: pd.DataFrame) -> None:
+        """Write DataFrame to parquet cache."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            df.to_parquet(path, index=False)
+            logger.info("Cached %s rows to %s", len(df), path)
+        except Exception as e:
+            logger.warning("Parquet write error %s: %s", path.name, e)
+
+    # ── OHLCV fetch (with cache) ──
+
     async def get_ohlcv(
         self,
         symbol: str,
@@ -42,6 +82,13 @@ class DataService:
         end_date: str = "",
         source: str = "bingx",
     ) -> pd.DataFrame:
+        # ── Parquet cache: read before network fetch ──
+        if source not in ("test", "csv") and not start_date and not end_date:
+            pp = self._parquet_path(symbol, timeframe, source)
+            cached_df = self._parquet_read(pp)
+            if cached_df is not None:
+                return cached_df
+
         cache_key = f"ohlcv:{symbol}:{timeframe}:{start_date}:{end_date}:{source}"
         cached = cache.get(cache_key)
         if cached is not None:
@@ -100,6 +147,11 @@ class DataService:
             if data is None or len(data) == 0:
                 logger.info("Falling back to CSV for %s", symbol)
                 data = self.csv_loader.load(symbol)
+
+        # ── Write to parquet cache if fetch succeeded (no date filter) ──
+        if data is not None and len(data) > 0 and source not in ("test", "csv") and not start_date and not end_date:
+            self._parquet_write(self._parquet_path(symbol, timeframe, source), data)
+
         return data if data is not None else pd.DataFrame()
 
     @staticmethod

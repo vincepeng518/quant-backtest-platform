@@ -48,3 +48,6 @@ factor_lib/alpha101_src/
 factor_lib/alpha101_worldquant/
 factor_lib/awesome_quant_ref/
 factor_lib/qlib_factors/qlib_loader_source.py
+
+# data cache — parquet OHLCV cache, never commit runtime data
+data/ohlcv/
