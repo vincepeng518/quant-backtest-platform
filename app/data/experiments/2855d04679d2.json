@@ -1,0 +1,85 @@
+{
+  "id": "2855d04679d2",
+  "kind": "backtest",
+  "label": "BTC/USDT-ma_cross",
+  "created_at": 1785301254.9761198,
+  "config": {
+    "strategy": {
+      "template_id": "ma_cross",
+      "params": {
+        "fast_period": 10,
+        "slow_period": 30
+      },
+      "custom_code": null
+    },
+    "symbol": "BTC/USDT",
+    "market": "crypto",
+    "timeframe": "1h",
+    "source": "binance",
+    "start_date": "",
+    "end_date": "",
+    "initial_capital": 10000.0,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    },
+    "equity": {},
+    "forex": {},
+    "engine": "bar",
+    "ticks_per_bar": 20,
+    "tick_seed": null,
+    "exchanges": []
+  },
+  "metrics": {
+    "total_trades": 17,
+    "winning_trades": 7,
+    "losing_trades": 10,
+    "win_rate": 41.17647058823529,
+    "total_pnl": -403.24380818558853,
+    "total_return": -403.24380818558853,
+    "total_return_pct": -4.797376465184152,
+    "max_drawdown": 982.0684712159469,
+    "max_drawdown_pct": 9.82068471215947,
+    "sharpe_ratio": -1.315885679395576,
+    "sortino_ratio": -1.9664276511244423,
+    "profit_factor": 0.7535178780014744,
+    "calmar_ratio": -3.6093187640673756,
+    "largest_loss": -292.75672727790095,
+    "largest_loss_pct": -3.0002746856539004,
+    "largest_win": 571.8666458701083,
+    "avg_trade": -23.720224010916972,
+    "avg_winner": 176.10748062000897,
+    "avg_loser": -163.5996172525651,
+    "win_loss_ratio": 1.0764541114306778,
+    "expectancy": -23.720224010916965,
+    "annual_return_pct": -35.44598160758679,
+    "avg_holding_bars": 31.764705882352942,
+    "trade_freq": 0.4146341463414634,
+    "long_trades": 16,
+    "short_trades": 1,
+    "long_win_rate": 43.75,
+    "short_win_rate": 0.0,
+    "long_pnl": -258.71819413054664,
+    "short_pnl": -144.5256140550419,
+    "long_expectancy": -16.169887133159165,
+    "short_expectancy": -144.5256140550419,
+    "long_profit_factor": 0.8265348298957758,
+    "short_profit_factor": 0.0
+  }
+}

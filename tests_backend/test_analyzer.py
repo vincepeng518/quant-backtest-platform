@@ -69,14 +69,16 @@ class TestWalkForwardAnalyzer:
         )
         assert "avg_oos_sharpe" in result
         assert "windows" in result
-        assert len(result["windows"]) == 3
+        assert len(result["windows"]) == 2  # window 0 skipped (IS empty before cut)
 
     def test_aggregate_results(self):
-        results = [
-            {"oos_sharpe": 1.2, "oos_return": 10.0, "oos_max_dd": 5.0, "is_sharpe": 1.5, "is_return": 15.0, "is_max_dd": 3.0, "best_params": {"a": 1}, "oos_trades": 5},
-            {"oos_sharpe": 0.8, "oos_return": 8.0, "oos_max_dd": 7.0, "is_sharpe": 1.2, "is_return": 12.0, "is_max_dd": 4.0, "best_params": {"a": 2}, "oos_trades": 4},
+        oos_sharpes = [1.2, 0.8]
+        oos_returns = [10.0, 8.0]
+        windows = [
+            {"oos_sharpe": 1.2, "oos_return": 10.0, "oos_max_dd": 5.0, "used_fallback": False},
+            {"oos_sharpe": 0.8, "oos_return": 8.0, "oos_max_dd": 7.0, "used_fallback": False},
         ]
-        agg = WalkForwardAnalyzer._aggregate(results)
+        agg = WalkForwardAnalyzer._aggregate(oos_sharpes, oos_returns, windows)
         assert abs(agg["avg_oos_sharpe"] - 1.0) < 0.01
         assert abs(agg["avg_oos_return"] - 9.0) < 0.01
         assert agg["consistency"] == 100.0

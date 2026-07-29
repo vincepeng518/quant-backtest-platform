@@ -7,3 +7,6 @@ startCommand = "sh start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicy = "ON_FAILURE"
+
+[volumes]
+  "/data" = "/data"
