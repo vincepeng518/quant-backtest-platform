@@ -244,11 +244,21 @@ function RecentRuns({ rows, loading, error }: Pick<ReturnType<typeof useDashboar
                 {r.symbol ?? '—'} · {r.timeframe ?? ''}
               </span>
             </div>
-            <div className="flex shrink-0 items-center gap-5 font-mono text-sm">
-              <span className="hidden text-textSecondary sm:block">{r.total_trades ?? 0} trades</span>
+            <div className="flex shrink-0 items-center gap-4 font-mono text-sm">
+              <span className="hidden text-textSecondary sm:block">{r.total_trades ?? 0} 筆</span>
               <span className={(r.sharpe ?? 0) >= 0 ? 'text-success' : 'text-danger'}>
                 SR {Number(r.sharpe ?? 0).toFixed(2)}
               </span>
+              {r.return_pct != null && (
+                <span className={Number(r.return_pct) >= 0 ? 'text-success' : 'text-danger'}>
+                  {Number(r.return_pct) >= 0 ? '+' : ''}{Number(r.return_pct).toFixed(1)}%
+                </span>
+              )}
+              {r.max_dd != null && (
+                <span className="text-textSecondary">
+                  DD {Number(r.max_dd).toFixed(1)}%
+                </span>
+              )}
               <ArrowRight className="h-4 w-4 text-textSecondary transition-all group-hover:translate-x-0.5 group-hover:text-accent" />
             </div>
           </Link>

@@ -233,13 +233,16 @@ export default function StrategiesPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t) => (
-            <div key={t.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-2">
+            <div key={t.id} className="bg-surface border border-border/10 rounded-lg p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-text">{t.name}</span>
                 <span className="text-xs text-textSecondary uppercase">{t.category}</span>
               </div>
-              <p className="text-sm text-textSecondary">{t.description}</p>
-              <span className="text-xs font-mono text-accent">{t.params?.length ?? 0} params</span>
+              <p className="text-sm text-textSecondary line-clamp-2">{t.description}</p>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-mono text-accent">{t.params?.length ?? 0} params</span>
+                <button onClick={() => router.push(`/backtest?strategy=${t.id}`)} className="text-xs font-medium text-accentInk bg-accent px-3 py-1.5 rounded hover:bg-accentStrong transition-colors">立即回測</button>
+              </div>
             </div>
           ))}
           {templates.length === 0 && <EmptyState title="無內建模板" />}
