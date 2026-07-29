@@ -163,14 +163,24 @@ function OptimizeView() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-accent">Parameter Space</h2>
           <Button variant="ghost" onClick={() => addParam(`param_${paramSpace.length + 1}`)}>+ Add Parameter</Button>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-1">
           {paramSpace.map((p) => (
-            <div key={p.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-              <Input label="Name" value={p.name} onChange={(e) => updateParam(p.id, { name: e.target.value })} />
-              <Input label="Min" type="number" value={p.min} onChange={(e) => updateParam(p.id, { min: Number(e.target.value) })} />
-              <Input label="Max" type="number" value={p.max} onChange={(e) => updateParam(p.id, { max: Number(e.target.value) })} />
-              <Input label="Step" type="number" value={p.step} onChange={(e) => updateParam(p.id, { step: Number(e.target.value) })} />
-              <Button variant="ghost" onClick={() => removeParam(p.id)} disabled={paramSpace.length <= 1}>Remove</Button>
+            <div key={p.id} className="flex items-center gap-2 py-2 border-b border-border/10 last:border-0">
+              <span className="w-24 shrink-0 font-mono text-xs text-textSecondary">{p.name}</span>
+              <span className="font-mono text-xs text-textSecondary">min</span>
+              <input type="number" value={p.min}
+                onChange={(e) => updateParam(p.id, { min: Number(e.target.value) })}
+                className="w-16 bg-transparent border-b border-border/40 py-0.5 text-xs font-mono text-text text-center focus:outline-none focus:border-accent" />
+              <span className="font-mono text-xs text-textSecondary">max</span>
+              <input type="number" value={p.max}
+                onChange={(e) => updateParam(p.id, { max: Number(e.target.value) })}
+                className="w-16 bg-transparent border-b border-border/40 py-0.5 text-xs font-mono text-text text-center focus:outline-none focus:border-accent" />
+              <span className="font-mono text-xs text-textSecondary">step</span>
+              <input type="number" value={p.step}
+                onChange={(e) => updateParam(p.id, { step: Number(e.target.value) })}
+                className="w-14 bg-transparent border-b border-border/40 py-0.5 text-xs font-mono text-text text-center focus:outline-none focus:border-accent" />
+              <button onClick={() => removeParam(p.id)} disabled={paramSpace.length <= 1}
+                className="ml-auto text-xs font-mono text-textSecondary hover:text-danger transition-colors disabled:opacity-30">✕</button>
             </div>
           ))}
         </div>

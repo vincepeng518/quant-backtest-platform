@@ -63,7 +63,7 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
         <span className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
           合約仿真 / Realism
         </span>
-        <span className="font-mono text-xs text-textSecondary">{open ? '收起 ▲' : '展開 ▼'}</span>
+        <span className="font-mono text-xs text-textSecondary">{open ? '▲ 收起' : '▼ 展開'}</span>
       </button>
       <p className="mt-1 text-xs text-textSecondary">
         資金費率 / 槓桿強平 / maker-taker 費率與交易所延遲。全部關閉 = 舊版 1x spot。
