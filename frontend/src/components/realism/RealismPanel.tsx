@@ -70,8 +70,8 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
       </p>
 
       {open && (
-        <div className="mt-4 space-y-5">
-          <div className="rounded-lg border border-border/10 p-4">
+        <div className="mt-4 space-y-4">
+          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={s.enableFunding}
                 onChange={(e) => handlers.setEnableFunding(e.target.checked)} />
@@ -87,7 +87,7 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
             )}
           </div>
 
-          <div className="rounded-lg border border-border/10 p-4">
+          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={s.enablePerp}
                 onChange={(e) => handlers.setEnablePerp(e.target.checked)} />
@@ -103,7 +103,7 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
             )}
           </div>
 
-          <div className="rounded-lg border border-border/10 p-4">
+          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={s.enableExchange}
                 onChange={(e) => handlers.setEnableExchange(e.target.checked)} />
@@ -130,7 +130,7 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
             )}
           </div>
 
-          <div className="rounded-lg border border-border/10 p-4">
+          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={s.enableExec ?? false}
                 onChange={(e) => handlers.setEnableExec?.(e.target.checked)} />
