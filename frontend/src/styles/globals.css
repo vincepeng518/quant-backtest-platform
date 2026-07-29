@@ -12,10 +12,10 @@
   --text: 20 24 32;
   --text-secondary: 96 102 116;
   --border: 222 218 208;
-  --accent: 154 123 51;
-  --accent-strong: 132 104 40;
-  --accent-ink: 16 19 26;
-  --signal: 154 123 51;
+  --accent: 0 112 243;
+  --accent-strong: 0 90 210;
+  --accent-ink: 255 255 255;
+  --signal: 0 112 243;
 }
 
 /* ── Ink & Bullion — desk (dark, default scene) ── */
@@ -26,10 +26,10 @@
   --text: 216 220 228;
   --text-secondary: 128 134 148;
   --border: 44 52 70;
-  --accent: 201 169 98;
-  --accent-strong: 218 188 124;
-  --accent-ink: 16 19 26;
-  --signal: 201 169 98;
+  --accent: 0 122 255;
+  --accent-strong: 30 144 255;
+  --accent-ink: 255 255 255;
+  --signal: 0 122 255;
 }
 
 body {
