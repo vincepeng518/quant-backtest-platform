@@ -569,6 +569,20 @@ function BacktestView() {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
+          <div className="flex items-end gap-1 flex-wrap">
+            {[['1W', 7], ['1M', 30], ['3M', 90], ['1Y', 365]].map(([label, days]) => (
+              <button
+                key={label}
+                onClick={() => {
+                  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+                  setStartDate(d.toISOString().slice(0, 10));
+                }}
+                className="px-2 py-1 text-xs font-mono border border-border/40 rounded hover:border-accent hover:text-accent transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           {params.length > 6 && (
             <div className="col-span-full border-t border-border/10 pt-2 mt-1">

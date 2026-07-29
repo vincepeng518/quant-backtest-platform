@@ -119,9 +119,9 @@ export default function HistoryPage() {
                     </div>
                     <div className="text-right shrink-0 ml-4">
                       <p className={`text-sm font-mono ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {it.sharpe != null ? it.sharpe.toFixed(3) : '—'}
+                        {it.sharpe != null ? `SR ${it.sharpe.toFixed(2)}` : '—'}
                       </p>
-                      <p className="text-xs text-textSecondary font-mono">{it.total_trades ?? 0} trades</p>
+                      <p className="text-xs text-textSecondary font-mono">{it.total_trades ?? 0} 筆交易</p>
                     </div>
                   </button>
                 ))}

@@ -145,6 +145,17 @@ function OptimizeView() {
           value={maxTrials}
           onChange={(e) => useOptimizeStore.setState({ maxTrials: Number(e.target.value) })}
         />
+        <div className="flex items-end">
+          <p className="text-xs font-mono text-textSecondary leading-relaxed">
+            參數組合: {paramSpace.reduce((acc, p) => {
+              const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
+              return acc * Math.max(steps, 1);
+            }, 1)} 種 · 約 {Math.max(1, Math.round(paramSpace.reduce((acc, p) => {
+              const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
+              return acc * Math.max(steps, 1);
+            }, 1) * maxTrials / 30))} 次評估
+          </p>
+        </div>
         <Select
           label="LLM Model"
           value={llmModel}
@@ -222,7 +233,7 @@ function OptimizeView() {
           {status === 'completed' && (
             <Button variant="ghost" onClick={reset}>Reset</Button>
           )}
-          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary" className="!px-6 !py-3 !text-base !font-semibold min-w-[160px]">
+          <Button onClick={runOptimization} disabled={status === 'running'} variant="primary" className="!px-8 !py-3.5 !text-base !font-bold min-w-[180px] bg-accentStrong text-accentInk shadow-[0_0_12px_rgb(var(--accent-strong)/0.4)] hover:shadow-[0_0_20px_rgb(var(--accent-strong)/0.6)] transition-shadow">
             {status === 'running' ? '優化中…' : '開始優化'}
           </Button>
         </div>
