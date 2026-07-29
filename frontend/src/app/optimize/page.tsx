@@ -14,6 +14,7 @@ import { ParamImportanceBar } from '@/components/charts/ParamImportanceBar';
 import { ConvergenceChart } from '@/components/charts/ConvergenceChart';
 import api from '@/lib/api';
 import { RealismPanel } from '@/components/realism/RealismPanel';
+import { useDataStore } from '@/stores/useDataStore';
 
 const FALLBACK_STRATEGIES = [
   { label: 'Moving Average Cross', value: 'ma_cross' },
@@ -23,7 +24,6 @@ const FALLBACK_STRATEGIES = [
   { label: 'Factor Driven', value: 'factor_driven' },
 ];
 
-const SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
 const TIMEFRAMES = ['15m', '30m', '45m', '1h', '4h', '1d'];
 const SOURCES = [
   { label: 'Test (offline)', value: 'test' },
@@ -60,6 +60,7 @@ function OptimizeView() {
   } = useOptimizeStore();
 
   const router = useRouter();
+  const { symbols, loadSymbols } = useDataStore();
 
   const searchParams = useSearchParams();
   const [strategyOptions, setStrategyOptions] = useState<{ label: string; value: string }[]>(FALLBACK_STRATEGIES);
@@ -96,6 +97,7 @@ function OptimizeView() {
     // Load saved LLM model
     api.getLlmModel().then((m) => setLlmModel(m)).catch(() => {});
   }, []);
+  useEffect(() => { loadSymbols(); }, [loadSymbols]);
 
   // Resolve a strategy's template params (for param-space rebuild on switch).
   const paramsFor = (id: string): { name: string; type?: string; min?: number; max?: number; step?: number }[] => {
@@ -124,7 +126,7 @@ function OptimizeView() {
       {/* Config: strategy + market */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value, paramsFor(e.target.value))} options={strategyOptions} />
-        <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={SYMBOLS.map((s) => ({ label: s, value: s }))} />
+        <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={symbols.length > 0 ? symbols.map((s: any) => ({ label: s.symbol, value: s.symbol })) : [{ label: 'BTC/USDT', value: 'BTC/USDT' }]} />
         <Select label="Timeframe" value={timeframe} onChange={(e) => setMarket({ symbol, timeframe: e.target.value, source })} options={TIMEFRAMES.map((t) => ({ label: t, value: t }))} />
         <Select label="Data Source" value={source} onChange={(e) => setMarket({ symbol, timeframe, source: e.target.value })} options={SOURCES} />
         <Select
