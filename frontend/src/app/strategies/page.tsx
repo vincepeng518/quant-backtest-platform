@@ -158,16 +158,21 @@ export default function StrategiesPage() {
 
   return (
     <PageShell eyebrow="Strategies / library" title="策略管理" subtitle="上傳你的 Python 策略，一鍵跑回測或優化。">
-      {/* Grid Switcher — 日線趨勢狀態判定 */}
+      {/* Grid Switcher — 波動門檻 + ATR 自適應幾何 */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text">網格切換引擎 (Grid Switcher)</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-text">網格切換引擎 (Grid Switcher)</h2>
+            <p className="text-xs text-textSecondary mt-1">
+              低波動不開網格 — nATR 低於歷史中位數視為趨勢前兆
+            </p>
+          </div>
           <button
             onClick={runGridNow}
             disabled={gridRunning}
-            className="px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-4 py-2 rounded-md bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {gridRunning ? '執行中…' : '手動觸發'}
+            {gridRunning ? '執行中' : '手動觸發'}
           </button>
         </div>
         <div className="bg-surface/50 border border-dashed border-border/20 rounded-lg p-5 space-y-4">
@@ -184,16 +189,40 @@ export default function StrategiesPage() {
                 </span>
                 <span className="text-sm text-textSecondary">信心 {Math.round((grid.confidence||0)*100)}%</span>
                 <span className="text-sm text-textSecondary">收盤 ${grid.last_close?.toLocaleString()}</span>
+                {grid.bar_date && <span className="text-xs text-textSecondary">日線 {grid.bar_date}</span>}
                 <span className="text-xs text-textSecondary ml-auto">{grid.updated_at}</span>
               </div>
               <p className="text-sm text-textSecondary">{grid.reason}</p>
               {grid.indicators && Object.keys(grid.indicators).length > 0 && (
-                <div className="flex gap-4 text-xs font-mono text-textSecondary">
+                <div className="flex gap-4 flex-wrap text-xs font-mono text-textSecondary">
                   {Object.entries(grid.indicators).map(([k, v]) => (
                     <span key={k}>{k}: {String(v)}</span>
                   ))}
                 </div>
               )}
+              {grid.grid_mode !== 'flat' && grid.geometry && Object.keys(grid.geometry).length > 0 && (
+                <div className="border-t border-border/10 pt-4">
+                  <h4 className="text-xs font-semibold text-text mb-3 uppercase tracking-wider">建議網格參數</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      ['區間下界', `$${grid.geometry.lower?.toLocaleString()}`],
+                      ['區間上界', `$${grid.geometry.upper?.toLocaleString()}`],
+                      ['網格數', grid.geometry.n_grids],
+                      ['格距', `$${grid.geometry.spacing} (${grid.geometry.spacing_pct}%)`],
+                    ].map(([label, val]) => (
+                      <div key={String(label)}>
+                        <div className="text-[10px] uppercase tracking-wider text-textSecondary">{label}</div>
+                        <div className="text-sm font-mono text-text mt-0.5">{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="border-t border-border/10 pt-3 text-[11px] leading-relaxed text-textSecondary">
+                回測 400 天 (BingX BTC 1m, maker 1bp, 倉位上限 0.20 BTC)：PnL +211 / MaxDD −182 / 6 分段 4 勝。
+                對照固定 ±3000 常開網格 −8,172 / MaxDD −9,778。
+                絕對收益極小，價值在壓縮回撤而非賺錢；有效獨立樣本約 7 個，不可外推。
+              </div>
             </>
           ) : (
             <p className="text-sm text-textSecondary">尚無信號 — 點擊「手動觸發」運行引擎</p>
