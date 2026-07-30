@@ -4,6 +4,7 @@ import React, { useMemo, useState, useCallback, useId } from 'react';
 import { PerformanceMetrics, EquityPoint, TradeRecord, PositionStatusPoint } from '@/types/api';
 import { EquityPnlChart } from '@/components/charts/EquityPnlChart';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { StatTable, StatRow } from '@/components/backtest/StatTable';
 import {
   TV_UP, TV_DOWN,
   safeFmt, safePct, safeSigned, safeInt,
@@ -54,77 +55,44 @@ const EquitySparkline: React.FC<{ data: EquityPoint[]; width?: number; height?: 
   );
 };
 
-// ── TV-style KPI Block ──
-interface KpiBlockProps {
+
+type TabId = 'overview' | 'performance' | 'trades' | 'risk';
+
+// ── Hero KPI (TV Strategy Tester top strip) ──
+const HeroKpi: React.FC<{
   label: string;
+  en: string;
   value: string;
   sub?: string;
-  color?: 'pos' | 'neg' | 'neutral' | 'inherit';
-  tip?: string;
-  mega?: boolean;
-  sparkline?: React.ReactNode;
-}
-
-const KpiBlock: React.FC<KpiBlockProps> = ({ label, value, sub, color = 'inherit', tip, mega, sparkline }) => {
-  const colorClass =
-    color === 'pos' ? 'text-success' : color === 'neg' ? 'text-danger' : 'text-text';
-  const valueSize = mega ? 'text-xl sm:text-2xl' : 'text-sm sm:text-base';
-  const subSize = mega ? 'text-xs' : 'text-[10px]';
-
-  const inner = (
-    <div
-      className={`group relative bg-surface px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col gap-0.5 select-none card-lift cursor-default min-w-0 border border-border/15 hover:border-accent/30 rounded-sm ${
-        mega ? 'py-3 sm:py-4' : ''
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <span className="text-[10px] font-medium text-textSecondary uppercase tracking-wider truncate">
+  color?: 'pos' | 'neg' | 'neutral';
+  spark?: React.ReactNode;
+}> = ({ label, en, value, sub, color = 'neutral', spark }) => {
+  const c = color === 'pos' ? 'text-success' : color === 'neg' ? 'text-danger' : 'text-text';
+  return (
+    <div className="relative px-4 sm:px-5 py-3.5 border-r border-border/12 last:border-r-0 min-w-0 group overflow-hidden">
+      {/* sparkline sits behind, absolutely positioned so it can't shift the numbers */}
+      {spark && (
+        <div className="absolute top-2.5 right-3 opacity-40 group-hover:opacity-70 transition-opacity pointer-events-none">
+          {spark}
+        </div>
+      )}
+      <div className="flex items-baseline gap-1.5 min-w-0 h-[14px] mb-1.5">
+        <span className="text-[10px] uppercase tracking-[0.08em] text-textSecondary truncate">
           {label}
         </span>
-        {sparkline && <div className="shrink-0">{sparkline}</div>}
+        <span className="text-[9px] font-mono text-textSecondary/35 truncate hidden xl:inline">
+          {en}
+        </span>
       </div>
-      <span className={`${valueSize} font-mono font-semibold tracking-tight tabular-nums truncate ${colorClass}`}>
+      <div className={`text-[22px] sm:text-[26px] font-mono font-semibold tabular-nums tracking-[-0.02em] leading-none ${c}`}>
         {value}
-      </span>
-      {sub != null && (
-        <span className={`${subSize} font-mono tabular-nums ${colorClass} opacity-70 truncate`}>{sub}</span>
-      )}
+      </div>
+      <div className={`mt-1.5 h-[13px] text-[11px] font-mono tabular-nums ${c} opacity-55`}>
+        {sub ?? ''}
+      </div>
     </div>
   );
-
-  if (tip) {
-    return <Tooltip content={tip} position="top">{inner}</Tooltip>;
-  }
-  return inner;
 };
-
-// ── Section Header ──
-const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
-  <div className="col-span-full bg-surface px-4 pt-3 pb-1 border-l-2 border-accent/40">
-    <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-textSecondary">
-      {title}
-    </span>
-  </div>
-);
-
-// ── Toggle Button (TV style) ──
-const ToggleBtn: React.FC<{
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}> = ({ active, onClick, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`px-2.5 py-1 rounded text-[10px] font-mono border transition-colors duration-150 active:scale-[0.97] ${
-      active
-        ? 'border-accent/40 bg-accent/10 text-accent'
-        : 'border-border/30 text-textSecondary hover:text-text'
-    }`}
-  >
-    {children}
-  </button>
-);
 
 // ── Main Component ──
 export const PerformancePanel: React.FC<PerformancePanelProps> = ({
@@ -136,11 +104,8 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   initialCapital,
   onSelectTrade,
 }) => {
-  const [showEquity, setShowEquity] = useState(true);
   const [showBuyHold, setShowBuyHold] = useState(false);
-  const [showPnl, setShowPnl] = useState(true);
-  const [showGainDd, setShowGainDd] = useState(true);
-  const [showSpread, setShowSpread] = useState(false);
+  const [tab, setTab] = useState<TabId>('overview');
 
   const m = metrics as any;
   const netProfit = Number(m.net_profit ?? 0);
@@ -163,8 +128,8 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const expectancy = Number(m.expectancy ?? 0);
   const avgHoldingBars = Number(m.avg_holding_bars ?? 0);
   const tradeFreq = Number(m.trade_freq ?? 0);
-  const avgWin = Number(m.avg_win ?? 0);
-  const avgLoss = Number(m.avg_loss ?? 0);
+  const avgWin = Number(m.avg_winner ?? m.avg_win ?? 0);
+  const avgLoss = Number(m.avg_loser ?? m.avg_loss ?? 0);
   const maxDdDuration = Number(m.max_drawdown_duration ?? 0);
 
   // ── Status bar segments ──
@@ -212,294 +177,173 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const fmtNum = (v: number | null, d = 3): string =>
     v == null ? '—' : v.toFixed(d);
 
+  // ── TV Strategy Tester tabs ──
+  const overviewRows: StatRow[] = [
+    { label: '總損益', en: 'Net Profit', value: safeSigned(netProfit), sub: safePct(totalReturnPct), color: netProfit >= 0 ? 'pos' : 'neg', tip: '所有平倉交易盈虧總和（= 期末權益 − 初始資金）' },
+    { label: '最大回撤', en: 'Max Drawdown', value: safeFmt(maxDdAmount), sub: safePct(maxDdPct, { signed: false }), color: 'neg', tip: '權益曲線從歷史峰值到谷值的最大跌幅' },
+    { label: '總交易數', en: 'Total Trades', value: safeInt(totalTrades), sub: `${safeInt(winningTrades)}W/${safeInt(losingTrades)}L`, color: 'neutral', tip: '測試區間內產生的所有交易' },
+    { label: '勝率', en: 'Percent Profitable', value: safePct(winRate, { signed: false }), color: winRate >= 50 ? 'pos' : 'neutral', tip: '獲利交易數 / 總交易數' },
+    { label: '獲利因子', en: 'Profit Factor', value: safeFmt(profitFactor), color: profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg', tip: '總毛利 / 總毛損。>1 表示系統盈利' },
+    { label: '夏普比率', en: 'Sharpe Ratio', value: safeFmt(sharpeRatio), color: sharpeRatio >= 1 ? 'pos' : sharpeRatio >= 0 ? 'neutral' : 'neg', tip: '超額報酬 / 報酬標準差。>1 為佳' },
+    { label: '索提諾比率', en: 'Sortino Ratio', value: safeFmt(sortinoRatio), color: sortinoRatio >= 1 ? 'pos' : sortinoRatio >= 0 ? 'neutral' : 'neg', tip: '超額報酬 / 下行風險' },
+    { label: '年化回報', en: 'Annual Return', value: safePct(annualReturnPct), color: annualReturnPct >= 0 ? 'pos' : 'neg', tip: '以測試區間天數年化（CAGR）' },
+  ];
+
+  const perfRows: StatRow[] = [
+    { label: '年化回報', en: 'Annual Return', value: safePct(annualReturnPct), color: annualReturnPct >= 0 ? 'pos' : 'neg', tip: '以測試區間天數年化（CAGR）的複合年增率' },
+    { label: '總回報', en: 'Total Return', value: safePct(totalReturnPct), color: totalReturnPct >= 0 ? 'pos' : 'neg', tip: '期末權益相對初始資金的總報酬率' },
+    { label: '波動率', en: 'Volatility (ann.)', value: adv.annVol == null ? '—' : `${adv.annVol.toFixed(2)}%`, color: 'neutral', tip: '日報酬標準差年化（×√365）' },
+    { label: '卡瑪比率', en: 'Calmar Ratio', value: safeFmt(calmar), color: calmar >= 1 ? 'pos' : calmar >= 0 ? 'neutral' : 'neg', tip: '年化回報 / 最大回撤' },
+    { label: '恢復因子', en: 'Recovery Factor', value: fmtNum(adv.recoveryFactor), color: adv.recoveryFactor == null ? 'neutral' : adv.recoveryFactor >= 1 ? 'pos' : 'neg', tip: '期末權益 / 區間最低權益' },
+    { label: '最大回撤期', en: 'Max DD Duration', value: safeInt(maxDdDuration || adv.maxDdBars), sub: '根K線', color: 'neutral', tip: '權益連續處於回撤狀態的最長 K 線數' },
+    { label: '最大回撤天數', en: 'Max DD Days', value: `${adv.maxDdDays}`, sub: '天', color: 'neutral', tip: '資金曲線連續處於回撤狀態的最長天數' },
+    { label: 'Rolling 30D Sharpe', en: '', value: fmtNum(ext.rollSharpe), color: ext.rollSharpe == null ? 'neutral' : ext.rollSharpe >= 1 ? 'pos' : ext.rollSharpe >= 0 ? 'neutral' : 'neg', tip: '以最近 30 根 K 線收益窗口計算的滾動夏普' },
+    { label: '超額收益 α', en: 'Alpha', value: fmtPct(ext.alphaPct), color: ext.alphaPct == null ? 'neutral' : ext.alphaPct >= 0 ? 'pos' : 'neg', tip: '策略總回報 − 買進持有基準總回報' },
+    { label: '相關性 β', en: 'Beta', value: fmtNum(ext.beta), sub: ext.corr == null ? undefined : `ρ=${ext.corr.toFixed(2)}`, color: ext.beta == null ? 'neutral' : ext.beta <= 0.5 ? 'pos' : ext.beta <= 1 ? 'neutral' : 'neg', tip: '策略收益對基準收益的敏感度' },
+    { label: '超額夏普', en: 'Excess Sharpe', value: fmtNum(ext.exSharpe), color: ext.exSharpe == null ? 'neutral' : ext.exSharpe >= 0 ? 'pos' : 'neg', tip: '策略 Sharpe − 基準 Sharpe' },
+    { label: '正報酬月比例', en: 'Positive Months', value: adv.posMonthPct == null ? '—' : `${adv.posMonthPct.toFixed(1)}%`, color: adv.posMonthPct == null ? 'neutral' : adv.posMonthPct >= 50 ? 'pos' : 'neg', tip: '正報酬月份佔所有有交易月份的比例' },
+    { label: '最佳月份', en: 'Best Month', value: fmtPct(adv.bestMonth), color: 'pos', tip: '月度收益最高的一個月' },
+    { label: '最差月份', en: 'Worst Month', value: fmtPct(adv.worstMonth), color: 'neg', tip: '月度收益最低的一個月' },
+  ];
+
+  const tradeRows: StatRow[] = [
+    { label: '總交易數', en: 'Total Trades', value: safeInt(totalTrades), sub: `${safeInt(winningTrades)}W/${safeInt(losingTrades)}L`, color: 'neutral', tip: '測試區間內產生的所有交易' },
+    { label: '勝率', en: 'Percent Profitable', value: safePct(winRate, { signed: false }), color: winRate >= 50 ? 'pos' : 'neutral', tip: '獲利交易數 / 總交易數' },
+    { label: '期望值', en: 'Expectancy', value: safeSigned(expectancy), sub: '每筆', color: expectancy >= 0 ? 'pos' : 'neg', tip: '勝率×均盈 − 敗率×均虧' },
+    { label: '盈虧比', en: 'Payoff Ratio', value: safeFmt(winLossRatio), color: winLossRatio >= 1.5 ? 'pos' : winLossRatio >= 1 ? 'neutral' : 'neg', tip: '平均盈利 / 平均虧損' },
+    { label: '平均盈利', en: 'Avg Winning Trade', value: safeSigned(avgWin), color: 'pos', tip: '所有獲利交易的平均盈餘' },
+    { label: '平均虧損', en: 'Avg Losing Trade', value: safeFmt(avgLoss), color: 'neg', tip: '所有虧損交易的平均虧損' },
+    { label: '最大單筆盈利', en: 'Largest Win', value: safeSigned(largestWin), color: 'pos', tip: '單筆最大盈利金額' },
+    { label: '最大單筆虧損', en: 'Largest Loss', value: safeFmt(largestLoss), color: 'neg', tip: '單筆最大虧損金額' },
+    { label: '平均持倉', en: 'Avg Bars in Trades', value: safeFmt(avgHoldingBars, 1), sub: '根K線', color: 'neutral', tip: '每筆交易平均持有的 K 線數' },
+    { label: '交易頻率', en: 'Trade Frequency', value: safeFmt(tradeFreq), sub: '筆/日', color: 'neutral', tip: '平均每天產生的交易筆數' },
+    { label: '短期勝率', en: '<24 bars', value: adv.tfWinShort == null ? '—' : `${adv.tfWinShort.toFixed(1)}%`, color: adv.tfWinShort == null ? 'neutral' : adv.tfWinShort >= 50 ? 'pos' : 'neg', tip: '持有 <24 根 K 線的交易勝率' },
+    { label: '中期勝率', en: '24-96 bars', value: adv.tfWinMid == null ? '—' : `${adv.tfWinMid.toFixed(1)}%`, color: adv.tfWinMid == null ? 'neutral' : adv.tfWinMid >= 50 ? 'pos' : 'neg', tip: '持有 24-96 根 K 線的交易勝率' },
+    { label: '長期勝率', en: '>96 bars', value: adv.tfWinLong == null ? '—' : `${adv.tfWinLong.toFixed(1)}%`, color: adv.tfWinLong == null ? 'neutral' : adv.tfWinLong >= 50 ? 'pos' : 'neg', tip: '持有 >96 根 K 線的交易勝率' },
+  ];
+
+  const riskRows: StatRow[] = [
+    { label: '最大回撤', en: 'Max Drawdown', value: safeFmt(maxDdAmount), sub: safePct(maxDdPct, { signed: false }), color: 'neg', tip: '權益曲線從歷史峰值到谷值的最大跌幅' },
+    { label: 'VaR 95%', en: '', value: adv.var95 == null ? '—' : safePct(adv.var95 * 100), color: 'neg', tip: '每日收益 95% 置信度的歷史 VaR' },
+    { label: 'CVaR 95%', en: 'Expected Shortfall', value: adv.cvar95 == null ? '—' : safePct(adv.cvar95 * 100), color: 'neg', tip: 'VaR 95% 條件下平均虧損（尾部期望）' },
+    { label: 'VaR 99%', en: '', value: adv.var99 == null ? '—' : safePct(adv.var99 * 100), color: 'neg', tip: '每日收益 99% 置信度的歷史 VaR' },
+    { label: 'CVaR 99%', en: 'Expected Shortfall', value: adv.cvar99 == null ? '—' : safePct(adv.cvar99 * 100), color: 'neg', tip: 'VaR 99% 條件下平均虧損（極端尾部）' },
+    { label: '偏度', en: 'Skewness', value: fmtNum(adv.skew), color: adv.skew == null ? 'neutral' : adv.skew > 0 ? 'pos' : 'neg', tip: '正=右偏(偶有暴利)，負=左偏(偶有暴虧)' },
+    { label: '峰度', en: 'Excess Kurtosis', value: fmtNum(adv.kurt), color: adv.kurt == null ? 'neutral' : adv.kurt > 0 ? 'neg' : 'pos', tip: '正=肥尾（極端風險高）' },
+    { label: '波動率', en: 'Volatility (ann.)', value: adv.annVol == null ? '—' : `${adv.annVol.toFixed(2)}%`, color: 'neutral', tip: '日報酬標準差年化（×√365）' },
+  ];
+
+  const TABS: { id: TabId; label: string; en: string }[] = [
+    { id: 'overview', label: '總覽', en: 'Overview' },
+    { id: 'performance', label: '績效', en: 'Performance' },
+    { id: 'trades', label: '交易分析', en: 'Trades Analysis' },
+    { id: 'risk', label: '風險比率', en: 'Risk Ratios' },
+  ];
+
+  const activeRows =
+    tab === 'overview' ? overviewRows
+    : tab === 'performance' ? perfRows
+    : tab === 'trades' ? tradeRows
+    : riskRows;
+
   return (
-    <div className="bg-surface border-t border-border/10">
-      {/* ── Mega KPIs Row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <KpiBlock
-          label="總損益 Net Profit"
+    <div className="bg-surface">
+      {/* ── Hero KPI strip (TV Strategy Tester top row) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-border/12">
+        <HeroKpi
+          label="總損益"
+          en="Net Profit"
           value={safeSigned(netProfit)}
           sub={safePct(totalReturnPct)}
           color={netProfit >= 0 ? 'pos' : 'neg'}
-          mega
-          tip="Net Profit：所有平倉交易盈虧總和（= 期末權益 − 初始資金）"
-          sparkline={<EquitySparkline data={equity} />}
+          spark={<EquitySparkline data={equity} />}
         />
-        <KpiBlock
-          label="夏普比率 Sharpe"
-          value={safeFmt(sharpeRatio)}
-          color={sharpeRatio >= 1 ? 'pos' : sharpeRatio >= 0 ? 'neutral' : 'neg'}
-          mega
-          tip="Sharpe Ratio：超額報酬 / 報酬標準差。>1 為佳，>2 優秀，>3 卓越"
-        />
-        <KpiBlock
-          label="最大回撤 Max DD"
-          value={safePct(maxDdPct, { signed: false })}
-          sub={`${safeFmt(maxDdAmount)} USDT`}
+        <HeroKpi
+          label="最大回撤"
+          en="Max Drawdown"
+          value={safeFmt(maxDdAmount)}
+          sub={safePct(maxDdPct, { signed: false })}
           color="neg"
-          mega
-          tip="Max Drawdown：權益曲線從歷史峰值到谷值的最大跌幅"
         />
-        <KpiBlock
-          label="獲利因子 PF"
-          value={safeFmt(profitFactor)}
-          color={profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg'}
-          mega
-          tip="Profit Factor：總毛利 / 總毛損（絕對值）。>1 表示系統盈利，>1.5 優秀"
-        />
-      </div>
-
-      {/* ── Mega KPIs Row 2 ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <KpiBlock
-          label="勝率 Win Rate"
-          value={safePct(winRate, { signed: false })}
-          sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
-          color={winRate >= 50 ? 'pos' : 'neutral'}
-          mega
-          tip="Win Rate：獲利交易數 / 總交易數"
-        />
-        <KpiBlock
-          label="期望值 Expectancy"
-          value={safeSigned(expectancy)}
-          sub="每筆期望 PnL"
-          color={expectancy >= 0 ? 'pos' : 'neg'}
-          mega
-          tip="Expectancy：勝率×均盈 − 敗率×均虧。單筆交易的平均期望盈虧"
-        />
-        <KpiBlock
-          label="總交易數 Total Trades"
+        <HeroKpi
+          label="總交易數"
+          en="Total Trades"
           value={safeInt(totalTrades)}
           sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
           color="neutral"
-          mega
-          tip="Total Trades：測試區間內產生的所有交易（含未平倉）"
         />
-        <KpiBlock
-          label="年化回報 Annual"
-          value={safePct(annualReturnPct)}
-          color={annualReturnPct >= 0 ? 'pos' : 'neg'}
-          mega
-          tip="Annualized Return：以測試區間天數年化（CAGR）的複合年增率"
-        />
-      </div>
-
-      {/* ── 回報類 (Returns) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <SectionHeader title="回報類 Returns" />
-        <KpiBlock
-          label="年化回報 Annual Return"
-          value={safePct(annualReturnPct)}
-          color={annualReturnPct >= 0 ? 'pos' : 'neg'}
-          tip="Annualized Return：以測試區間天數年化（CAGR）的複合年增率"
-        />
-        <KpiBlock
-          label="索提諾比率 Sortino"
-          value={safeFmt(sortinoRatio)}
-          color={sortinoRatio >= 1 ? 'pos' : sortinoRatio >= 0 ? 'neutral' : 'neg'}
-          tip="Sortino Ratio：超額報酬 / 下行風險。只計入負向波動，比夏普更精準"
-        />
-        <KpiBlock
-          label="波動率 Volatility"
-          value={safePct(Number.isFinite(volatility) && Math.abs(volatility) <= 5 ? volatility * 100 : volatility, { signed: false })}
-          color="neutral"
-          tip="Volatility：策略日報酬的標準差（年化），衡量波動風險"
-        />
-        <KpiBlock
-          label="最差回撤期 Max DD Duration"
-          value={safeInt(maxDdDuration)}
-          sub="根 K 線"
-          color="neutral"
-          tip="Max Drawdown Duration：從峰值到恢復並創新高所需的最長 K 線數"
-        />
-      </div>
-
-      {/* ── 風險類 (Risk) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <SectionHeader title="風險類 Risk" />
-        <KpiBlock
-          label="卡瑪比率 Calmar"
-          value={safeFmt(calmar)}
-          sub="年化/最大回撤"
-          color={calmar >= 1 ? 'pos' : calmar >= 0 ? 'neutral' : 'neg'}
-          tip="Calmar Ratio：年化回報 / 最大回撤。越高代表回撤控制越好"
-        />
-        <KpiBlock
-          label="獲利因子 Profit Factor"
+        <HeroKpi
+          label="獲利因子"
+          en="Profit Factor"
           value={safeFmt(profitFactor)}
+          sub={`勝率 ${safePct(winRate, { signed: false })}`}
           color={profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg'}
-          tip="Profit Factor：總毛利 / 總毛損（絕對值）。>1 表示系統盈利，>1.5 優秀"
-        />
-        <KpiBlock
-          label="盈虧比 Payoff Ratio"
-          value={safeFmt(winLossRatio)}
-          sub="均盈/均虧"
-          color={winLossRatio >= 1.5 ? 'pos' : winLossRatio >= 1 ? 'neutral' : 'neg'}
-          tip="Payoff Ratio：平均盈利 / 平均虧損。>1 代表每虧 1 元能賺回更多"
-        />
-        <KpiBlock
-          label="期望值 Expectancy"
-          value={safeSigned(expectancy)}
-          sub="每筆期望 PnL"
-          color={expectancy >= 0 ? 'pos' : 'neg'}
-          tip="Expectancy：勝率×均盈 − 敗率×均虧。單筆交易的平均期望盈虧"
         />
       </div>
 
-      {/* ── 交易類 (Trades) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <SectionHeader title="交易類 Trades" />
-        <KpiBlock
-          label="總交易數 Total Trades"
-          value={safeInt(totalTrades)}
-          sub={`${safeInt(winningTrades)}W / ${safeInt(losingTrades)}L`}
-          color="neutral"
-          tip="Total Trades：測試區間內產生的所有交易（含未平倉）"
-        />
-        <KpiBlock
-          label="平均盈利 Avg Win"
-          value={safeSigned(avgWin)}
-          color="pos"
-          tip="Average Winning Trade：所有獲利交易的平均盈餘"
-        />
-        <KpiBlock
-          label="平均虧損 Avg Loss"
-          value={safeFmt(avgLoss)}
-          color="neg"
-          tip="Average Losing Trade：所有虧損交易的平均虧損"
-        />
-        <KpiBlock
-          label="最大單筆盈利 Largest Win"
-          value={safeSigned(largestWin)}
-          color="pos"
-          tip="Largest Winning Trade：單筆最大盈利金額"
-        />
-        <KpiBlock
-          label="最大單筆虧損 Largest Loss"
-          value={safeFmt(largestLoss)}
-          color="neg"
-          tip="Largest Losing Trade：單筆最大虧損金額"
-        />
-        <KpiBlock
-          label="平均持倉 Avg Holding"
-          value={safeFmt(avgHoldingBars, 1)}
-          sub="根 K 線"
-          color="neutral"
-          tip="Avg Holding Period：每筆交易平均持有的 K 線數"
-        />
-        <KpiBlock
-          label="交易頻率 Trade Freq"
-          value={safeFmt(tradeFreq)}
-          sub="筆/日"
-          color="neutral"
-          tip="Trade Frequency：測試區間內平均每天產生的交易筆數"
-        />
-      </div>
-
-      {/* ── #2 擴充指標 (Rolling Sharpe / 超額 α / β-相關) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 border-b border-border/10">
-        <SectionHeader title="擴充指標 Extended" />
-        <KpiBlock
-          label="Rolling 30D Sharpe"
-          value={fmtNum(ext.rollSharpe)}
-          sub="近30根K線"
-          color={ext.rollSharpe == null ? 'neutral' : ext.rollSharpe >= 1 ? 'pos' : ext.rollSharpe >= 0 ? 'neutral' : 'neg'}
-          tip="Rolling Sharpe：以最近 30 根 K 線收益窗口計算的滾動夏普比率，反映近期穩定性"
-        />
-        <KpiBlock
-          label="超額收益 α"
-          value={fmtPct(ext.alphaPct)}
-          sub={ext.alphaPct == null ? 'vs 基準' : 'vs 買進持有'}
-          color={ext.alphaPct == null ? 'neutral' : ext.alphaPct >= 0 ? 'pos' : 'neg'}
-          tip="Alpha (α)：策略總回報 − 買進持有基準總回報。>0 代表策略戰勝單純持有"
-        />
-        <KpiBlock
-          label="相關性 β"
-          value={fmtNum(ext.beta)}
-          sub={ext.beta == null ? 'vs 基準' : `ρ=${ext.corr?.toFixed(2)}`}
-          color={ext.beta == null ? 'neutral' : ext.beta <= 0.5 ? 'pos' : ext.beta <= 1 ? 'neutral' : 'neg'}
-          tip="Beta (β)：策略收益對基準收益的敏感度。ρ 為相關係數。β 低代表與大盤脫鉤、分散效果好"
-        />
-        <KpiBlock
-          label="超額夏普 ExSharpe"
-          value={fmtNum(ext.exSharpe)}
-          sub="策略−基準"
-          color={ext.exSharpe == null ? 'neutral' : ext.exSharpe >= 0 ? 'pos' : 'neg'}
-          tip="Excess Sharpe：策略 Sharpe − 基準 Sharpe。衡量風險調整後的超額能力"
-        />
-      </div>
-
-      {/* ── 進階風險指標 (用戶指定 13 項) ── */}
-      <div className="border-t border-border/10 px-4 py-4">
-        <p className="text-xs text-textSecondary mb-2 font-medium">進階風險指標 · Advanced Risk Metrics</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-px bg-border/20">
-          <KpiBlock label="短期勝率 <24K" value={adv.tfWinShort == null ? '—' : `${adv.tfWinShort.toFixed(1)}%`} color={adv.tfWinShort == null ? 'neutral' : adv.tfWinShort >= 50 ? 'pos' : 'neg'} tip="持有 <24 根 K 線的交易勝率" />
-          <KpiBlock label="中期勝率 24-96K" value={adv.tfWinMid == null ? '—' : `${adv.tfWinMid.toFixed(1)}%`} color={adv.tfWinMid == null ? 'neutral' : adv.tfWinMid >= 50 ? 'pos' : 'neg'} tip="持有 24-96 根 K 線的交易勝率" />
-          <KpiBlock label="長期勝率 >96K" value={adv.tfWinLong == null ? '—' : `${adv.tfWinLong.toFixed(1)}%`} color={adv.tfWinLong == null ? 'neutral' : adv.tfWinLong >= 50 ? 'pos' : 'neg'} tip="持有 >96 根 K 線的交易勝率" />
-          <KpiBlock label="最大回撤天數" value={`${adv.maxDdDays}`} sub="天" color="neutral" tip="資金曲線連續處於回撤狀態的最長天數" />
-          <KpiBlock label="恢復因子" value={fmtNum(adv.recoveryFactor)} color={adv.recoveryFactor == null ? 'neutral' : adv.recoveryFactor >= 1 ? 'pos' : 'neg'} tip="期末權益 / 區間最低權益 (越高恢復越快)" />
-          <KpiBlock label="偏度 Skew" value={fmtNum(adv.skew)} color={adv.skew == null ? 'neutral' : adv.skew > 0 ? 'pos' : 'neg'} tip="收益分布偏度：正=右偏(偶有暴利)，負=左偏(偶有暴虧)" />
-          <KpiBlock label="峰度 Kurt" value={fmtNum(adv.kurt)} color={adv.kurt == null ? 'neutral' : adv.kurt > 0 ? 'neg' : 'pos'} tip="超額峰度：正=肥尾(極端風險高)" />
-          <KpiBlock label="VaR 95%" value={adv.var95 == null ? '—' : safePct(adv.var95 * 100)} color="neg" tip="每日收益 95% 置信度的歷史 VaR (最大單日虧損分位)" />
-          <KpiBlock label="CVaR 95%" value={adv.cvar95 == null ? '—' : safePct(adv.cvar95 * 100)} color="neg" tip="VaR 95% 條件下平均虧損 (尾部期望)" />
-          <KpiBlock label="VaR 99%" value={adv.var99 == null ? '—' : safePct(adv.var99 * 100)} color="neg" tip="每日收益 99% 置信度的歷史 VaR" />
-          <KpiBlock label="CVaR 99%" value={adv.cvar99 == null ? '—' : safePct(adv.cvar99 * 100)} color="neg" tip="VaR 99% 條件下平均虧損 (極端尾部期望)" />
-          <KpiBlock label="最差月份" value={fmtPct(adv.worstMonth)} color="neg" tip="月度收益最低的一個月" />
-          <KpiBlock label="最佳月份" value={fmtPct(adv.bestMonth)} color="pos" tip="月度收益最高的一個月" />
-          <KpiBlock label="正報酬月比例" value={adv.posMonthPct == null ? '—' : `${adv.posMonthPct.toFixed(1)}%`} color={adv.posMonthPct == null ? 'neutral' : adv.posMonthPct >= 50 ? 'pos' : 'neg'} tip="正報酬月份佔所有有交易月份的比例" />
-        </div>
-      </div>
-
-      {/* ── Legend / Control Panel ── */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-border/10">
-        <ToggleBtn active={showEquity} onClick={() => setShowEquity((v) => !v)}>
-          累計損益
-        </ToggleBtn>
-        <ToggleBtn active={showBuyHold} onClick={() => setShowBuyHold((v) => !v)}>
-          {showBuyHold ? '隱藏' : '顯示'} 買進並持有
-        </ToggleBtn>
-        <ToggleBtn active={showPnl} onClick={() => setShowPnl((v) => !v)}>
-          單筆盈虧
-        </ToggleBtn>
-        <ToggleBtn active={showGainDd} onClick={() => setShowGainDd((v) => !v)}>
-          漲幅與回撤
-        </ToggleBtn>
-        <ToggleBtn active={showSpread} onClick={() => setShowSpread((v) => !v)}>
-          {showSpread ? '隱藏' : '顯示'} 策略−基準
-        </ToggleBtn>
-      </div>
-
-      {/* ── Status bar ── */}
+      {/* ── Position status bar ── */}
       {statusSegments.length > 0 && (
-        <div className="relative h-1 w-full bg-transparent px-0">
-          <div className="absolute inset-0 flex">
-            {statusSegments.map((s, i) => (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  left: `${s.left}%`,
-                  width: `${s.width}%`,
-                  backgroundColor: s.color,
-                  height: '100%',
-                  opacity: 0.6,
-                }}
-              />
-            ))}
-          </div>
+        <div className="relative h-[3px] w-full bg-border/10">
+          {statusSegments.map((s, i) => (
+            <div
+              key={i}
+              className="absolute top-0 h-full"
+              style={{ left: `${s.left}%`, width: `${s.width}%`, backgroundColor: s.color, opacity: 0.75 }}
+            />
+          ))}
         </div>
       )}
 
-      {/* ── Main Chart ── */}
+      {/* ── Chart ── */}
       <EquityPnlChart
-        equity={showEquity ? equity : []}
+        equity={equity}
         buyHold={buyHold}
-        trades={showPnl ? trades : []}
+        trades={trades}
         initialCapital={initialCapital}
         showBuyHold={showBuyHold}
-        showSpread={showSpread}
-        theme="dark"
       />
+
+      {/* ── Tab bar (TV Strategy Tester) ── */}
+      <div className="flex items-stretch border-y border-border/12 bg-surface overflow-x-auto">
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`relative px-4 sm:px-5 py-2.5 text-[12px] whitespace-nowrap transition-colors duration-150 ${
+                active
+                  ? 'text-text font-medium'
+                  : 'text-textSecondary hover:text-text'
+              }`}
+            >
+              <span>{t.label}</span>
+              <span className="ml-1.5 text-[10px] font-mono text-textSecondary/40 hidden sm:inline">
+                {t.en}
+              </span>
+              {active && (
+                <span className="absolute inset-x-0 -bottom-px h-[2px] bg-accent" />
+              )}
+            </button>
+          );
+        })}
+        <div className="flex-1 min-w-0" />
+        <button
+          type="button"
+          onClick={() => setShowBuyHold((v) => !v)}
+          className={`px-3 text-[10.5px] font-mono border-l border-border/12 transition-colors duration-150 ${
+            showBuyHold ? 'text-accent' : 'text-textSecondary/60 hover:text-text'
+          }`}
+        >
+          {showBuyHold ? '● B&H' : '○ B&H'}
+        </button>
+      </div>
+
+      {/* ── Stat table ── */}
+      <div className="px-4 sm:px-6 py-4">
+        <StatTable rows={activeRows} cols={2} />
+      </div>
     </div>
   );
 };
@@ -518,6 +362,8 @@ interface AdvRisk {
   tfWinMid: number | null;
   tfWinLong: number | null;
   maxDdDays: number;
+  annVol: number | null;
+  maxDdBars: number;
   recoveryFactor: number | null;
   skew: number | null;
   kurt: number | null;
@@ -533,7 +379,7 @@ interface AdvRisk {
 function calcAdvRisk(equity: EquityPoint[], trades: TradeRecord[]): AdvRisk {
   const empty: AdvRisk = {
     tfWinShort: null, tfWinMid: null, tfWinLong: null,
-    maxDdDays: 0, recoveryFactor: null, skew: null, kurt: null,
+    maxDdDays: 0, annVol: null, maxDdBars: 0, recoveryFactor: null, skew: null, kurt: null,
     var95: null, cvar95: null, var99: null, cvar99: null,
     worstMonth: null, bestMonth: null, posMonthPct: null,
   };
@@ -578,25 +424,48 @@ function calcAdvRisk(equity: EquityPoint[], trades: TradeRecord[]): AdvRisk {
   const cvar95 = negRets.length ? meanArr(negRets, Math.floor(0.05 * negRets.length)) : null;
   const cvar99 = negRets.length ? meanArr(negRets, Math.floor(0.01 * negRets.length)) : null;
 
-  // 最大回撤持續天數 (equity drawdown 連續 >0 最長期間, 按 timestamp 差算天)
+  // 最大回撤持續天數 / 根數。後端 equity 不一定帶 drawdown 欄位，
+  // 所以自己用 running peak 推導，避免整欄恆為 0。
   let maxDdDays = 0;
+  let maxDdBars = 0;
   let curDays = 0;
+  let curBars = 0;
   let prevT = 0;
+  let peak = -Infinity;
+  // 探測 timestamp 單位：秒 vs 毫秒
+  const firstT = equity.length > 1 ? Number(equity[1].timestamp) || Number(equity[1].time) || 0 : 0;
+  const isMs = firstT > 1e12;
+  const daySec = isMs ? 86400000 : 86400;
   for (let i = 0; i < equity.length; i++) {
     const e = equity[i];
-    const dd = Number(e.drawdown) || 0;
+    const v = Number(e.equity) || 0;
+    if (v > peak) peak = v;
+    const rawDd = Number((e as any).drawdown);
+    const dd = Number.isFinite(rawDd) && rawDd !== 0
+      ? rawDd
+      : peak > 0 ? (peak - v) / peak : 0;
     const t = Number(e.timestamp) || Number(e.time) || 0;
     if (dd > 0) {
+      curBars += 1;
       if (prevT > 0 && t > prevT) {
-        curDays += Math.max(1, Math.round((t - prevT) / 86400));
-      } else {
-        curDays += 1;
+        curDays += (t - prevT) / daySec;
       }
-      maxDdDays = Math.max(maxDdDays, curDays);
+      // else: 首根回撤 bar 不重複計入
+      maxDdDays = Math.max(maxDdDays, Math.round(curDays));
+      maxDdBars = Math.max(maxDdBars, curBars);
     } else {
       curDays = 0;
+      curBars = 0;
     }
     prevT = t;
+  }
+
+  // 年化波動率：後端 MetricsOut 沒有這欄，用日收益標準差 × √365 自行推導
+  let annVol: number | null = null;
+  if (n >= 2) {
+    const mu = rets.reduce((a, b) => a + b, 0) / n;
+    const varr = rets.reduce((a, b) => a + (b - mu) ** 2, 0) / (n - 1);
+    annVol = Math.sqrt(varr) * Math.sqrt(365) * 100;
   }
 
   // 恢復因子 (期末/最低點, 或 peak/trough)
@@ -638,7 +507,7 @@ function calcAdvRisk(equity: EquityPoint[], trades: TradeRecord[]): AdvRisk {
   }
 
   return {
-    tfWinShort, tfWinMid, tfWinLong, maxDdDays, recoveryFactor,
+    tfWinShort, tfWinMid, tfWinLong, maxDdDays, annVol, maxDdBars, recoveryFactor,
     skew, kurt, var95, cvar95, var99, cvar99,
     worstMonth, bestMonth, posMonthPct,
   };

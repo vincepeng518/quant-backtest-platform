@@ -9,8 +9,8 @@ interface PageShellProps {
 }
 
 /**
- * Shared page scaffolding for the Ink & Bullion system:
- * mono kicker with gold tick, display title, gold hairline rule beneath.
+ * Shared page scaffolding for the Quant Platform:
+ * mono kicker with accent tick, display title, accent hairline rule beneath.
  * Every functional page wraps in this so the whole app reads as one system.
  */
 export const PageShell: React.FC<PageShellProps> = ({
@@ -40,7 +40,7 @@ export const PageShell: React.FC<PageShellProps> = ({
             {subtitle}
           </p>
         )}
-        <div className="gold-rule mt-6" />
+        <div className="accent-rule mt-6" />
       </header>
 
       <div className="space-y-8">{children}</div>

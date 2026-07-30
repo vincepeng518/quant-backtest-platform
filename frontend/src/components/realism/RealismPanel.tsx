@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Input } from '@/components/ui/Input';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 
 export interface RealismState {
   enableFunding: boolean;
@@ -49,6 +50,41 @@ interface Props {
   collapsed?: boolean;
 }
 
+function SectionCard({
+  color,
+  title,
+  checked,
+  onChange,
+  children,
+}: {
+  color: string;
+  title: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl ${color}`} />
+      <div className="pl-3">
+        <div className="flex items-center gap-2">
+          <ToggleSwitch
+            checked={checked}
+            onChange={onChange}
+            badge={checked ? 'active' : 'off'}
+          />
+          <span className="text-sm font-medium text-text">{title}</span>
+        </div>
+        {checked && (
+          <div className="mt-3 animate-[fadeIn_200ms_ease-out]">
+            {children}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function RealismPanel({ state, handlers, collapsed = true }: Props) {
   const [open, setOpen] = React.useState(!collapsed);
   const s = state;
@@ -70,85 +106,85 @@ export function RealismPanel({ state, handlers, collapsed = true }: Props) {
       </p>
 
       {open && (
-        <div className="mt-4 space-y-4">
-          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={s.enableFunding}
-                onChange={(e) => handlers.setEnableFunding(e.target.checked)} />
-              資金費率 (Funding Rate)
-            </label>
-            {s.enableFunding && (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Input label="Interval (h)" type="number" value={s.fundingInterval}
-                  onChange={(e) => handlers.setFundingInterval(Number(e.target.value))} />
-                <Input label="Default Rate" type="number" step={0.00001} value={s.fundingRate}
-                  onChange={(e) => handlers.setFundingRate(Number(e.target.value))} />
-              </div>
-            )}
-          </div>
+        <div className="mt-4 space-y-4 animate-[fadeIn_200ms_ease-out]">
+          <SectionCard
+            color="bg-sky-400/60"
+            title="資金費率 (Funding Rate)"
+            checked={s.enableFunding}
+            onChange={handlers.setEnableFunding}
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Input label="Interval (h)" type="number" value={s.fundingInterval}
+                onChange={(e) => handlers.setFundingInterval(Number(e.target.value))} />
+              <Input label="Default Rate" type="number" step={0.00001} value={s.fundingRate}
+                onChange={(e) => handlers.setFundingRate(Number(e.target.value))} />
+            </div>
+          </SectionCard>
 
-          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={s.enablePerp}
-                onChange={(e) => handlers.setEnablePerp(e.target.checked)} />
-              永續合約 / 槓桿強平 (Perpetual)
-            </label>
-            {s.enablePerp && (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Input label="Leverage" type="number" value={s.leverage}
-                  onChange={(e) => handlers.setLeverage(Number(e.target.value))} />
-                <Input label="Maint. Margin" type="number" step={0.0005} value={s.maintMargin}
-                  onChange={(e) => handlers.setMaintMargin(Number(e.target.value))} />
-              </div>
-            )}
-          </div>
+          <SectionCard
+            color="bg-violet-400/60"
+            title="永續合約 / 槓桿強平 (Perpetual)"
+            checked={s.enablePerp}
+            onChange={handlers.setEnablePerp}
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Input label="Leverage" type="number" value={s.leverage}
+                onChange={(e) => handlers.setLeverage(Number(e.target.value))} />
+              <Input label="Maint. Margin" type="number" step={0.0005} value={s.maintMargin}
+                onChange={(e) => handlers.setMaintMargin(Number(e.target.value))} />
+            </div>
+          </SectionCard>
 
-          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={s.enableExchange}
-                onChange={(e) => handlers.setEnableExchange(e.target.checked)} />
-              交易所環境 (Maker/Taker + 滑價 + 延遲)
-            </label>
-            {s.enableExchange && (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Input label="Maker Fee" type="number" step={0.0001} value={s.makerFee}
-                  onChange={(e) => handlers.setMakerFee(Number(e.target.value))} />
-                <Input label="Taker Fee" type="number" step={0.0001} value={s.takerFee}
-                  onChange={(e) => handlers.setTakerFee(Number(e.target.value))} />
-                <Input label="Latency (bars)" type="number" value={s.latencyBars}
-                  onChange={(e) => handlers.setLatencyBars(Number(e.target.value))} />
-                <Input label="Book Slippage" type="number" step={0.0001} value={s.bookSlippage}
-                  onChange={(e) => handlers.setBookSlippage(Number(e.target.value))} />
-                <Input label="Maker Prob" type="number" step={0.05} value={s.makerProbability}
-                  onChange={(e) => handlers.setMakerProbability(Number(e.target.value))} />
-                <label className="flex items-end gap-2 text-sm">
-                  <input type="checkbox" checked={s.forceLimit}
-                    onChange={(e) => handlers.setForceLimit(e.target.checked)} />
-                  Force Limit (maker)
-                </label>
-              </div>
-            )}
-          </div>
+          <SectionCard
+            color="bg-orange-400/50"
+            title="交易所環境 (Maker/Taker + 滑價 + 延遲)"
+            checked={s.enableExchange}
+            onChange={handlers.setEnableExchange}
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Input label="Maker Fee" type="number" step={0.0001} value={s.makerFee}
+                onChange={(e) => handlers.setMakerFee(Number(e.target.value))} />
+              <Input label="Taker Fee" type="number" step={0.0001} value={s.takerFee}
+                onChange={(e) => handlers.setTakerFee(Number(e.target.value))} />
+              <Input label="Latency (bars)" type="number" value={s.latencyBars}
+                onChange={(e) => handlers.setLatencyBars(Number(e.target.value))} />
+              <Input label="Book Slippage" type="number" step={0.0001} value={s.bookSlippage}
+                onChange={(e) => handlers.setBookSlippage(Number(e.target.value))} />
+              <Input label="Maker Prob" type="number" step={0.05} value={s.makerProbability}
+                onChange={(e) => handlers.setMakerProbability(Number(e.target.value))} />
+              <label className="flex items-center gap-2 text-sm text-textSecondary">
+                <input type="checkbox" checked={s.forceLimit}
+                  onChange={(e) => handlers.setForceLimit(e.target.checked)}
+                  className="accent-accent" />
+                Force Limit (maker)
+              </label>
+            </div>
+          </SectionCard>
 
-          <div className="rounded-xl border border-white/[0.08] bg-surface2/40 backdrop-blur-sm p-4 transition-all hover:border-white/[0.15]">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={s.enableExec ?? false}
-                onChange={(e) => handlers.setEnableExec?.(e.target.checked)} />
-              成交真實度 (Execution: 滑點 + 成交概率 + 延遲)
-            </label>
-            {s.enableExec && (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Input label="Slippage %" type="number" step={0.0005} value={s.execSlippage ?? 0}
-                  onChange={(e) => handlers.setExecSlippage?.(Number(e.target.value))} />
-                <Input label="Fill Prob (limit)" type="number" step={0.05} value={s.execFillProb ?? 1}
-                  onChange={(e) => handlers.setExecFillProb?.(Number(e.target.value))} />
-                <Input label="Latency (ms)" type="number" value={s.execLatency ?? 0}
-                  onChange={(e) => handlers.setExecLatency?.(Number(e.target.value))} />
-              </div>
-            )}
-          </div>
+          <SectionCard
+            color="bg-emerald-400/50"
+            title="成交真實度 (Execution: 滑點 + 成交概率 + 延遲)"
+            checked={s.enableExec ?? false}
+            onChange={(v) => handlers.setEnableExec?.(v)}
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Input label="Slippage %" type="number" step={0.0005} value={s.execSlippage ?? 0}
+                onChange={(e) => handlers.setExecSlippage?.(Number(e.target.value))} />
+              <Input label="Fill Prob (limit)" type="number" step={0.05} value={s.execFillProb ?? 1}
+                onChange={(e) => handlers.setExecFillProb?.(Number(e.target.value))} />
+              <Input label="Latency (ms)" type="number" value={s.execLatency ?? 0}
+                onChange={(e) => handlers.setExecLatency?.(Number(e.target.value))} />
+            </div>
+          </SectionCard>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -57,15 +57,9 @@ const Row: React.FC<RowProps> = ({ label, long, short, format = fmt, isPercent =
 };
 
 export const LongShortPanel: React.FC<LongShortPanelProps> = ({ metrics }) => {
-  const hasData = (metrics.long_trades ?? 0) > 0 || (metrics.short_trades ?? 0) > 0;
+  const hasData = (metrics.long_trades ?? 0) > 0 && (metrics.short_trades ?? 0) > 0;
 
-  if (!hasData) {
-    return (
-      <div className="bg-[#161a25] rounded-sm border border-[#363c4e]/15 p-4 text-center text-sm text-[#787b86]">
-        No long/short split data
-      </div>
-    );
-  }
+  if (!hasData) return null;
 
   return (
     <div className="bg-[#161a25] rounded-sm border border-[#363c4e]/15 overflow-hidden">
