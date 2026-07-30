@@ -4,7 +4,7 @@ import { twMerge } from 'tailwind-merge';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
-  options: { label: string; value: string | number }[];
+  options: { label: string; value: string | number; group?: string }[];
   error?: string;
 }
 
@@ -28,11 +28,42 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             )}
             {...props}
           >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-surface text-text">
-                {opt.label}
-              </option>
-            ))}
+            {(() => {
+            const groups = new Map<string, typeof options>();
+            const ungrouped: typeof options = [];
+            for (const opt of options) {
+              if (opt.group) {
+                const g = groups.get(opt.group) || [];
+                g.push(opt);
+                groups.set(opt.group, g);
+              } else {
+                ungrouped.push(opt);
+              }
+            }
+            if (groups.size === 0) {
+              return options.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-surface text-text">
+                  {opt.label}
+                </option>
+              ));
+            }
+            const out: React.ReactNode[] = [];
+            if (ungrouped.length > 0) {
+              out.push(<optgroup key="_ungrouped" label="─">
+                {ungrouped.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="bg-surface text-text">{opt.label}</option>
+                ))}
+              </optgroup>);
+            }
+            groups.forEach((g, name) => {
+              out.push(<optgroup key={name} label={name}>
+                {g.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="bg-surface text-text">{opt.label}</option>
+                ))}
+              </optgroup>);
+            });
+            return out;
+          })()}
           </select>
           <span
             aria-hidden

@@ -113,4 +113,11 @@ async def get_heartbeat(_: None = Depends(auth_required)):
         c.close()
     if not row:
         return {"alive": False, "updated_at": None}
+    # 衰退閾值：超過 2 小時無 heartbeat → 判定為 dead
+    try:
+        age_s = (datetime.now(timezone.utc) - datetime.fromisoformat(row[1])).total_seconds()
+        if age_s > 7200:
+            return {"alive": False, "updated_at": row[1], "data": json.loads(row[0]), "age_s": int(age_s)}
+    except Exception:
+        pass
     return {"alive": True, "updated_at": row[1], "data": json.loads(row[0])}

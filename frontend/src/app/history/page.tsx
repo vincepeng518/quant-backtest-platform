@@ -46,11 +46,19 @@ export default function HistoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const f = q ? items.filter((it) =>
-      (it.strategy ?? '').toLowerCase().includes(q) ||
-      (it.symbol ?? '').toLowerCase().includes(q) ||
-      it.task_id.toLowerCase().includes(q)
-    ) : items;
+    let f = items;
+    // Quick Sharpe filter: sr>2, sr>1
+    const srMatch = q.match(/^sr>(\d+(?:\.\d+)?)$/);
+    if (srMatch) {
+      const cutoff = parseFloat(srMatch[1]);
+      f = items.filter((it) => (it.sharpe ?? 0) > cutoff);
+    } else if (q) {
+      f = items.filter((it) =>
+        (it.strategy ?? '').toLowerCase().includes(q) ||
+        (it.symbol ?? '').toLowerCase().includes(q) ||
+        it.task_id.toLowerCase().includes(q)
+      );
+    }
     return [...f].sort((a, b) => {
       let av: string | number, bv: string | number;
       switch (sortKey) {
@@ -75,9 +83,19 @@ export default function HistoryPage() {
     >
       <Card className="min-h-[300px]">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Spinner size="lg" />
-            <p className="text-sm text-textSecondary font-mono">載入回測記錄…</p>
+          <div className="flex flex-col gap-3 px-4 py-8">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex-1 space-y-2">
+                  <div className="skeleton h-4 w-48" />
+                  <div className="skeleton h-3 w-64" />
+                </div>
+                <div className="text-right space-y-2">
+                  <div className="skeleton h-4 w-20 ml-auto" />
+                  <div className="skeleton h-3 w-16 ml-auto" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <p className="text-sm font-mono text-danger p-6">{error}</p>
@@ -87,13 +105,29 @@ export default function HistoryPage() {
           <>
             {/* Search + sort bar */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 pb-4 border-b border-border/10">
-              <Input
-                label=""
-                placeholder="搜尋策略 / 幣種 / ID…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-xs"
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Input
+                  label=""
+                  placeholder="搜尋策略 / 幣種 / ID…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="max-w-[200px]"
+                />
+                {/* Quick Sharpe filters */}
+                {[
+                  { label: 'SR>2', fn: () => setSearch('sr>2') },
+                  { label: 'SR>1', fn: () => setSearch('sr>1') },
+                  { label: '60W+', fn: () => setSearch('60') },
+                ].map((f) => (
+                  <button
+                    key={f.label}
+                    onClick={f.fn}
+                    className="px-2.5 py-1 text-[10px] font-mono rounded-md border border-white/[0.08] bg-surface2/40 text-textSecondary hover:text-accent hover:border-accent/30 transition-colors"
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
               <span className="text-xs font-mono text-textSecondary">
                 {filtered.length} / {items.length} 筆
               </span>
@@ -102,26 +136,42 @@ export default function HistoryPage() {
             {filtered.length === 0 ? (
               <div className="p-6"><EmptyState title="無符合結果" description="嘗試其他搜尋關鍵字" /></div>
             ) : (
-              <div className="space-y-px">
+              <div className="divide-y divide-border/10">
                 {filtered.map((it) => (
                   <button
                     key={it.task_id}
                     onClick={() => router.push(`/backtest?task=${it.task_id}`)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors rounded-sm [&:nth-child(odd)]:bg-surface/30"
+                    className="w-full flex items-center justify-between px-4 md:px-5 py-3.5 hover:bg-surface/60 text-left transition-all duration-150 group border-l-2 border-transparent hover:border-accent/40"
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-mono text-text truncate">
-                        {it.strategy ?? '—'} · {it.symbol ?? '—'} · {it.timeframe ?? '—'}
-                      </p>
-                      <p className="text-xs text-textSecondary font-mono truncate">
-                        {it.task_id} · {it.created_at?.slice(0, 19)?.replace('T', ' ')}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-text group-hover:text-accent transition-colors">
+                          {it.strategy ?? '—'}
+                        </span>
+                        <span className="font-mono text-xs text-textSecondary">
+                          {it.symbol ?? '—'} · {it.timeframe ?? '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-[11px] text-textSecondary/60 truncate">
+                          {it.task_id}
+                        </span>
+                        <span className="font-mono text-[11px] text-textSecondary/40">·</span>
+                        <span className="font-mono text-[11px] text-textSecondary/60">
+                          {it.created_at?.slice(0, 19)?.replace('T', ' ')}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0 ml-4">
-                      <p className={`text-sm font-mono ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {it.sharpe != null ? `SR ${it.sharpe.toFixed(2)}` : '—'}
-                      </p>
-                      <p className="text-xs text-textSecondary font-mono">{it.total_trades ?? 0} 筆交易</p>
+                    <div className="text-right shrink-0 ml-4 flex items-center gap-4">
+                      <div className="text-right">
+                        <p className={`text-sm font-mono font-semibold tabular-nums ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {it.sharpe != null ? `SR ${it.sharpe.toFixed(2)}` : 'SR —'}
+                        </p>
+                        <p className="text-[11px] text-textSecondary font-mono tabular-nums">{it.total_trades ?? 0} trades</p>
+                      </div>
+                      <svg className="h-4 w-4 text-textSecondary/30 group-hover:text-accent/60 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
                     </div>
                   </button>
                 ))}

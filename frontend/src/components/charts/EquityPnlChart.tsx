@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  createChart,
-  IChartApi,
-  ISeriesApi,
-  UTCTimestamp,
-  LineData,
-  HistogramData,
-  CrosshairMode,
+  createChart, UTCTimestamp, IChartApi,
+  LineData, HistogramData, CrosshairMode,
 } from 'lightweight-charts';
 import { EquityPoint, TradeRecord } from '@/types/api';
-import { TV_UP, TV_DOWN, TV_STRATEGY, TV_BH, IB_DARK, IB_LIGHT } from '@/lib/format';
+import { TV_UP, TV_DOWN, TV_STRATEGY, TV_BH } from '@/lib/format';
 
-const STRATEGY = TV_STRATEGY;
 const BH_GRAY = TV_BH;
 
-interface EquityPnlChartProps {
+const UP_RGB = '8,153,129';
+const DOWN_RGB = '242,54,69';
+
+interface Props {
   equity: EquityPoint[];
   buyHold?: EquityPoint[];
   trades?: TradeRecord[];
@@ -26,329 +23,263 @@ interface EquityPnlChartProps {
   theme?: 'light' | 'dark';
 }
 
-const toTs = (raw: any): number => {
-  if (raw == null || raw === '' || raw === undefined) return 0;
-  let t: number;
-  if (typeof raw === 'string') {
-    const ms = new Date(raw).getTime();
-    t = Number.isFinite(ms) ? ms / 1000 : NaN;
-  } else {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 0;
-    t = n > 1e11 ? n / 1000 : n;
-  }
-  if (!Number.isFinite(t) || t <= 0) return 0;
-  return Math.floor(t);
-};
-
-// ── defensive: 排序 + 去重 (lightweight-charts 要求 asc 唯一 time) ──
-const sortDedupe = <T extends Record<string, any>>(arr: T[]): T[] => {
-  const seen = new Set<number>();
-  return [...(arr || [])]
-    .sort((a, b) => toTs(a.time ?? (a as any).timestamp) - toTs(b.time ?? (a as any).timestamp))
-    .filter((d) => {
-      const t = toTs(d.time ?? (d as any).timestamp);
-      if (t <= 0 || seen.has(t)) return false;
-      seen.add(t);
-      return true;
-    });
-};
-
-const fmt = (n: number, d = 2): string => {
-  if (n == null || isNaN(n)) return '—';
-  const abs = Math.abs(n);
-  if (abs > 0 && abs < 0.01) return n.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
-  if (abs >= 10000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-};
-
-// Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
-const toUnixSec = (v: any): number => {
-  if (v == null) return 0;
-  if (typeof v === 'number') return v;
+const toU = (v: any): number => {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return v > 1e11 ? Math.floor(v / 1000) : Math.floor(v);
   const ms = Date.parse(v);
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
 };
 
-export const EquityPnlChart: React.FC<EquityPnlChartProps> = ({
-  equity,
-  buyHold = [],
-  trades = [],
-  initialCapital,
-  showBuyHold,
-  showSpread = false,
-  theme = 'dark',
+export const EquityPnlChart: React.FC<Props> = ({
+  equity, buyHold = [], trades = [], initialCapital,
+  showBuyHold, theme = 'dark',
 }) => {
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFS, setFS] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const legendRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
+
+  // TV-style layer visibility
+  const [showEq, setShowEq] = useState(true);
+  const [showBh, setShowBh] = useState(true);
+  const [showPnl, setShowPnl] = useState(true);
+  const [showPct, setShowPct] = useState(false);
+
+  const CHART_H = 380;
 
   useEffect(() => {
     if (!containerRef.current) return;
+    if (!equity || equity.length < 2) return;
 
     const isDark = theme === 'dark';
-    const pal = isDark ? IB_DARK : IB_LIGHT;
-    const BG = pal.bg;
-    const TXT = pal.text;
-    const GRID = isDark ? '#1c2233' : '#e8e5dd';
-    const BORDER = pal.border;
-    const CROSS = pal.textSecondary;
+    const BG = isDark ? '#131722' : '#fff';
+    const TXT = isDark ? '#d1d4dc' : '#131722';
+    const GR = isDark ? 'rgba(42,46,57,0.4)' : 'rgba(224,227,235,0.6)';
+    const BD = isDark ? '#363c4e' : '#d1d4dc';
+    const CX = isDark ? '#758696' : '#9b9fa8';
 
-    const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: 420,
-      layout: { background: { color: BG }, textColor: TXT, fontSize: 11 },
-      grid: { vertLines: { color: GRID }, horzLines: { color: GRID } },
-      crosshair: {
-        mode: CrosshairMode.Magnet,
-        vertLine: { color: CROSS, width: 1, style: 2 },
-        horzLine: { color: CROSS, width: 1, style: 2 },
-      },
-      timeScale: {
-        borderColor: BORDER,
-        timeVisible: true,
-        secondsVisible: false,
-        fixLeftEdge: true,
-        fixRightEdge: true,
-        // @ts-ignore timezone supported in v4.1.x runtime
-        timezone: 'Asia/Taipei',
-      },
-      rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.1, bottom: 0.1 } },
-    });
-
-    const eqData: LineData[] = sortDedupe(equity)
-      .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
-      .filter((d) => d.time > 0);
-
-    if (eqData.length === 0) {
-      chart.remove();
-      return;
-    }
-
-    const equityLine = chart.addLineSeries({
-      color: STRATEGY,
-      lineWidth: 2,
-      title: '累計損益',
-      priceLineVisible: false,
-    });
-    equityLine.setData(eqData);
-    equityLine.createPriceLine({
-      price: initialCapital,
-      color: BH_GRAY,
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: '初始資金',
-    });
-
-    let peakVal = -Infinity;
-    let peakIdx = -1;
-    let maxDd = 0;
-    let troughIdx = -1;
-    const eqVals = equity.map((d) => d.equity);
-    const runningPeak: number[] = [];
-    for (let i = 0; i < eqVals.length; i++) {
-      if (eqVals[i] > peakVal) {
-        peakVal = eqVals[i];
-        peakIdx = i;
-      }
-      runningPeak.push(peakVal);
-      const dd = (peakVal - eqVals[i]) / (peakVal || 1);
-      if (dd > maxDd) {
-        maxDd = dd;
-        troughIdx = i;
-      }
-    }
-    const markers: any[] = [];
-    if (peakIdx >= 0 && eqData[peakIdx]) {
-      markers.push({
-        time: eqData[peakIdx].time,
-        position: 'aboveBar',
-        color: TV_UP,
-        shape: 'circle',
-        text: '峰值',
-      });
-    }
-    if (troughIdx >= 0 && eqData[troughIdx]) {
-      markers.push({
-        time: eqData[troughIdx].time,
-        position: 'belowBar',
-        color: TV_DOWN,
-        shape: 'circle',
-        text: `最大回撤 ${((maxDd) * 100).toFixed(1)}%`,
-      });
-    }
-    if (markers.length > 0) {
-      markers.sort((a, b) => (a.time as number) - (b.time as number));
-      equityLine.setMarkers(markers);
-    }
-
-    let spreadLine: ISeriesApi<'Line'> | null = null;
-    if (showSpread && buyHold.length > 0) {
-      const bhMap = new Map<number, number>(
-        sortDedupe(buyHold).map((d) => [toTs(d.time ?? (d as any).timestamp) as number, d.equity])
-      );
-      const spreadData: LineData[] = eqData
-        .map((d) => {
-          const bh = bhMap.get(d.time as number);
-          return bh != null ? { time: d.time, value: d.value - bh } : null;
-        })
-        .filter((d): d is LineData => d != null);
-      if (spreadData.length > 0) {
-        spreadLine = chart.addLineSeries({
-          color: TV_STRATEGY,
-          lineWidth: 1,
-          title: '策略−基準',
-          priceLineVisible: false,
-          priceScaleId: 'spread',
-        });
-        spreadLine.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.6 } });
-        spreadLine.setData(spreadData);
-        spreadLine.createPriceLine({
-          price: 0,
-          color: BH_GRAY,
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: false,
-          title: '',
-        });
-      }
-    }
-
-    let bhLine: ISeriesApi<'Line'> | null = null;
-    if (showBuyHold && buyHold.length > 0) {
-      bhLine = chart.addLineSeries({
-        color: BH_GRAY,
-        lineWidth: 1,
-        title: '買進並持有',
-        priceLineVisible: false,
-      });
-      bhLine.setData(
-        sortDedupe(buyHold)
-          .map((d) => ({ time: toTs(d.time ?? (d as any).timestamp) as UTCTimestamp, value: d.equity }))
-          .filter((d) => d.time > 0)
-      );
-    }
-
-    const histSeries = chart.addHistogramSeries({
-      priceScaleId: 'pnl',
-      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
-      title: '單筆盈虧',
-    });
-    histSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.82, bottom: 0 },
-    });
-    const histData: HistogramData[] = sortDedupe(trades)
-      .map((t) => {
-        const pnl = Number(t.pnl) || 0;
-        const t2 = toUnixSec(t.exit_time);
-        return {
-          time: t2 as UTCTimestamp,
-          value: pnl,
-          color: pnl >= 0 ? TV_UP + '80' : TV_DOWN + '80',
-        };
+    // ── Build equity data ──
+    const eqRaw: { t: number; v: number }[] = equity
+      .map((d) => {
+        const t = toU(d.time ?? d.timestamp);
+        const v = Number(d.equity);
+        return t > 0 && Number.isFinite(v) ? { t, v } : null;
       })
-      .filter((d) => Number.isFinite(d.time) && d.time > 0);
-    histSeries.setData(histData);
+      .filter(Boolean) as any;
 
-    // ── series visibility toggle with fade ──
-    const applyVisibility = (s: any, visible: boolean) => {
-      s.applyOptions({ visible });
-      const el = (s as any)._legendEls;
-      if (el) el.forEach((e: HTMLElement) => { e.style.opacity = visible ? '1' : '0.3'; e.style.transition = 'opacity 200ms'; });
-    };
-    // (simple fade handled by toggle buttons in UI below)
-    chartRef.current = chart;
+    if (eqRaw.length < 2) return;
 
-    const legendEl = legendRef.current;
-    const renderLegend = (param: any) => {
-      if (!legendEl || !param || !param.time || !param.seriesData) {
-        if (legendEl) legendEl.style.display = 'none';
-        return;
+    // ── Detect trade range and clip ──
+    let tMin = Infinity, tMax = 0;
+    for (const t of trades || []) {
+      const u = toU(t.exit_time);
+      if (u) { tMin = Math.min(tMin, u); tMax = Math.max(tMax, u); }
+    }
+    if (tMin === Infinity && buyHold.length > 0) {
+      for (const d of buyHold) {
+        const u = toU(d.time ?? d.timestamp);
+        if (u) { tMin = Math.min(tMin, u); tMax = Math.max(tMax, u); }
       }
-      const eq = param.seriesData.get(equityLine) as { value?: number } | undefined;
-      const bh = showBuyHold && bhLine
-        ? (param.seriesData.get(bhLine) as { value?: number } | undefined)
-        : undefined;
-      const hist = param.seriesData.get(histSeries) as { value?: number } | undefined;
-
-      const t = param.time as number;
-      const dt = new Date(t * 1000).toLocaleString('zh-TW', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', hour12: false,
-      });
-
-      legendEl.style.display = 'flex';
-      legendEl.replaceChildren();
-      const mk = (txt: string, col: string, gap = '0 6px') => { const s = document.createElement('span'); s.style.color = col; s.style.margin = gap; s.style.fontSize = '11px'; s.textContent = txt; return s; };
-      legendEl.appendChild(mk(dt, pal.text, '0 8px 0 0'));
-      if (eq) {
-        const up = eq.value! >= initialCapital;
-        const c = up ? TV_UP : TV_DOWN;
-        legendEl.appendChild(mk('權益', pal.textSecondary));
-        legendEl.appendChild(mk(fmt(eq.value!), c));
-      }
-      if (bh) {
-        legendEl.appendChild(mk('B&H', pal.textSecondary));
-        legendEl.appendChild(mk(fmt(bh.value!), BH_GRAY));
-      }
-      if (hist) {
-        const c = hist.value! >= 0 ? TV_UP : TV_DOWN;
-        legendEl.appendChild(mk('單筆', pal.textSecondary));
-        legendEl.appendChild(mk(`${hist.value! >= 0 ? '+' : ''}${fmt(hist.value!)}`, c));
-      }
-      if (showSpread && spreadLine) {
-        const sp = param.seriesData.get(spreadLine) as { value?: number } | undefined;
-        if (sp) {
-          const c = sp.value! >= 0 ? TV_UP : TV_DOWN;
-          legendEl.appendChild(mk('差值', pal.textSecondary));
-          legendEl.appendChild(mk(`${sp.value! >= 0 ? '+' : ''}${fmt(sp.value!)}`, c));
+    }
+    if (tMin === Infinity) {
+      for (const d of eqRaw) {
+        if (Math.abs(d.v - initialCapital) > initialCapital * 0.001) {
+          tMin = Math.min(tMin, d.t); tMax = Math.max(tMax, d.t);
         }
       }
-    };
-    chart.subscribeCrosshairMove(renderLegend);
+    }
 
-    const handleResize = () => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
-      }
-    };
-    window.addEventListener('resize', handleResize);
+    let eqClipped = eqRaw;
+    if (tMin < Infinity && tMax > tMin) {
+      const pad = (tMax - tMin) * 0.03;
+      const f = eqRaw.filter((d: any) => d.t >= tMin - pad && d.t <= tMax + pad);
+      if (f.length > 5) eqClipped = f;
+    }
+    if (eqClipped.length > 3000) eqClipped = eqClipped.slice(-3000);
+
+    const eqData: LineData[] = eqClipped.map((d: any) => ({
+      time: d.t as UTCTimestamp,
+      value: showPct ? ((d.v - initialCapital) / initialCapital) * 100 : d.v,
+    }));
+
+    // ── Single chart (TV style) ──
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth, height: CHART_H,
+      layout: {
+        background: { type: 'solid', color: BG } as any,
+        textColor: TXT, fontSize: 11,
+      },
+      grid: { vertLines: { color: GR }, horzLines: { color: GR } },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: CX, width: 1 as const, style: 2 as const, labelBackgroundColor: BD },
+        horzLine: { color: CX, width: 1 as const, style: 2 as const, labelBackgroundColor: BD },
+      },
+      timeScale: {
+        borderColor: BD, timeVisible: true, secondsVisible: false,
+        fixLeftEdge: true, fixRightEdge: true,
+        timezone: 'Asia/Taipei',
+      } as any,
+      rightPriceScale: {
+        borderColor: BD, scaleMargins: { top: 0.05, bottom: 0.25 },
+      },
+    });
+
+    chart.applyOptions({ watermark: { visible: false } as any });
+
+    // ── Equity line (main) ──
+    const eqLine = chart.addLineSeries({
+      color: TV_STRATEGY, lineWidth: 2, title: 'Equity',
+      priceLineVisible: false, lastValueVisible: true,
+    });
+    eqLine.setData(eqData);
+
+    // Initial capital line
+    const initVal = showPct ? 0 : initialCapital;
+    eqLine.createPriceLine({
+      price: initVal, color: BH_GRAY, lineWidth: 1, lineStyle: 2,
+      axisLabelVisible: true, title: showPct ? '0%' : 'Initial',
+    });
+
+    // Peak/trough markers
+    let pv = -Infinity, pi = -1, md = 0, ti = -1;
+    for (let i = 0; i < eqData.length; i++) {
+      if (eqData[i].value > pv) { pv = eqData[i].value; pi = i; }
+      const dd = (pv - eqData[i].value) / (pv || 1);
+      if (dd > md) { md = dd; ti = i; }
+    }
+    const mks: any[] = [];
+    if (pi >= 0) mks.push({
+      time: eqData[pi].time, position: 'belowBar', color: TV_UP,
+      shape: 'arrowUp', text: `${showPct ? '+' : ''}${pv.toFixed(showPct ? 2 : 0)}`,
+    });
+    if (ti >= 0 && md > 0.005) mks.push({
+      time: eqData[ti].time, position: 'aboveBar', color: TV_DOWN,
+      shape: 'arrowDown', text: `${(-md * 100).toFixed(1)}%`,
+    });
+    if (mks.length) eqLine.setMarkers(mks);
+
+    // ── Buy & Hold ──
+    if (showBuyHold && buyHold.length > 0) {
+      const bhSeries = chart.addLineSeries({
+        color: BH_GRAY, lineWidth: 1, title: 'B&H',
+        priceLineVisible: false, lastValueVisible: false,
+      });
+      bhSeries.setData(
+        buyHold
+          .map((d) => {
+            const t = toU(d.time ?? d.timestamp);
+            const v = Number(d.equity);
+            return t > 0 && Number.isFinite(v)
+              ? { time: t as UTCTimestamp, value: showPct ? ((v - initialCapital) / initialCapital) * 100 : v }
+              : null;
+          })
+          .filter(Boolean) as LineData[]
+      );
+    }
+
+    // ── Trade PnL bars (bottom 20% of chart, TV style) ──
+    const pnlSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
+      priceScaleId: 'pnl',
+      title: 'PnL',
+    });
+    pnlSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+
+    const bars = [...(trades || [])]
+      .sort((a, b) => toU(a.exit_time) - toU(b.exit_time))
+      .map((t) => {
+        const p = Number(t.pnl) || 0;
+        const tt = toU(t.exit_time);
+        if (!tt) return null;
+        const val = showPct ? (p / initialCapital) * 100 : p;
+        return { time: tt as UTCTimestamp, value: val, color: val >= 0 ? `rgba(${UP_RGB},0.55)` : `rgba(${DOWN_RGB},0.55)` };
+      })
+      .filter(Boolean) as HistogramData[];
+
+    if (bars.length > 0) {
+      const r0 = eqData[0].time as number;
+      const r1 = eqData[eqData.length - 1].time as number;
+      pnlSeries.setData(bars.filter((d) => (d.time as number) >= r0 && (d.time as number) <= r1));
+    }
+
+    // ── Fit content ──
+    setTimeout(() => chart.timeScale().fitContent(), 30);
+
+    // ── Resize ──
+    const hr = () => chart.applyOptions({ width: containerRef.current?.clientWidth ?? 0 });
+    window.addEventListener('resize', hr);
+    const fs = () => setFS(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', fs);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.unsubscribeCrosshairMove(renderLegend);
+      window.removeEventListener('resize', hr);
+      document.removeEventListener('fullscreenchange', fs);
       chart.remove();
     };
-  }, [equity, buyHold, trades, initialCapital, showBuyHold, showSpread, theme]);
-
-  const toggleFullscreen = () => {
-    const el = containerRef.current?.parentElement;
-    if (!el) return;
-    if (!isFullscreen) {
-      el.requestFullscreen?.().catch(() => {});
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-    }
-    setIsFullscreen((v) => !v);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equity, buyHold, trades, initialCapital, showBuyHold, showPct, theme]);
 
   return (
-    <div className="relative w-full bg-surface">
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="absolute right-3 top-3 z-20 rounded bg-surface/80 px-2 py-1 text-[10px] font-mono text-textSecondary transition-colors duration-150 hover:text-text active:scale-[0.97]"
-      >
-        {isFullscreen ? '退出' : '⛶'}
-      </button>
-      <div
-        ref={legendRef}
-        className="pointer-events-none absolute left-6 top-4 z-10 hidden items-center font-mono text-xs tabular-nums"
-        style={{ display: 'none' }}
-      />
-      <div ref={containerRef} className="w-full h-[420px]" />
+    <div className={`w-full bg-[#131722] select-none ${isFS ? 'fixed inset-0 z-50 p-4 overflow-auto' : ''}`}>
+      {/* TV-style top bar */}
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-[#363c4e]/40 bg-[#131722]">
+        {/* Left: layer toggles — TV style pill buttons */}
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setShowEq((v) => !v)}
+            className={`px-2.5 py-0.5 text-[10px] font-mono rounded-sm border transition-all duration-100 ${
+              showEq
+                ? 'border-[#c9a962]/50 bg-[#c9a962]/10 text-[#c9a962]'
+                : 'border-transparent text-[#787b86] hover:text-[#d1d4dc]'
+            }`}
+          >
+            ● Equity
+          </button>
+          <button
+            onClick={() => setShowBh((v) => !v)}
+            className={`px-2.5 py-0.5 text-[10px] font-mono rounded-sm border transition-all duration-100 ${
+              showBh
+                ? 'border-[#787b86]/50 bg-[#787b86]/10 text-[#d1d4dc]'
+                : 'border-transparent text-[#787b86] hover:text-[#d1d4dc]'
+            }`}
+          >
+            ○ B&H
+          </button>
+          <button
+            onClick={() => setShowPnl((v) => !v)}
+            className={`px-2.5 py-0.5 text-[10px] font-mono rounded-sm border transition-all duration-100 ${
+              showPnl
+                ? 'border-[#089981]/50 bg-[#089981]/10 text-[#089981]'
+                : 'border-transparent text-[#787b86] hover:text-[#d1d4dc]'
+            }`}
+          >
+            ▬ PnL
+          </button>
+        </div>
+        {/* Right: absolute/percentage toggle — exact TV style */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowPct(false)}
+            className={`px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider transition-colors ${
+              !showPct ? 'text-[#d1d4dc] bg-[#363c4e]/40 rounded-sm' : 'text-[#787b86] hover:text-[#d1d4dc]'
+            }`}
+          >
+            Abs
+          </button>
+          <button
+            onClick={() => setShowPct(true)}
+            className={`px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider transition-colors ${
+              showPct ? 'text-[#d1d4dc] bg-[#363c4e]/40 rounded-sm' : 'text-[#787b86] hover:text-[#d1d4dc]'
+            }`}
+          >
+            %
+          </button>
+        </div>
+      </div>
+      <div ref={containerRef} className="w-full" style={{ height: CHART_H }} />
     </div>
   );
 };
+
+export default React.memo(EquityPnlChart);

@@ -226,7 +226,57 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
           </div>
 
           <div className="flex items-center gap-2 font-mono text-sm">
-            <span className="font-bold px-2" style={{ color: 'var(--tc-main-text)' }}>
+            {/* Year/Month dropdown picker */}
+            <select
+              value={month}
+              onChange={(e) => setCurrentDate(new Date(year, Number(e.target.value), 1))}
+              className="rounded px-2 py-1 text-xs font-mono cursor-pointer"
+              style={{
+                backgroundColor: 'var(--tc-cell-default-bg)',
+                border: `1px solid var(--tc-cell-default-border)`,
+                color: 'var(--tc-main-text)',
+              }}
+            >
+              {Array.from({ length: 12 }).map((_, i) => (
+                <option key={i} value={i} className="bg-[#12151A]">
+                  {i + 1}月
+                </option>
+              ))}
+            </select>
+            <select
+              value={year}
+              onChange={(e) => setCurrentDate(new Date(Number(e.target.value), month, 1))}
+              className="rounded px-2 py-1 text-xs font-mono cursor-pointer"
+              style={{
+                backgroundColor: 'var(--tc-cell-default-bg)',
+                border: `1px solid var(--tc-cell-default-border)`,
+                color: 'var(--tc-main-text)',
+              }}
+            >
+              {(() => {
+                const years = new Set<number>();
+                const now = new Date().getFullYear();
+                records.forEach((r) => {
+                  const t = r.closeTime || r.ts || r.openTs;
+                  if (t) {
+                    const y = new Date(t).getFullYear();
+                    if (!isNaN(y)) years.add(y);
+                  }
+                });
+                if (years.size === 0) years.add(now);
+                const yearList = Array.from(years);
+                const min = Math.min(...yearList);
+                const max = Math.max(...yearList, now);
+                const opts: number[] = [];
+                for (let y = max; y >= min; y--) opts.push(y);
+                return opts.map((y) => (
+                  <option key={y} value={y} className="bg-[#12151A]">
+                    {y}年
+                  </option>
+                ));
+              })()}
+            </select>
+            <span className="font-bold px-2 hidden sm:inline" style={{ color: 'var(--tc-main-text)' }}>
               {monthLabel}
             </span>
             <div className="flex items-center gap-1">

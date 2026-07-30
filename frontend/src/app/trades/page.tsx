@@ -428,7 +428,7 @@ export default function TradesPage() {
                   return (
                     <tr
                       key={i}
-                      onClick={() => setSelectedTrade(r)}
+                      onClick={() => setSelectedTrade(selectedTrade === r ? null : r)}
                       className="border-b border-border/10 hover:bg-surface/60 cursor-pointer transition-colors"
                     >
                       <td className="px-4 py-3.5 font-medium text-text">
@@ -498,11 +498,11 @@ export default function TradesPage() {
       {/* 交易詳情 Modal 彈窗 */}
       {selectedTrade && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
           onClick={() => setSelectedTrade(null)}
         >
           <div
-            className="w-full max-w-md bg-surface border border-border/40 rounded-xl p-6 shadow-2xl font-mono"
+            className="w-full sm:max-w-md max-h-[85vh] overflow-y-auto bg-surface border sm:border-border/40 rounded-t-xl sm:rounded-xl p-5 sm:p-6 shadow-2xl font-mono animate-[slideUp_200ms_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-4 border-b border-border/20">

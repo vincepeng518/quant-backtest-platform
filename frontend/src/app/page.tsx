@@ -328,7 +328,7 @@ export default function Home() {
 
       {/* ── closing band — the discipline line, left-aligned ── */}
       <section className="rise-in border border-border/40 bg-surface px-8 py-12 md:px-12 md:py-16">
-        <div className="gold-rule mb-8 w-24" />
+        <div className="accent-rule mb-8 w-24" />
         <h2 className="max-w-2xl font-display text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
           紀律就是利潤，情緒就是成本。
         </h2>
@@ -345,7 +345,7 @@ export default function Home() {
       </section>
 
       {/* version stamp */}
-      <div className="fixed bottom-2 right-3 z-50 select-none font-mono text-[11px] text-textSecondary/50">
+      <div className="mt-16 select-none text-center font-mono text-[11px] text-textSecondary/30">
         {APP_VERSION}
       </div>
     </div>

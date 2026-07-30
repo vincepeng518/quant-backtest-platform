@@ -83,10 +83,10 @@ function OptimizeView() {
     Promise.allSettled([api.getTemplates(), api.listUserStrategies()])
       .then(([t, u]) => {
         const builtin = t.status === 'fulfilled'
-          ? (t.value as any[]).map((x) => ({ label: x.name, value: x.id }))
+          ? (t.value as any[]).map((x) => ({ label: x.name, value: x.id, group: '策略模板' }))
           : [];
         const user = u.status === 'fulfilled'
-          ? (u.value as any[]).map((s) => ({ label: `我的：${s.name}`, value: `user_${s.id}` }))
+          ? (u.value as any[]).map((s) => ({ label: s.name, value: `user_${s.id}`, group: '我的策略' }))
           : [];
         const merged = [...user, ...builtin.filter((b) => !user.some((x) => x.value === b.value))];
         // 如果 API 都失敗, 用 fallback (但優先真實數據)
@@ -126,7 +126,7 @@ function OptimizeView() {
       {/* Config: strategy + market */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Select label="Strategy" value={strategyId} onChange={(e) => setStrategy(e.target.value, paramsFor(e.target.value))} options={strategyOptions} />
-        <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={symbols.length > 0 ? symbols.map((s: any) => ({ label: s.symbol, value: s.symbol })) : [{ label: 'BTC/USDT', value: 'BTC/USDT' }]} />
+        <Select label="Symbol" value={symbol} onChange={(e) => setMarket({ symbol: e.target.value, timeframe, source })} options={symbols.length > 0 ? symbols.slice(0, 100).map((s: any) => ({ label: s.symbol, value: s.symbol })) : [{ label: 'BTC/USDT', value: 'BTC/USDT' }]} />
         <Select label="Timeframe" value={timeframe} onChange={(e) => setMarket({ symbol, timeframe: e.target.value, source })} options={TIMEFRAMES.map((t) => ({ label: t, value: t }))} />
         <Select label="Data Source" value={source} onChange={(e) => setMarket({ symbol, timeframe, source: e.target.value })} options={SOURCES} />
         <Select
@@ -181,28 +181,28 @@ function OptimizeView() {
         </div>
         <div className="space-y-2">
           {paramSpace.map((p) => (
-            <div key={p.id} className="grid grid-cols-[1fr_auto] items-center gap-2 p-2.5 rounded-lg bg-surface2/40 border border-white/[0.05] transition-colors hover:border-white/[0.12] sm:grid-cols-[7rem_auto_auto_auto_1fr] sm:gap-3">
-              <span className="font-mono text-xs font-medium text-text truncate">{p.name}</span>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
-                <span className="font-mono text-[10px] text-textSecondary uppercase">min</span>
+            <div key={p.id} className="flex items-center gap-2 p-3 rounded-xl bg-surface2/40 border border-white/[0.06] transition-all hover:border-accent/20 hover:bg-surface2/60 sm:gap-3">
+              <span className="font-mono text-xs font-semibold text-accent min-w-[6rem] truncate">{p.name}</span>
+              <div className="flex items-center gap-1 rounded-lg bg-surface/80 px-2 py-1.5 border border-white/[0.06] focus-within:border-accent/40 focus-within:ring-1 focus-within:ring-accent/20">
+                <span className="font-mono text-[10px] text-textSecondary uppercase mr-1">min</span>
                 <input type="number" value={p.min}
                   onChange={(e) => updateParam(p.id, { min: Number(e.target.value) })}
-                  className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
+                  className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               </div>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
-                <span className="font-mono text-[10px] text-textSecondary uppercase">max</span>
+              <div className="flex items-center gap-1 rounded-lg bg-surface/80 px-2 py-1.5 border border-white/[0.06] focus-within:border-accent/40 focus-within:ring-1 focus-within:ring-accent/20">
+                <span className="font-mono text-[10px] text-textSecondary uppercase mr-1">max</span>
                 <input type="number" value={p.max}
                   onChange={(e) => updateParam(p.id, { max: Number(e.target.value) })}
-                  className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
+                  className="w-14 bg-transparent text-xs font-mono text-text text-center focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               </div>
-              <div className="flex items-center gap-1.5 rounded-md bg-surface px-2 py-1.5 border border-white/[0.06]">
-                <span className="font-mono text-[10px] text-textSecondary uppercase">step</span>
+              <div className="flex items-center gap-1 rounded-lg bg-surface/80 px-2 py-1.5 border border-white/[0.06] focus-within:border-accent/40 focus-within:ring-1 focus-within:ring-accent/20">
+                <span className="font-mono text-[10px] text-textSecondary uppercase mr-1">step</span>
                 <input type="number" value={p.step}
                   onChange={(e) => updateParam(p.id, { step: Number(e.target.value) })}
-                  className="w-12 bg-transparent text-xs font-mono text-text text-center focus:outline-none" />
+                  className="w-12 bg-transparent text-xs font-mono text-text text-center focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               </div>
               <button onClick={() => removeParam(p.id)} disabled={paramSpace.length <= 1}
-                className="justify-self-end flex h-8 w-8 items-center justify-center text-xs font-mono text-textSecondary hover:text-danger transition-colors disabled:opacity-20 sm:ml-auto" aria-label={`Remove ${p.name}`}>✕</button>
+                className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-xs font-mono text-textSecondary hover:bg-danger/10 hover:text-danger transition-all disabled:opacity-20" aria-label={`Remove ${p.name}`}>✕</button>
             </div>
           ))}
         </div>

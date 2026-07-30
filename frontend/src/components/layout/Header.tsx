@@ -12,6 +12,7 @@ export const Header: React.FC = () => {
   const [open, setOpen] = useState(false);
 
   const navItems = [
+    { name: 'Dashboard', path: '/' },
     { name: 'Backtest', path: '/backtest' },
     { name: 'History', path: '/history' },
     { name: 'Optimize', path: '/optimize' },
@@ -19,12 +20,10 @@ export const Header: React.FC = () => {
     { name: 'Trades', path: '/trades' },
   ];
 
-  const isActive = (path: string) =>
-    pathname === path || (path === '/backtest' && pathname === '/');
+  const isActive = (path: string) => pathname === path;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/85 backdrop-blur-md">
-      <div className="gold-rule" />
       <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-6 max-w-7xl mx-auto">
         {/* Brand */}
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">

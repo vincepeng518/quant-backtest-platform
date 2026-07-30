@@ -153,8 +153,20 @@ function BacktestView() {
   }, [symbols, timeframe, loadOHLCV]);
 
   useEffect(() => {
-    api.getTemplates().then(setTemplates);
-    api.listUserStrategies().then(setUserStrategies);
+    api.getTemplates()
+      .then(setTemplates)
+      .catch((e) => {
+        console.warn('Failed to load templates:', e?.message);
+        const fallback: any[] = [
+          { id: 'ma_cross', name: '均線交叉策略', description: '快速均線上穿慢速均線買入，下穿賣出。', category: 'trend', params: [{ name: 'fast_period', type: 'range', min: 5, max: 50, step: 1 }, { name: 'slow_period', type: 'range', min: 20, max: 200, step: 1 }] },
+          { id: 'breakout', name: '突破策略', description: '價格突破 N 根 K 線最高價買入，跌破最低價賣出。', category: 'trend', params: [{ name: 'period', type: 'range', min: 5, max: 50, step: 1 }] },
+          { id: 'factor_driven', name: '因子驅動策略', description: '多因子 z-score 加權合成信號。', category: 'factor', params: [{ name: 'entry_threshold', type: 'range', min: 0.5, max: 3, step: 0.1 }] },
+        ];
+        setTemplates(fallback as any);
+      });
+    api.listUserStrategies()
+      .then(setUserStrategies)
+      .catch(() => {});
   }, []);
 
   // P7/P9: preselect strategy (and params) from ?strategy= / ?params= coming from /strategies or /optimize
@@ -469,10 +481,11 @@ function BacktestView() {
 
   const builtinOptions = templates
     .filter((t) => !t.id.startsWith('user_'))
-    .map((t) => ({ label: t.name, value: t.id }));
+    .map((t) => ({ label: t.name, value: t.id, group: '策略模板' }));
   const userOptions = userStrategies.map((s) => ({
     label: `我的：${s.name}`,
     value: `user_${s.id}`,
+    group: '我的策略',
   }));
   const strategyOptions = [...builtinOptions, ...userOptions];
 
@@ -664,8 +677,16 @@ function BacktestView() {
             {status === 'running' ? `Backtesting Progress: ${Math.round(progress)}%` : 'Ready'}
           </div>
           <div className="flex items-center gap-3">
-            <Button onClick={handleRun} disabled={status === 'running'} variant="primary" className="!px-6 !py-3 !text-base !font-semibold min-w-[160px] bg-gradient-to-b from-[#1D4ED8] to-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_4px_rgba(0,0,0,0.3)] border border-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_12px_rgba(37,99,235,0.4)]">
-              {status === 'running' ? 'Running...' : 'Start Backtest'}
+            <Button onClick={handleRun} disabled={status === 'running'} variant="primary" size="lg" className="!px-8 !py-3 !text-base !font-bold min-w-[180px] rounded-lg shadow-card transition-all duration-150 hover:shadow-card-hover active:scale-[0.97]">
+              {status === 'running' ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+                    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  Running... {Math.round(progress)}%
+                </span>
+              ) : 'Start Backtest'}
             </Button>
             {results && (
               <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
@@ -792,16 +813,18 @@ function BacktestView() {
       {/* Results loading skeleton */}
       {status === 'running' && (
         <div className="space-y-6" aria-busy="true">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 rounded-sm overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-surface px-4 py-3 flex flex-col gap-2">
-                <div className="h-2 w-16 bg-border/30 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-border/40 rounded animate-pulse" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 border border-border/12 rounded-sm overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-surface px-5 py-3.5 flex flex-col gap-2 border-r border-border/12 last:border-r-0">
+                <div className="skeleton h-2.5 w-20" />
+                <div className="skeleton h-6 w-28" />
+                <div className="skeleton h-2.5 w-16" />
               </div>
             ))}
           </div>
-          <div className="h-64 bg-surface border border-border/10 rounded-sm animate-pulse" />
-          <div className="h-48 bg-surface border border-border/10 rounded-sm animate-pulse" />
+          <div className="skeleton h-[380px] w-full" />
+          <div className="skeleton h-10 w-full" />
+          <div className="skeleton h-56 w-full" />
         </div>
       )}
 
@@ -809,19 +832,26 @@ function BacktestView() {
       {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
         <div className="space-y-6">
           {/* Result summary: strategy + symbol + timeframe */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-surface/50 px-4 py-3 text-sm">
-            <span className="text-textSecondary">回測配置</span>
-            <span className="rounded bg-accent/10 px-2 py-0.5 font-medium text-accent">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border/20 bg-surface px-5 py-4 text-sm shadow-sm">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-textSecondary">回測配置</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 font-medium text-accent text-xs border border-accent/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
               {(() => {
                 const tid = results?.config?.strategy?.template_id || selectedStrategy;
                 const t = templates.find((x) => x.id === tid);
                 return t?.name ?? tid ?? '—';
               })()}
             </span>
-            <span className="font-mono text-text">{results?.config?.symbol ?? symbol}</span>
-            <span className="rounded bg-border/20 px-2 py-0.5 text-textSecondary">
+            <span className="font-mono font-semibold text-text">{results?.config?.symbol ?? symbol}</span>
+            <span className="rounded-md bg-surface2/80 px-2.5 py-1 font-mono text-[11px] text-textSecondary border border-white/[0.06]">
               {results?.config?.timeframe ?? timeframe}
             </span>
+            {results?.config?.source && (
+              <span className="rounded-md bg-surface2/80 px-2.5 py-1 font-mono text-[11px] text-textSecondary border border-white/[0.06]">
+                {results.config.source}
+              </span>
+            )}
+          </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
             <span className="text-xs font-mono text-textSecondary">備註</span>
             <input
@@ -847,7 +877,6 @@ function BacktestView() {
               <span className="text-xs font-mono text-textSecondary">{notionState.msg}</span>
             )}
           </div>
-        </div>
 
         <Card className="p-0 overflow-hidden">
             <div className="p-6 pb-0">
@@ -866,17 +895,22 @@ function BacktestView() {
             />
           </Card>
 
-          {/* Long/Short split breakdown */}
-          <Card className="p-0 overflow-hidden">
-            <div className="p-6 pb-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                多空分析
-              </h3>
-            </div>
-            <div className="p-6">
-              <LongShortPanel metrics={results.metrics} />
-            </div>
-          </Card>
+          {/* Long/Short split breakdown — only when both sides have trades */}
+          {(() => {
+            const m = results.metrics as any;
+            return (m?.long_trades ?? 0) > 0 && (m?.short_trades ?? 0) > 0 ? (
+              <Card className="p-0 overflow-hidden">
+                <div className="p-6 pb-0">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
+                    多空分析
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <LongShortPanel metrics={results.metrics} />
+                </div>
+              </Card>
+            ) : null;
+          })()}
 
           {/* MAE/MFE scatter */}
           {results.trades && results.trades.some((t) => t.mae != null && t.mfe != null) && (
@@ -906,27 +940,37 @@ function BacktestView() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm font-mono">
                   <thead>
-                    <tr className="text-left text-xs uppercase text-textSecondary border-t border-border/10">
-                      <th className="px-6 py-3">#</th>
+                    <tr className="sticky top-14 z-10 text-left text-xs uppercase text-textSecondary bg-surface/95 backdrop-blur-sm border-b border-border/20 shadow-sm">
+                      <th className="px-6 py-3.5 font-semibold">#</th>
                       <th
-                        className="px-6 py-3 cursor-pointer select-none hover:text-text"
+                        className="px-6 py-3.5 cursor-pointer select-none hover:text-text transition-colors font-semibold"
                         onClick={() => toggleSort('entry_time')}
                       >
-                        Entry Time {sortIndicator('entry_time')}
+                        <span className="inline-flex items-center gap-1">
+                          Entry Time
+                          <span className={`text-[9px] ${sortKey === 'entry_time' ? 'text-accent opacity-100' : 'opacity-30'}`}>
+                            {sortIndicator('entry_time')}
+                          </span>
+                        </span>
                       </th>
-                      <th className="px-6 py-3">Side</th>
-                      <th className="px-6 py-3 text-right">Entry</th>
-                      <th className="px-6 py-3 text-right">Exit</th>
-                      <th className="px-6 py-3 text-right">Size</th>
+                      <th className="px-6 py-3.5 font-semibold">Side</th>
+                      <th className="px-6 py-3.5 text-right font-semibold">Entry</th>
+                      <th className="px-6 py-3.5 text-right font-semibold">Exit</th>
+                      <th className="px-6 py-3.5 text-right font-semibold">Size</th>
                       <th
-                        className="px-6 py-3 text-right cursor-pointer select-none hover:text-text"
+                        className="px-6 py-3.5 text-right cursor-pointer select-none hover:text-text transition-colors font-semibold"
                         onClick={() => toggleSort('pnl')}
                       >
-                        PnL {sortIndicator('pnl')}
+                        <span className="inline-flex items-center gap-1 justify-end">
+                          PnL
+                          <span className={`text-[9px] ${sortKey === 'pnl' ? 'text-accent opacity-100' : 'opacity-30'}`}>
+                            {sortIndicator('pnl')}
+                          </span>
+                        </span>
                       </th>
-                      <th className="px-6 py-3 text-right">PnL %</th>
-                      <th className="px-6 py-3">Exit Reason</th>
-                      <th className="px-6 py-3 text-right">Bars</th>
+                      <th className="px-6 py-3.5 text-right font-semibold">PnL %</th>
+                      <th className="px-6 py-3.5 font-semibold">Exit Reason</th>
+                      <th className="px-6 py-3.5 text-right font-semibold">Bars</th>
                     </tr>
                   </thead>
                   <tbody>
