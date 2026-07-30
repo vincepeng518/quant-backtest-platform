@@ -151,6 +151,9 @@ async def grid_status(_: None = Depends(auth_required)):
             "confidence": d.get("confidence", 0),
             "reason": d.get("reason", ""),
             "indicators": d.get("indicators", {}),
+            "geometry": d.get("geometry", {}),
+            "version": d.get("version", 1),
+            "bar_date": d.get("bar_date"),
             "last_close": d.get("last_close"),
             "updated_at": d.get("updated_at"),
         }
