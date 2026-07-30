@@ -210,8 +210,8 @@ def decide(df: pd.DataFrame, i: int,
     mdi = float(r["minus_di"])
 
     ind = {
-        "natr": round(natr, 4),
-        "natr_thr": (None if pd.isna(thr) else round(float(thr), 4)),
+        "natr": f"{natr:.4f}",
+        "natr_thr": (None if pd.isna(thr) else f"{float(thr):.4f}"),
         "adx": round(adx, 1),
         "pdi": round(pdi, 1),
         "mdi": round(mdi, 1),
@@ -221,13 +221,13 @@ def decide(df: pd.DataFrame, i: int,
 
     if pd.isna(thr):
         return GridSignal("flat", 0.0,
-                          f"歷史不足 {MIN_HIST} 天, 波動門檻未生效 -> 不開網格",
+                          f"歷史不足 {MIN_HIST} 天，波動門檻未生效 → 不開網格",
                           ind, geo)
 
     if natr < float(thr):
         return GridSignal(
             "flat", 0.0,
-            f"nATR {natr:.4f} < 歷史{int(natr_q*100)}分位 {float(thr):.4f} -> 低波動是趨勢前兆, 不開網格",
+            f"nATR {natr:.4f} < 歷史{int(natr_q*100)}分位 {float(thr):.4f} → 低波動是趨勢前兆，不開網格",
             ind, geo)
 
     pct = f"nATR {natr:.4f} >= 門檻 {float(thr):.4f}"
@@ -236,14 +236,14 @@ def decide(df: pd.DataFrame, i: int,
 
     if sma50 > sma200 and adx >= adx_trend and (pdi - mdi) > di_diff:
         return GridSignal("long", 0.60,
-                          f"{pct} + SMA多排列 + ADX{adx:.0f} -> 只做多網格 (庫存只準為正)",
+                          f"{pct} + SMA多排列 + ADX{adx:.0f} → 只做多網格（庫存只準為正）",
                           ind, geo)
     if sma50 < sma200 and adx >= adx_trend and (mdi - pdi) > di_diff:
         return GridSignal("short", 0.60,
-                          f"{pct} + SMA空排列 + ADX{adx:.0f} -> 只做空網格 (庫存只準為負)",
+                          f"{pct} + SMA空排列 + ADX{adx:.0f} → 只做空網格（庫存只準為負）",
                           ind, geo)
     return GridSignal("range", 0.55,
-                      f"{pct} + 無明確排列 -> 中性網格, 格距 {geo['spacing']:.0f} ({geo['spacing_pct']:.3f}%)",
+                      f"{pct} + 無明確排列 → 中性網格，格距 {geo['spacing']:.0f}（{geo['spacing_pct']:.3f}%）",
                       ind, geo)
 
 
