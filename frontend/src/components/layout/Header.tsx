@@ -12,7 +12,6 @@ export const Header: React.FC = () => {
   const [open, setOpen] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard', path: '/' },
     { name: 'Backtest', path: '/backtest' },
     { name: 'History', path: '/history' },
     { name: 'Optimize', path: '/optimize' },
