@@ -33,6 +33,9 @@ interface TradeRec {
   closeTime?: number;
   holdDuration?: number;
   _snapshot?: string;
+  bet_usd?: number;
+  ask_price?: number;
+  market_id?: string;
 }
 
 type Range = 'all' | 'month' | 'day';
@@ -108,8 +111,6 @@ export default function TradesPage() {
   const [source, setSource] = useState<'bingx' | 'arb' | 'predict'>('bingx');
   const [records, setRecords] = useState<TradeRec[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
-  const [feesTotal, setFeesTotal] = useState<number | null>(null);
-  const [fundingTotal, setFundingTotal] = useState<number | null>(null);
   const [metrics30d, setMetrics30d] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,14 +135,15 @@ export default function TradesPage() {
       .then((d: any) => {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
-        setFeesTotal(d.fees_total ?? null);
-        setFundingTotal(d.funding_total ?? null);
         setMetrics30d(d.metrics_30d ?? null);
         setCurrentPage(1);
       })
       .catch((e) => setError(e?.message ?? 'failed to load trades'))
       .finally(() => setLoading(false));
   }, [source]);
+
+  // fees 用 metrics30d 內建的 fee_total
+  const feesTotal = metrics30d?.fee_total ?? null;
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
@@ -307,28 +309,18 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
               <p className={`text-xl font-mono font-semibold ${stats.avgPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)}
+                {stats.avgPnl >= 0 ? '+' : ''}{fmt(stats.avgPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">總倉位大小</p>
-              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)}</p>
+              <p className="text-xl font-mono font-semibold text-text">{fmt(stats.totalPos)} USDT</p>
             </Card>
           </div>
 
-          {/* 官方風格 30d 統計 (對齊 BingX 交易分析) */}
+          {/* 30d 統計 (保留勝率) */}
           {metrics30d && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">已實現盈虧 (30d)</p>
-                <p className={`text-xl font-mono font-semibold ${(metrics30d.pnl ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(metrics30d.pnl ?? 0) >= 0 ? '+' : ''}{fmt(metrics30d.pnl ?? 0)}
-                </p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">交易額/總倉位 (30d)</p>
-                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.total_notional ?? 0)}</p>
-              </Card>
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
                 <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.win_rate ?? 0, 1)}%</p>
@@ -337,26 +329,20 @@ export default function TradesPage() {
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額</p>
                 <p className="text-sm font-mono">
-                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)}</span>
+                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)} USDT</span>
                   {' / '}
-                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)}</span>
+                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)} USDT</span>
                 </p>
               </Card>
             </div>
           )}
 
-          {/* 手續費 + 資金費用 (另計, 不併入 P/L) */}
-          {feesTotal != null && (
+          {/* 手續費 (另計, 不併入 P/L) */}
+          {feesTotal != null && feesTotal !== 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
                 <p className="text-xs text-textSecondary font-mono mb-1">手續費 (Fees)</p>
-                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)}</p>
-              </Card>
-              <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">資金費用 (Funding)</p>
-                <p className={`text-xl font-mono font-semibold ${(fundingTotal ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {(fundingTotal ?? 0) >= 0 ? '+' : ''}{fmt(fundingTotal ?? 0)}
-                </p>
+                <p className="text-xl font-mono font-semibold text-danger">-{fmt(feesTotal)} USDT</p>
               </Card>
             </div>
           )}
@@ -366,13 +352,13 @@ export default function TradesPage() {
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">多頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.longPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)}
+                {stats.longPnl >= 0 ? '+' : ''}{fmt(stats.longPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">空頭 P/L</p>
               <p className={`text-lg font-mono font-semibold ${stats.shortPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)}
+                {stats.shortPnl >= 0 ? '+' : ''}{fmt(stats.shortPnl)} USDT
               </p>
             </Card>
             <Card className="p-4">
@@ -385,60 +371,21 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 專業績效指標 (借 awesome-quant/empyrical 算法) */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+          {/* 專業績效指標 (保留 Sharpe + Profit Factor) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Sharpe</p>
               <p className="text-xl font-mono font-semibold text-text">{metrics?.sharpe ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">Sortino</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.sortino ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">Calmar</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.calmar ?? '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">年化報酬</p>
-              <p className="text-xl font-mono font-semibold text-text">{metrics?.annual_return != null ? fmt(metrics.annual_return) : '—'}</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">最大回撤</p>
-              <p className="text-xl font-mono font-semibold text-danger">{metrics?.max_drawdown != null ? fmt(metrics.max_drawdown) : '—'}</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
               <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
             </Card>
           </div>
-
-          {/* PnL Calendar Heatmap (journalit ContributionsHeatmap 風格) */}
-          <Card className="p-4 mb-6">
-            <p className="text-xs text-textSecondary font-mono mb-3">PnL 日曆 (近 12 週, 綠=盈/紅=虧)</p>
-            <div className="flex flex-wrap gap-1">
-              {heatmap.map((d) => (
-                <div
-                  key={d.key}
-                  className={`heat-cell ${heatClass(d.pnl)}`}
-                  title={`${d.key}: ${d.pnl >= 0 ? '+' : ''}${fmt(d.pnl)}`}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-3 text-xs font-mono text-textSecondary">
-              <span>少</span>
-              <span className="heat-cell heat-empty" />
-              <span className="heat-cell heat-loss-2" />
-              <span className="heat-cell heat-loss-4" />
-              <span className="heat-cell heat-profit-2" />
-              <span className="heat-cell heat-profit-4" />
-              <span>多</span>
-            </div>
-          </Card>
         </>
       )}
 
-      {/* 日曆組件 */}
+      {/* 交易日曆組件 */}
       <TradingCalendar records={records} />
 
       {/* 交易表格 */}
@@ -455,7 +402,7 @@ export default function TradesPage() {
               <thead>
                 <tr className="text-textSecondary text-sm border-b border-border/20">
                   <th className="text-left px-4 py-3">Symbol / Side</th>
-                  <th className="text-right px-4 py-3">名義 / 槓桿</th>
+                  <th className="text-right px-4 py-3">{source === 'predict' ? 'Side' : '名義 / 槓桿'}</th>
                   <th className="text-right px-4 py-3">盈虧 (PnL) / 盈虧率</th>
                   <th className="text-right px-4 py-3">平倉時間</th>
                   <th className="text-center px-4 py-3">操作</th>
@@ -470,6 +417,8 @@ export default function TradesPage() {
                   const sideStr = r.side ? `(${r.side})` : '';
 
                   const marginVal = Number(r.margin) || (r.notional && r.leverage ? Number(r.notional) / Number(r.leverage) : (r.positionValue && r.leverage ? Number(r.positionValue) / Number(r.leverage) : 0));
+                  const sideLabel = source === 'predict' ? (r.side || '—') : notionalVal;
+                  const sideExtra = source === 'predict' ? '' : levStr;
                   const pnlRate = r.pnlRatio != null && r.pnlRatio !== 0
                     ? Number(r.pnlRatio)
                     : (marginVal > 0 ? (p / marginVal) * 100 : 0);
@@ -486,8 +435,8 @@ export default function TradesPage() {
                         <span className="text-sm text-textSecondary font-normal">{sideStr}</span>
                       </td>
                       <td className="px-4 py-3.5 text-right text-text font-mono">
-                        <span>{notionalVal}</span>{' '}
-                        <span className="text-sm text-textSecondary">{levStr}</span>
+                        <span>{sideLabel}</span>{' '}
+                        <span className="text-sm text-textSecondary">{sideExtra}</span>
                       </td>
                       <td className={`px-4 py-3.5 text-right font-medium ${p >= 0 ? 'text-accent' : 'text-danger'}`}>
                         <span>{p >= 0 ? '+' : ''}{fmt(p)}</span>
@@ -584,12 +533,12 @@ export default function TradesPage() {
                 <span className="text-text">{fmtPrice(selectedTrade.exitPrice)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-textSecondary">槓桿倍數</span>
-                <span className="text-text">{selectedTrade.leverage != null ? `${selectedTrade.leverage}x` : '—'}</span>
+                <span className="text-textSecondary">{source === 'predict' ? 'Side' : '槓桿倍數'}</span>
+                <span className="text-text">{source === 'predict' ? (selectedTrade.side || '—') : (selectedTrade.leverage != null ? `${selectedTrade.leverage}x` : '—')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-textSecondary">名義價值</span>
-                <span className="text-text">{selectedTrade.notional ? fmt(selectedTrade.notional) : (selectedTrade.positionValue ? fmt(selectedTrade.positionValue) : '—')}</span>
+                <span className="text-textSecondary">{source === 'predict' ? 'Bet (USD)' : '名義價值'}</span>
+                <span className="text-text">{source === 'predict' ? (selectedTrade.bet_usd != null ? fmt(selectedTrade.bet_usd) : '—') : (selectedTrade.notional ? fmt(selectedTrade.notional) : (selectedTrade.positionValue ? fmt(selectedTrade.positionValue) : '—'))}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-textSecondary">盈虧 (PnL)</span>
