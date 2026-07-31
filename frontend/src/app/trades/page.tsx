@@ -431,8 +431,8 @@ export default function TradesPage() {
                       className="border-b border-border/10 hover:bg-surface/60 cursor-pointer transition-colors"
                     >
                       <td className="px-4 py-3.5 font-medium text-text">
-                        <span>{simplifySymbol(r.symbol)}</span>{' '}
-                        <span className="text-sm text-textSecondary font-normal">{sideStr}</span>
+                        <span>{simplifySymbol(r.symbol)}</span>
+                        {source !== 'predict' && <>{' '}<span className="text-sm text-textSecondary font-normal">{sideStr}</span></>}
                       </td>
                       <td className="px-4 py-3.5 text-right text-text font-mono">
                         <span>{sideLabel}</span>{' '}
