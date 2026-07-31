@@ -360,7 +360,7 @@ def build_snapshot() -> dict:
 
     symbols = sorted(KNOWN_SYMBOLS)
     logger.info("fetching trades for %d symbols...", len(symbols))
-    raw_trades = fetch_all_trades(ex, symbols, days=60)
+    raw_trades = fetch_all_trades(ex, symbols, days=730)
     logger.info("total raw trades: %d", len(raw_trades))
 
     # 先聚合分批成交, 再配對
