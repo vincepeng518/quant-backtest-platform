@@ -113,7 +113,7 @@ export default function TradesPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 25;
+  const pageSize = 50;
   const [selectedTrade, setSelectedTrade] = useState<TradeRec | null>(null);
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
 
