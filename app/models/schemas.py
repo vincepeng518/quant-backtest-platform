@@ -169,6 +169,9 @@ class MetricsOut(BaseModel):
     short_expectancy: float = 0.0
     long_profit_factor: float = 0.0
     short_profit_factor: float = 0.0
+    # ── Quality score (0-100) ──
+    quality_score: float = 0.0
+    quality_grade: str = "F"
 
 
 class BacktestResultOut(BaseModel):
