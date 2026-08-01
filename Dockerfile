@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 # Force rebuild nonce — invalidates stale COPY layer cache (Railway Docker cache bug)
-RUN echo "$(date +%s)-date-truncate-fix" > /app/.deploy_nonce
+RUN echo "$(date +%s)-quality-score" > /app/.deploy_nonce
 
 EXPOSE 8000
 
