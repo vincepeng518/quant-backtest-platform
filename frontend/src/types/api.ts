@@ -73,6 +73,9 @@ export interface PerformanceMetrics {
   short_expectancy?: number;
   long_profit_factor?: number;
   short_profit_factor?: number;
+  // ── Quality score (0-100) ──
+  quality_score?: number;
+  quality_grade?: string;
 }
 
 export interface EquityPoint {

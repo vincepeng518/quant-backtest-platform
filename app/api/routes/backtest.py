@@ -51,6 +51,8 @@ async def list_history():
             "timeframe": cfg.get("timeframe"),
             "sharpe": m.get("sharpe_ratio"),
             "total_trades": m.get("total_trades"),
+            "quality_score": m.get("quality_score"),
+            "quality_grade": m.get("quality_grade"),
         })
     return items
 
@@ -139,6 +141,8 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             "calmar_ratio": r.calmar_ratio,
             "avg_holding_bars": r.avg_holding_bars,
             "trade_freq": r.trade_freq,
+            "quality_score": r.quality_score,
+            "quality_grade": r.quality_grade,
         },
         equity_curve=equity_curve,
         buy_hold_equity=buy_hold_curve,

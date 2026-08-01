@@ -58,6 +58,74 @@ const EquitySparkline: React.FC<{ data: EquityPoint[]; width?: number; height?: 
 
 type TabId = 'overview' | 'performance' | 'trades' | 'risk';
 
+// ── Quality Score Banner (回測評分) ──
+const GRADE_COLORS: Record<string, string> = {
+  S: '#e8b339', A: '#22c55e', B: '#3b82f6', C: '#eab308', D: '#f97316', F: '#ef4444',
+};
+
+const QualityScoreBanner: React.FC<{
+  score: number;
+  grade: string;
+  sharpe: number;
+  profitFactor: number;
+  winRate: number;
+  maxDdPct: number;
+  totalTrades: number;
+}> = ({ score, grade, sharpe, profitFactor, winRate, maxDdPct, totalTrades }) => {
+  const gc = GRADE_COLORS[grade] ?? '#ef4444';
+
+  // 5 維度子分 (與後端 compute_quality_score 相同邏輯)
+  const sub = (v: number, vMax: number, vMin: number, invert = false) => {
+    const raw = v >= vMax ? 1 : v <= vMin ? 0 : (v - vMin) / (vMax - vMin);
+    const s = invert ? 1 - raw : raw;
+    return Math.round(s * 100);
+  };
+  const dims = [
+    { label: 'Sharpe', v: sub(sharpe, 3, 0), weight: '30%' },
+    { label: '獲利因子', v: sub(profitFactor, 3, 0.5), weight: '25%' },
+    { label: '勝率', v: sub(winRate, 60, 20), weight: '15%' },
+    { label: '低回撤', v: sub(maxDdPct, 50, 10, true), weight: '20%' },
+    { label: '樣本數', v: sub(totalTrades, 100, 10), weight: '10%' },
+  ];
+
+  return (
+    <div className="flex items-center gap-4 px-4 sm:px-5 py-3 border-b border-border/12 bg-surface">
+      {/* Grade 大圓 */}
+      <div
+        className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold font-mono"
+        style={{ backgroundColor: `${gc}1a`, color: gc, border: `2px solid ${gc}` }}
+      >
+        {grade}
+      </div>
+      {/* 分數 + 標題 */}
+      <div className="shrink-0 min-w-[90px]">
+        <div className="text-[10px] uppercase tracking-[0.08em] text-textSecondary">回測評分</div>
+        <div className="text-[22px] font-mono font-semibold leading-none" style={{ color: gc }}>
+          {score.toFixed(1)}
+          <span className="text-xs text-textSecondary ml-0.5">/100</span>
+        </div>
+      </div>
+      {/* 5 維度進度條 */}
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-2 min-w-0">
+        {dims.map((d) => (
+          <div key={d.label} className="min-w-0">
+            <div className="flex justify-between text-[9px] font-mono text-textSecondary mb-0.5">
+              <span className="truncate">{d.label}</span>
+              <span className="opacity-80">{d.weight}</span>
+            </div>
+            <div className="h-1 w-full bg-border/20 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${d.v}%`, backgroundColor: d.v >= 70 ? '#22c55e' : d.v >= 40 ? '#eab308' : '#ef4444' }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ── Hero KPI (TV Strategy Tester top strip) ──
 const HeroKpi: React.FC<{
   label: string;
@@ -248,6 +316,19 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
 
   return (
     <div className="bg-surface">
+      {/* ── Quality Score banner ── */}
+      {m.quality_score != null && (
+        <QualityScoreBanner
+          score={Number(m.quality_score)}
+          grade={String(m.quality_grade ?? 'F')}
+          sharpe={sharpeRatio}
+          profitFactor={profitFactor}
+          winRate={winRate}
+          maxDdPct={maxDdPct}
+          totalTrades={totalTrades}
+        />
+      )}
+
       {/* ── Hero KPI strip (TV Strategy Tester top row) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-border/12">
         <HeroKpi
