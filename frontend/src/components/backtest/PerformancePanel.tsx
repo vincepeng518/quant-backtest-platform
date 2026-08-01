@@ -66,28 +66,21 @@ const GRADE_COLORS: Record<string, string> = {
 const QualityScoreBanner: React.FC<{
   score: number;
   grade: string;
-  sharpe: number;
-  profitFactor: number;
-  winRate: number;
-  maxDdPct: number;
-  totalTrades: number;
-}> = ({ score, grade, sharpe, profitFactor, winRate, maxDdPct, totalTrades }) => {
-  const gc = GRADE_COLORS[grade] ?? '#ef4444';
-
-  // 5 維度子分 (與後端 compute_quality_score 同步)
-  const sub = (v: number, vMax: number, vMin: number, invert = false) => {
-    if (!Number.isFinite(v)) return 0;
-    const clamped = Math.max(vMin, Math.min(vMax, v));
-    const raw = (clamped - vMin) / (vMax - vMin);
-    const s = invert ? 1 - raw : raw;
-    return Math.round(Math.max(0, Math.min(1, s)) * 100);
+  breakdown: {
+    sharpe: number; profit_factor: number; win_rate: number;
+    drawdown: number; sample: number;
+    raw_score: number; confidence: number;
+    penalty_reason: string | null;
   };
+}> = ({ score, grade, breakdown }) => {
+  const gc = GRADE_COLORS[grade] ?? '#ef4444';
+  const b = breakdown;
   const dims = [
-    { label: 'Sharpe', v: sub(sharpe, 3, 0), weight: '30%' },
-    { label: '獲利因子', v: sub(profitFactor, 3, 0.5), weight: '25%' },
-    { label: '勝率', v: sub(winRate, 60, 20), weight: '15%' },
-    { label: '低回撤', v: sub(maxDdPct, 50, 10, true), weight: '20%' },
-    { label: '樣本數', v: sub(totalTrades, 100, 10), weight: '10%' },
+    { label: 'Sharpe', v: b.sharpe, weight: '30%' },
+    { label: '獲利因子', v: b.profit_factor, weight: '25%' },
+    { label: '勝率', v: b.win_rate, weight: '15%' },
+    { label: '低回撤', v: b.drawdown, weight: '20%' },
+    { label: '樣本數', v: b.sample, weight: '10%' },
   ];
 
   return (
@@ -106,6 +99,9 @@ const QualityScoreBanner: React.FC<{
           {score.toFixed(1)}
           <span className="text-xs text-textSecondary ml-0.5">/100</span>
         </div>
+        {b.penalty_reason && (
+          <div className="text-[9px] text-textSecondary mt-0.5 leading-tight">{b.penalty_reason}</div>
+        )}
       </div>
       {/* 5 維度進度條 */}
       <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-2 min-w-0">
@@ -323,11 +319,11 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         <QualityScoreBanner
           score={Number(m.quality_score)}
           grade={String(m.quality_grade ?? 'F')}
-          sharpe={sharpeRatio}
-          profitFactor={profitFactor}
-          winRate={winRate}
-          maxDdPct={maxDdPct}
-          totalTrades={totalTrades}
+          breakdown={m.quality_breakdown ?? {
+            sharpe: 0, profit_factor: 0, win_rate: 0,
+            drawdown: 0, sample: 0, raw_score: 0, confidence: 0,
+            penalty_reason: null,
+          }}
         />
       )}
 

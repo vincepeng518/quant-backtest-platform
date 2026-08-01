@@ -172,6 +172,7 @@ class MetricsOut(BaseModel):
     # ── Quality score (0-100) ──
     quality_score: float = 0.0
     quality_grade: str = "F"
+    quality_breakdown: dict = {}
 
 
 class BacktestResultOut(BaseModel):
