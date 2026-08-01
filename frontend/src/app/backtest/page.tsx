@@ -21,7 +21,7 @@ import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
-import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, TV_UP, TV_DOWN, TV_STRATEGY } from '@/lib/format';
+import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fmtProfitFactor, TV_UP, TV_DOWN, TV_STRATEGY } from '@/lib/format';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 // Robust to both backend shapes so the chart markers survive format changes.
@@ -754,7 +754,7 @@ function BacktestView() {
                           {safePct(Number(r.metrics.max_drawdown_pct), { signed: false })}
                         </td>
                         <td className="px-4 py-2 text-right text-text tabular-nums">
-                          {safeFmt(Number(r.metrics.profit_factor))}
+                          {fmtProfitFactor(Number(r.metrics.profit_factor))}
                         </td>
                         <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.annual_return_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
                           {safePct(Number(r.metrics.annual_return_pct))}

@@ -41,6 +41,18 @@ export const safeFmt = (n: number | null | undefined, decimals = 2): string => {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 };
 
+/** Sentinel from backend meaning "no losing trades" (infinite profit factor).
+ *  JSON can't carry Infinity, so the engine emits 999.0 instead. */
+export const PF_INFINITY_SENTINEL = 999;
+
+/** Profit-factor formatter: sentinel 999 (or real Infinity) → '∞'. */
+export const fmtProfitFactor = (n: number | null | undefined): string => {
+  if (n == null || Number.isNaN(n)) return '—';
+  if (!Number.isFinite(n)) return '∞';
+  if (n >= PF_INFINITY_SENTINEL) return '∞';
+  return safeFmt(n);
+};
+
 /**
  * Percentage already in 0–100 range (engine: win_rate / total_return_pct / max_drawdown_pct * 100).
  * Never multiplies. Infinity → '—'
