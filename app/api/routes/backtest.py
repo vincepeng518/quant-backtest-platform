@@ -113,6 +113,23 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
         if _to_unix(ts) is not None
     ]
     position_status = getattr(r, "position_status", []) or []
+    # ── Quality score 兜底: 若 backtester 未計算 (舊代碼), API 層補算 ──
+    q_score = getattr(r, "quality_score", None)
+    q_grade = getattr(r, "quality_grade", None)
+    if q_score is None:
+        try:
+            from engine.backtester import compute_quality_score
+            _w = [t.pnl for t in r.trades if t.pnl is not None and t.pnl > 0]
+            _l = [t.pnl for t in r.trades if t.pnl is not None and t.pnl < 0]
+            q_score, q_grade = compute_quality_score(
+                sharpe=r.sharpe_ratio,
+                profit_factor=abs(sum(_w) / sum(_l)) if _l else 0.0,
+                win_rate=r.win_rate,
+                max_drawdown_pct=r.max_drawdown_pct,
+                total_trades=r.total_trades,
+            )
+        except Exception:
+            q_score, q_grade = 0.0, "F"
     return BacktestResultOut(
         task_id=task_id,
         status="completed",
@@ -160,11 +177,30 @@ async def get_results(task_id: str):
     fp = bd / f"{task_id}.json"
     if fp.exists():
         d = json.loads(fp.read_text())
+        metrics = dict(d.get("metrics", {}))
+        # 兜底: 舊 JSON 無 quality_score 時補算
+        if metrics.get("quality_score") is None:
+            try:
+                from engine.backtester import compute_quality_score
+                trades = d.get("trades", [])
+                _w = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") > 0]
+                _l = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") < 0]
+                qs, qg = compute_quality_score(
+                    sharpe=metrics.get("sharpe_ratio") or 0,
+                    profit_factor=abs(sum(_w) / sum(_l)) if _l else 0.0,
+                    win_rate=metrics.get("win_rate") or 0,
+                    max_drawdown_pct=metrics.get("max_drawdown_pct") or 0,
+                    total_trades=metrics.get("total_trades") or 0,
+                )
+                metrics["quality_score"] = qs
+                metrics["quality_grade"] = qg
+            except Exception:
+                pass
         return BacktestResultOut(
             task_id=task_id,
             status=d.get("status", "completed"),
             config=d.get("config", {}),
-            metrics=d.get("metrics", {}),
+            metrics=metrics,
             equity_curve=d.get("equity_curve", []),
             trades=d.get("trades", []),
         )
