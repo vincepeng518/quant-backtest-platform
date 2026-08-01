@@ -74,11 +74,13 @@ const QualityScoreBanner: React.FC<{
 }> = ({ score, grade, sharpe, profitFactor, winRate, maxDdPct, totalTrades }) => {
   const gc = GRADE_COLORS[grade] ?? '#ef4444';
 
-  // 5 維度子分 (與後端 compute_quality_score 相同邏輯)
+  // 5 維度子分 (與後端 compute_quality_score 同步)
   const sub = (v: number, vMax: number, vMin: number, invert = false) => {
-    const raw = v >= vMax ? 1 : v <= vMin ? 0 : (v - vMin) / (vMax - vMin);
+    if (!Number.isFinite(v)) return 0;
+    const clamped = Math.max(vMin, Math.min(vMax, v));
+    const raw = (clamped - vMin) / (vMax - vMin);
     const s = invert ? 1 - raw : raw;
-    return Math.round(s * 100);
+    return Math.round(Math.max(0, Math.min(1, s)) * 100);
   };
   const dims = [
     { label: 'Sharpe', v: sub(sharpe, 3, 0), weight: '30%' },
@@ -317,7 +319,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   return (
     <div className="bg-surface">
       {/* ── Quality Score banner ── */}
-      {m.quality_score != null && (
+      {m.quality_score != null && Number.isFinite(Number(m.quality_score)) && (
         <QualityScoreBanner
           score={Number(m.quality_score)}
           grade={String(m.quality_grade ?? 'F')}

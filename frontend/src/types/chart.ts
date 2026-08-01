@@ -31,6 +31,7 @@ export interface TradeMarker {
   color: string;
   shape: 'arrowUp' | 'arrowDown' | 'circle';
   text: string;
+  price?: number;
 }
 
 export interface IndicatorLine {
