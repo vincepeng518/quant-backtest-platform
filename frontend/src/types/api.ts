@@ -76,6 +76,16 @@ export interface PerformanceMetrics {
   // ── Quality score (0-100) ──
   quality_score?: number;
   quality_grade?: string;
+  quality_breakdown?: {
+    sharpe: number;
+    profit_factor: number;
+    win_rate: number;
+    drawdown: number;
+    sample: number;
+    raw_score: number;
+    confidence: number;
+    penalty_reason: string | null;
+  };
 }
 
 export interface EquityPoint {

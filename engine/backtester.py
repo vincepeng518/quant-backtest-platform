@@ -83,6 +83,7 @@ class BacktestResult:
     # ── Quality score (0-100) ──
     quality_score: float = 0.0
     quality_grade: str = "F"
+    quality_breakdown: dict = field(default_factory=dict)
     trades: list[Trade] = field(default_factory=list)
     equity_curve: list[float] = field(default_factory=list)
     drawdown_curve: list[float] = field(default_factory=list)
@@ -488,11 +489,10 @@ class Backtester:
         # ── Quality score ──
         _winners = [t.pnl for t in winners if t.pnl is not None]
         _losers = [t.pnl for t in losers if t.pnl is not None]
-        _pf_for_score = (abs(sum(_winners) / sum(_losers)) if _losers
-                         else (float("inf") if _winners else 0.0))
-        q_score, q_grade = compute_quality_score(
+        _pf_val = abs(sum(_winners) / sum(_losers)) if _losers else (999.0 if _winners else 0.0)
+        q_score, q_grade, q_breakdown = compute_quality_score(
             sharpe=self._sharpe(sr_returns),
-            profit_factor=_pf_for_score,
+            profit_factor=_pf_val,
             win_rate=len(winners) / len(trades) * 100 if trades else 0,
             max_drawdown_pct=max(dd),
             total_trades=len(trades),
@@ -513,7 +513,7 @@ class Backtester:
             max_drawdown_pct=max(dd),
             sharpe_ratio=self._sharpe(sr_returns),
             sortino_ratio=self._sortino(sr_returns),
-            profit_factor=abs(sum(t.pnl for t in winners) / sum(t.pnl for t in losers)) if losers else 0.0,
+            profit_factor=_pf_val,
             largest_loss=largest_loss,
             largest_loss_pct=largest_loss_pct,
             largest_win=largest_win,
@@ -538,6 +538,7 @@ class Backtester:
             short_profit_factor=short_pf,
             quality_score=q_score,
             quality_grade=q_grade,
+            quality_breakdown=q_breakdown,
             trades=trades,
             equity_curve=equity,
             drawdown_curve=dd,
@@ -632,8 +633,8 @@ def compute_quality_score(
     win_rate: float,
     max_drawdown_pct: float,
     total_trades: int,
-) -> tuple[float, str]:
-    """多維度回測品質評分 (0-100) + 等級 (S/A/B/C/D/F)。
+) -> tuple[float, str, dict]:
+    """多維度回測品質評分 (0-100) + 等級 (S/A/B/C/D/F) + breakdown。
 
     | 指標 | 權重 | 滿分條件 | 零分條件 |
     |------|------|---------|---------|
@@ -642,11 +643,15 @@ def compute_quality_score(
     | 勝率 | 15% | ≥60% | ≤20% |
     | 最大回撤 | 20% | ≤10% | ≥50% |
     | 交易次數 | 10% | ≥100 | <10 |
+
+    後處理:
+    - 樣本 <30 筆: 信心係數打折 (0.5+0.5*n/30)
+    - 樣本上限隨 n 平滑上升 (cap=40+60*min(1,n/30)), 取代硬門檻
+    - PF<1 或 Sharpe<0: 封頂 C (65)
     """
     import math
 
     def _clean(v, default=0.0, inf_is_max=None):
-        """非 finite 值清洗。inf_is_max 不為 None 時, +inf 映射成該值。"""
         try:
             f = float(v)
         except (TypeError, ValueError):
@@ -663,11 +668,14 @@ def compute_quality_score(
     max_drawdown_pct = _clean(max_drawdown_pct, 100.0)
     total_trades = int(_clean(total_trades, 0))
 
-    # 沒進場 / 0 筆交易 → 零分
     if total_trades <= 0:
-        return 0.0, "F"
+        return 0.0, "F", {
+            "sharpe": 0, "profit_factor": 0, "win_rate": 0,
+            "drawdown": 0, "sample": 0, "raw_score": 0.0,
+            "confidence": 0.0, "penalty_reason": "無交易",
+        }
 
-    def _linear(v, v_max, v_min, v0=0.0):
+    def _linear(v, v_max, v_min):
         if v >= v_max:
             return 1.0
         if v <= v_min:
@@ -680,30 +688,33 @@ def compute_quality_score(
     s_dd = 1.0 - _linear(max_drawdown_pct, 50.0, 10.0)
     s_trades = _linear(total_trades, 100.0, 10.0)
 
-    score = (
-        s_sharpe * 30
-        + s_pf * 25
-        + s_wr * 15
-        + s_dd * 20
-        + s_trades * 10
-    )
+    raw_score = s_sharpe * 30 + s_pf * 25 + s_wr * 15 + s_dd * 20 + s_trades * 10
+    confidence = 1.0
+    penalty_reason = None
 
-    # 樣本數信心懲罰: <30 筆線性打折, 避免過度擬合被誤判成好策略
+    # 樣本數信心懲罰: <30 筆線性打折
     if total_trades < 30:
         confidence = 0.5 + 0.5 * (total_trades / 30.0)
-        score *= confidence
-    # 硬門檻: 樣本太少不得評為 A/S
-    if total_trades < 20:
-        score = min(score, 79.9)
-    if total_trades < 10:
-        score = min(score, 59.9)
+        raw_score *= confidence
 
-    # 虧損策略 (PF<1 或 Sharpe<0) 封頂 C, 不論其他指標多漂亮
+    # 樣本數上限平滑上升 (取代硬門檻斷崖)
+    cap = 40.0 + 60.0 * min(1.0, total_trades / 30.0)
+    score = min(raw_score, cap)
+
+    # 虧損策略封頂 C
     if profit_factor < 1.0 or sharpe < 0:
         score = min(score, 65.0)
+        penalty_reason = "虧損策略 (PF<1 或 Sharpe<0) 封頂 C"
+    elif total_trades < 20:
+        penalty_reason = f"樣本不足 ({total_trades} 筆) 信心打折"
 
     if not math.isfinite(score):
-        return 0.0, "F"
+        return 0.0, "F", {
+            "sharpe": 0, "profit_factor": 0, "win_rate": 0,
+            "drawdown": 0, "sample": 0, "raw_score": 0.0,
+            "confidence": 0.0, "penalty_reason": "評分計算異常",
+        }
+
     score = round(max(0.0, min(100.0, score)), 1)
 
     if score >= 90:
@@ -718,4 +729,15 @@ def compute_quality_score(
         grade = "D"
     else:
         grade = "F"
-    return score, grade
+
+    breakdown = {
+        "sharpe": round(s_sharpe * 100),
+        "profit_factor": round(s_pf * 100),
+        "win_rate": round(s_wr * 100),
+        "drawdown": round(s_dd * 100),
+        "sample": round(s_trades * 100),
+        "raw_score": round(raw_score, 1),
+        "confidence": round(confidence, 3),
+        "penalty_reason": penalty_reason,
+    }
+    return score, grade, breakdown

@@ -116,6 +116,7 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
     # ── Quality score 兜底: 若 backtester 未計算 (舊代碼), API 層補算 ──
     q_score = getattr(r, "quality_score", None)
     q_grade = getattr(r, "quality_grade", None)
+    q_breakdown = getattr(r, "quality_breakdown", None)
     # 0.0 也視為未計算 (dataclass 預設值), 除非真的 0 筆交易
     if q_score is None or (q_score == 0.0 and r.total_trades > 0):
         try:
@@ -123,8 +124,8 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             _w = [t.pnl for t in r.trades if t.pnl is not None and t.pnl > 0]
             _l = [t.pnl for t in r.trades if t.pnl is not None and t.pnl < 0]
             _pf = (abs(sum(_w) / sum(_l)) if _l
-                   else (float("inf") if _w else 0.0))
-            q_score, q_grade = compute_quality_score(
+                   else (999.0 if _w else 0.0))
+            q_score, q_grade, q_breakdown = compute_quality_score(
                 sharpe=r.sharpe_ratio,
                 profit_factor=_pf,
                 win_rate=r.win_rate,
@@ -132,7 +133,7 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
                 total_trades=r.total_trades,
             )
         except Exception:
-            q_score, q_grade = 0.0, "F"
+            q_score, q_grade, q_breakdown = 0.0, "F", {"penalty_reason": "兜底計算異常"}
     return BacktestResultOut(
         task_id=task_id,
         status="completed",
@@ -163,6 +164,7 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             "trade_freq": r.trade_freq,
             "quality_score": q_score,
             "quality_grade": q_grade,
+            "quality_breakdown": q_breakdown or {},
         },
         equity_curve=equity_curve,
         buy_hold_equity=buy_hold_curve,
@@ -190,8 +192,8 @@ async def get_results(task_id: str):
                 _w = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") > 0]
                 _l = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") < 0]
                 _pf = (abs(sum(_w) / sum(_l)) if _l
-                       else (float("inf") if _w else 0.0))
-                qs, qg = compute_quality_score(
+                       else (999.0 if _w else 0.0))
+                qs, qg, qbrk = compute_quality_score(
                     sharpe=metrics.get("sharpe_ratio") or 0,
                     profit_factor=_pf,
                     win_rate=metrics.get("win_rate") or 0,
@@ -200,6 +202,7 @@ async def get_results(task_id: str):
                 )
                 metrics["quality_score"] = qs
                 metrics["quality_grade"] = qg
+                metrics["quality_breakdown"] = qbrk
             except Exception:
                 pass
         return BacktestResultOut(
