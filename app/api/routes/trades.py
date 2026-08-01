@@ -185,6 +185,7 @@ def _load_all_trades() -> dict:
     records = []
     fees_total = 0.0
     funding_total = 0.0
+    fees_total_all = 0.0
     if snap:
         for rec in snap.get("records", []):
             rec["_snapshot"] = latest
@@ -200,6 +201,7 @@ def _load_all_trades() -> dict:
             records.append(rec)
         fees_total = float(snap.get("fees_total") or 0)
         funding_total = float(snap.get("funding_total") or 0)
+        fees_total_all = float(snap.get("fees_total_all") or 0)
 
     # 沒有跨快照重複問題, 但 OPEN 同持倉可能出現在多份快照中
     # 用 (symbol, side, avgPrice, positionAmt) 去重 OPEN
@@ -224,6 +226,7 @@ def _load_all_trades() -> dict:
         "records": deduped,
         "snapshots": [{"file": latest}],
         "fees_total": round(fees_total, 4),
+        "fees_total_all": round(fees_total_all, 4),
         "funding_total": round(funding_total, 4),
         "metrics_30d": snap.get("metrics_30d") if snap else None,
     }

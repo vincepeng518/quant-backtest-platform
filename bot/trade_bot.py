@@ -404,12 +404,18 @@ def build_snapshot() -> dict:
     logger.info("funding fees: %.4f", funding)
 
     recs = positions + closed_30d
+    # 所有原始成交的費用總和（不依賴配對邏輯）
+    fees_all = round(sum(
+        float((t.get("fee") or {}).get("cost", 0) or 0)
+        for t in raw_trades
+    ), 4)
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": "bingx-ccxt-trades-v5",
         "repo": REPO,
         "count": len(recs),
         "fees_total": round(fees, 4),
+        "fees_total_all": fees_all,  # 所有原始交易累計費用
         "funding_total": funding,
         "metrics_30d": metrics_30d,
         "records": recs,
