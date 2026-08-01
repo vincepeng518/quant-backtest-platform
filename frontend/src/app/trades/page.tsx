@@ -119,6 +119,7 @@ export default function TradesPage() {
   const pageSize = 25;
   const [selectedTrade, setSelectedTrade] = useState<TradeRec | null>(null);
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
+  const [feesTotalAll, setFeesTotalAll] = useState<number | null>(null);
 
   useEffect(() => {
     if (source !== 'predict') return;
@@ -142,6 +143,7 @@ export default function TradesPage() {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
         setMetrics30d(d.metrics_30d ?? null);
+        setFeesTotalAll(d.fees_total_all ?? null);
         setCurrentPage(1);
       })
       .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
@@ -149,8 +151,8 @@ export default function TradesPage() {
     return () => { cancelled = true; };
   }, [source]);
 
-  // fees 用 metrics30d 內建的 fee_total
-  const feesTotal = metrics30d?.fee_total ?? null;
+  // fees 用 feesTotalAll（歷史累計總費用）
+  const feesTotal = feesTotalAll;
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
