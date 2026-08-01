@@ -179,7 +179,10 @@ class DataService:
             # Prefer synthetic data at the *requested* timeframe so test mode
             # reflects the chosen interval (15m/45m/...), not a stale 1h CSV.
             from data.providers.test_data import generate_test_data
-            gen = generate_test_data(symbol.replace("/", "_"), timeframe=timeframe)
+            gen = generate_test_data(
+                symbol.replace("/", "_"), timeframe=timeframe,
+                start_date=start_date, end_date=end_date,
+            )
             if gen is not None and len(gen) > 0:
                 return gen
             # Fallback to on-disk CSV if synthetic generation failed

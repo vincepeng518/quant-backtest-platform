@@ -45,21 +45,42 @@ def generate_test_data(
     timeframe: str = "1h",
     n: Optional[int] = None,
     seed: int = 42,
+    start_date: str = "",
+    end_date: str = "",
 ) -> Optional[pd.DataFrame]:
     """Return an n-row OHLCV DataFrame at the given `timeframe`.
 
     `n` defaults to roughly one year of bars, capped at 20000 to keep memory
-    bounded for sub-hour intervals.
+    bounded for sub-hour intervals. If start_date/end_date provided, generate
+    data covering that range instead of the default 2025-01-01 anchor.
     """
     minutes = _tf_to_minutes(timeframe)
+
+    # ── 日期範圍: 優先使用 start_date/end_date, 否則預設 2025-01-01 起一年 ──
+    start_dt = datetime(2025, 1, 1, 0, 0, 0)
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date[:10].replace("-", "-") + " 00:00:00")
+        except ValueError:
+            pass
+    end_dt = None
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date[:10].replace("-", "-") + " 23:59:59")
+        except ValueError:
+            pass
+
     if n is None:
-        # ~1 year, but cap so 1m doesn't explode
-        n = int(365 * 24 * 60 / minutes)
+        if start_dt and end_dt and end_dt > start_dt:
+            # 依日期範圍計算根數
+            span_minutes = int((end_dt - start_dt).total_seconds() / 60)
+            n = span_minutes // minutes
+        else:
+            n = int(365 * 24 * 60 / minutes)
         n = max(2000, min(n, 20000))
 
     rng = np.random.default_rng(seed)
-    start = datetime(2025, 1, 1, 0, 0, 0)
-    times = [start + timedelta(minutes=minutes * i) for i in range(n)]
+    times = [start_dt + timedelta(minutes=minutes * i) for i in range(n)]
     mu, sigma = 0.3 / 8760, 0.02
     base = rng.normal(mu, sigma, n)
 
