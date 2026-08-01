@@ -70,6 +70,7 @@ const QualityScoreBanner: React.FC<{
     sharpe: number; profit_factor: number; win_rate: number;
     drawdown: number; sample: number;
     raw_score: number; confidence: number;
+    cap: number; final_score: number;
     penalty_reason: string | null;
   };
 }> = ({ score, grade, breakdown }) => {
@@ -82,6 +83,13 @@ const QualityScoreBanner: React.FC<{
     { label: '低回撤', v: b.drawdown, weight: '20%' },
     { label: '樣本數', v: b.sample, weight: '10%' },
   ];
+
+  // 扣分鏈摘要: 只有當最終分數低於原始分數時才顯示
+  const showChain = b.confidence < 1.0 || b.cap < b.raw_score;
+  const chainParts: string[] = [];
+  if (b.confidence < 1.0) chainParts.push(`×${b.confidence.toFixed(2)}`);
+  if (b.cap < b.raw_score) chainParts.push(`cap ${b.cap.toFixed(1)}`);
+  const chainText = showChain ? `${b.raw_score.toFixed(1)} → ${chainParts.join(' → ')} → ${score.toFixed(1)}` : null;
 
   return (
     <div className="flex items-center gap-4 px-4 sm:px-5 py-3 border-b border-border/12 bg-surface">
@@ -99,6 +107,9 @@ const QualityScoreBanner: React.FC<{
           {score.toFixed(1)}
           <span className="text-xs text-textSecondary ml-0.5">/100</span>
         </div>
+        {chainText && (
+          <div className="text-[8px] text-textSecondary mt-0.5 leading-tight font-mono opacity-70">{chainText}</div>
+        )}
         {b.penalty_reason && (
           <div className="text-[9px] text-textSecondary mt-0.5 leading-tight">{b.penalty_reason}</div>
         )}
@@ -322,6 +333,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
           breakdown={m.quality_breakdown ?? {
             sharpe: 0, profit_factor: 0, win_rate: 0,
             drawdown: 0, sample: 0, raw_score: 0, confidence: 0,
+            cap: 100, final_score: Number(m.quality_score) || 0,
             penalty_reason: null,
           }}
         />

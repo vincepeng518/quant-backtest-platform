@@ -483,8 +483,8 @@ class Backtester:
         long_expectancy = (long_wr_frac * long_avg_win - (1 - long_wr_frac) * long_avg_loss) if long_trades else 0.0
         short_expectancy = (short_wr_frac * short_avg_win - (1 - short_wr_frac) * short_avg_loss) if short_trades else 0.0
 
-        long_pf = abs(sum(t.pnl for t in long_winners) / sum(t.pnl for t in long_losers)) if long_losers else 0.0
-        short_pf = abs(sum(t.pnl for t in short_winners) / sum(t.pnl for t in short_losers)) if short_losers else 0.0
+        long_pf = abs(sum(t.pnl for t in long_winners) / sum(t.pnl for t in long_losers)) if long_losers else (999.0 if long_winners else 0.0)
+        short_pf = abs(sum(t.pnl for t in short_winners) / sum(t.pnl for t in short_losers)) if short_losers else (999.0 if short_winners else 0.0)
 
         # ── Quality score ──
         _winners = [t.pnl for t in winners if t.pnl is not None]
@@ -693,20 +693,21 @@ def compute_quality_score(
     penalty_reason = None
 
     # 樣本數信心懲罰: <30 筆線性打折
+    weighted = raw_score
     if total_trades < 30:
         confidence = 0.5 + 0.5 * (total_trades / 30.0)
-        raw_score *= confidence
+        weighted = raw_score * confidence
 
     # 樣本數上限平滑上升 (取代硬門檻斷崖)
     cap = 40.0 + 60.0 * min(1.0, total_trades / 30.0)
-    score = min(raw_score, cap)
+    score = min(weighted, cap)
 
     # 虧損策略封頂 C
     if profit_factor < 1.0 or sharpe < 0:
         score = min(score, 65.0)
         penalty_reason = "虧損策略 (PF<1 或 Sharpe<0) 封頂 C"
-    elif total_trades < 20:
-        penalty_reason = f"樣本不足 ({total_trades} 筆) 信心打折"
+    elif total_trades < 30:
+        penalty_reason = f"樣本不足 ({total_trades} 筆), 信心係數 ×{confidence:.2f}"
 
     if not math.isfinite(score):
         return 0.0, "F", {
@@ -738,6 +739,8 @@ def compute_quality_score(
         "sample": round(s_trades * 100),
         "raw_score": round(raw_score, 1),
         "confidence": round(confidence, 3),
+        "cap": round(cap, 1),
+        "final_score": score,
         "penalty_reason": penalty_reason,
     }
     return score, grade, breakdown
