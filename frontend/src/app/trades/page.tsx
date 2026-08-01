@@ -143,7 +143,10 @@ export default function TradesPage() {
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
         setMetrics30d(d.metrics_30d ?? null);
-        setFeesTotalAll(d.fees_total_all ?? null);
+        setFeesTotalAll(d.fees_total_all ?? (
+          // fallback: 從 records 累計 fee 欄位
+          d.records?.length ? d.records.reduce((s: number, r: any) => s + (r.fee ?? 0), 0) : null
+        ));
         setCurrentPage(1);
       })
       .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
