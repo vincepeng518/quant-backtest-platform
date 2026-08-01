@@ -84,6 +84,8 @@ export interface PerformanceMetrics {
     sample: number;
     raw_score: number;
     confidence: number;
+    cap: number;
+    final_score: number;
     penalty_reason: string | null;
   };
 }
