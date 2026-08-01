@@ -64,6 +64,20 @@ def _gh_get(api_base: str, path: str):
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 401 and _token:
+            # token 失效 → 拔掉 Authorization 重試 (public repo 無需 auth)
+            logger.warning("gh trades get %s -> 401, retrying without token", path)
+            headers_noauth = {k: v for k, v in HEADERS.items() if k != "Authorization"}
+            req2 = urllib.request.Request(f"{api_base}/{path}", headers=headers_noauth)
+            try:
+                with urllib.request.urlopen(req2, timeout=20) as r:
+                    return json.loads(r.read().decode("utf-8"))
+            except Exception as e2:
+                logger.warning("gh trades get %s (noauth) -> %s", path, e2)
+                return None
+        logger.warning("gh trades get %s -> %s", path, e)
+        return None
     except Exception as e:
         logger.warning("gh trades get %s -> %s", path, e)
         return None
@@ -75,6 +89,20 @@ def _list_files(api_base: str) -> list[str]:
         with urllib.request.urlopen(req, timeout=20) as r:
             data = json.loads(r.read().decode("utf-8"))
         return [f["name"] for f in data if f["name"].endswith(".json")]
+    except urllib.error.HTTPError as e:
+        if e.code == 401 and _token:
+            logger.warning("gh trades list -> 401, retrying without token")
+            headers_noauth = {k: v for k, v in HEADERS.items() if k != "Authorization"}
+            req2 = urllib.request.Request(api_base, headers=headers_noauth)
+            try:
+                with urllib.request.urlopen(req2, timeout=20) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                return [f["name"] for f in data if f["name"].endswith(".json")]
+            except Exception as e2:
+                logger.warning("gh trades list (noauth) -> %s", e2)
+                return []
+        logger.warning("gh trades list -> %s", e)
+        return []
     except Exception as e:
         logger.warning("gh trades list -> %s", e)
         return []
@@ -103,8 +131,22 @@ def _latest_snapshot_name() -> str | None:
             f"https://api.github.com/repos/{REPO}/commits?path=trades/&per_page=5",
             headers=HEADERS,  # 有 GITHUB_TOKEN 時可拿到 files 明細
         )
-        with urllib.request.urlopen(req, timeout=20) as r:
-            commits = json.loads(r.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                commits = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code == 401 and _token:
+                # token 失效 → 拔掉 Authorization 重試
+                logger.warning("commits API -> 401, retrying without token")
+                headers_noauth = {k: v for k, v in HEADERS.items() if k != "Authorization"}
+                req2 = urllib.request.Request(
+                    f"https://api.github.com/repos/{REPO}/commits?path=trades/&per_page=5",
+                    headers=headers_noauth,
+                )
+                with urllib.request.urlopen(req2, timeout=20) as r:
+                    commits = json.loads(r.read().decode("utf-8"))
+            else:
+                raise
         for c in commits:
             files = c.get("files", []) or []
             for f in files:
