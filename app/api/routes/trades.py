@@ -91,6 +91,44 @@ def _read_raw(filename: str) -> dict | None:
         return None
 
 
+def _latest_snapshot_name() -> str | None:
+    """找到最新的 trades 快照檔名。
+
+    優先: GitHub commits API (path=trades/) 按時間排序, 無 1000 檔截斷問題。
+    Fallback: contents API 字母序最後一個 (有截斷風險)。
+    """
+    # 1) commits API — 按 commit 時間排序, 拿最近一次動到 trades/ 的 commit
+    try:
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{REPO}/commits?path=trades/&per_page=5",
+            headers=HEADERS,  # 有 GITHUB_TOKEN 時可拿到 files 明細
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            commits = json.loads(r.read().decode("utf-8"))
+        for c in commits:
+            files = c.get("files", []) or []
+            for f in files:
+                fn = f.get("filename", "")
+                if fn.startswith("trades/") and fn.endswith(".json"):
+                    return fn.split("/", 1)[1]
+            # 沒帶 files (未授權時), 從 commit message 猜檔名
+            msg = c.get("commit", {}).get("message", "")
+            m = _re.search(r"trades_(\d{8}_\d{6})\.json", msg)
+            if m:
+                return f"trades_{m.group(1)}.json"
+    except Exception as e:
+        logger.warning("commits API -> %s", e)
+
+    # 2) contents API fallback — 字母序 (predict_history.json 開頭, 最新 trades 在最後)
+    try:
+        names = sorted(_list_files(TRADES_API))
+        if names:
+            return names[-1]
+    except Exception as e:
+        logger.warning("contents fallback -> %s", e)
+    return None
+
+
 def _load_all_trades() -> dict:
     """只讀取最新一份快照 (每份快照已含全量歷史交易, 無需累積)"""
     now = time.time()
@@ -98,28 +136,10 @@ def _load_all_trades() -> dict:
         if _cache["ts"] and (now - _cache["ts"]) < CACHE_TTL and _cache["records"]:
             return _cache
 
-    # 跳過 GitHub API list 目錄, 直接猜最新快照檔名
-    # 快照由 bot/trade_bot.py 每4h產生, 格式 trades_YYYYMMDD_{HH}0000.json
-    latest = None
-    snap = None
-    import datetime as _dt
-    for i in range(3):
-        t = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=i*4)
-        h = (t.hour // 4) * 4
-        fn = t.strftime(f"trades_%Y%m%d_{h:02d}0000.json")
-        sn = _read_raw(fn)
-        if sn:
-            latest = fn
-            snap = sn
-            break
-
-    if not latest:
-        # Fallback: GitHub API
-        names = sorted(_list_files(TRADES_API))
-        if not names:
-            return {"records": [], "snapshots": [], "fees_total": None}
-        latest = names[-1]
-        snap = _read_raw(latest)
+    latest = _latest_snapshot_name()
+    snap = _read_raw(latest) if latest else None
+    if not snap:
+        return {"records": [], "snapshots": [], "fees_total": None}
     records = []
     fees_total = 0.0
     funding_total = 0.0
