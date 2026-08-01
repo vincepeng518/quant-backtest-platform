@@ -281,19 +281,6 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         />
       </div>
 
-      {/* ── Position status bar ── */}
-      {statusSegments.length > 0 && (
-        <div className="relative h-[3px] w-full bg-border/10">
-          {statusSegments.map((s, i) => (
-            <div
-              key={i}
-              className="absolute top-0 h-full"
-              style={{ left: `${s.left}%`, width: `${s.width}%`, backgroundColor: s.color, opacity: 0.75 }}
-            />
-          ))}
-        </div>
-      )}
-
       {/* ── Chart ── */}
       <EquityPnlChart
         equity={equity}
