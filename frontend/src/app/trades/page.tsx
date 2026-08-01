@@ -198,6 +198,7 @@ export default function TradesPage() {
   const stats = useMemo(() => {
     let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
     let longPnl = 0, shortPnl = 0;
+    let gainsAmt = 0, lossesAmt = 0;
     let streak = 0, maxWinStreak = 0, maxLossStreak = 0;
     // 按 ts 排序算連續 (升冪)
     const sorted = [...filtered].sort((a, b) => sortKey(a) - sortKey(b));
@@ -205,8 +206,8 @@ export default function TradesPage() {
       const p = pnlOf(r);
       totalPnl += p;
       totalPos += Number(r.positionValue ?? 0);
-      if (p > 0) { wins++; streak = streak > 0 ? streak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, streak); }
-      else if (p < 0) { losses++; streak = streak < 0 ? streak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, -streak); }
+      if (p > 0) { wins++; gainsAmt += p; streak = streak > 0 ? streak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, streak); }
+      else if (p < 0) { losses++; lossesAmt += p; streak = streak < 0 ? streak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, -streak); }
       else scr++;
       const s = String(r.side ?? '').toUpperCase();
       if (s.includes('LONG')) longPnl += p;
@@ -215,7 +216,7 @@ export default function TradesPage() {
     const closed = wins + losses;
     const winRate = closed > 0 ? (wins / closed) * 100 : 0;
     const avgPnl = closed > 0 ? totalPnl / closed : 0;
-    return { totalPnl, totalPos, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, maxWinStreak, maxLossStreak };
+    return { totalPnl, totalPos, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, gainsAmt, lossesAmt, maxWinStreak, maxLossStreak };
   }, [filtered]);
 
   // PnL Calendar Heatmap (journalit 風格)
@@ -339,11 +340,11 @@ export default function TradesPage() {
                 <p className="text-xs text-textSecondary font-mono">{metrics30d.wins}W / {metrics30d.losses}L</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額</p>
+                <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額 ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
                 <p className="text-sm font-mono">
-                  <span className="text-accent">+{fmt(metrics30d.profit_amount ?? 0)} USDT</span>
+                  <span className="text-accent">+{fmt(stats.gainsAmt ?? 0)} USDT</span>
                   {' / '}
-                  <span className="text-danger">{fmt(metrics30d.loss_amount ?? 0)} USDT</span>
+                  <span className="text-danger">{fmt(stats.lossesAmt ?? 0)} USDT</span>
                 </p>
               </Card>
             </div>
