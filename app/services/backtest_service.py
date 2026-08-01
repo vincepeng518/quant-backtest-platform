@@ -102,6 +102,18 @@ class BacktestService:
         )
         if data is None or len(data) == 0:
             return {"task_id": task_id, "status": "error", "error": "No data"}
+        # 依 start_date/end_date 截斷數據（test/csv 合成數據可能超出範圍）
+        try:
+            if config.get("start_date"):
+                sd = pd.Timestamp(config["start_date"])
+                data = data[data["timestamp"] >= sd].copy()
+            if config.get("end_date"):
+                ed = pd.Timestamp(config["end_date"]) + pd.Timedelta(days=1)
+                data = data[data["timestamp"] < ed].copy()
+        except Exception:
+            pass
+        if data is None or len(data) == 0:
+            return {"task_id": task_id, "status": "error", "error": "No data in date range"}
         bt.set_data(data)
 
         # Setup strategy
