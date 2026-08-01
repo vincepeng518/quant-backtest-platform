@@ -139,6 +139,11 @@ class Backtester:
         # MAE/MFE tracking: worst/best unrealized PnL during each trade
         trade_mae: float = 0.0  # max adverse (most negative unrealized pnl)
         trade_mfe: float = 0.0  # max favorable (most positive unrealized pnl)
+        # OCO protection: absolute stop-loss / take-profit prices attached to the
+        # opening signal (backtrader-style attached orders). Evaluated on bar
+        # extremes; stop takes precedence if both trigger in the same bar.
+        oco_sl: Optional[float] = None
+        oco_tp: Optional[float] = None
 
         # Latency queue: pending (signal_bar_index, bar, signal) entries executed
         # once the current bar index has advanced fill_delay_bars() past the signal.
@@ -167,7 +172,7 @@ class Backtester:
             return (capital * self.leverage) / price if self.perp is not None else capital / price
 
         def _execute(sig: Any, current_bar: Any, current_bar_index: int) -> None:
-            nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe
+            nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe, oco_sl, oco_tp
             order_type = "limit" if self.force_limit else getattr(sig, "order_type", "market")
             is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
             direction = 1 if sig.action == "buy" else -1
@@ -193,6 +198,11 @@ class Backtester:
                 entry_bar_index = current_bar_index
                 trade_mae = 0.0
                 trade_mfe = 0.0
+                # Attached OCO: absolute SL/TP prices from the opening signal.
+                # stop_loss / take_profit are ABSOLUTE PRICES (bar.close-based in
+                # strategies, e.g. close - atr*mult).
+                oco_sl = getattr(sig, "stop_loss", None)
+                oco_tp = getattr(sig, "take_profit", None)
 
             elif sig.action in ("close",) and position is not None:
                 if order_type == "limit" and self.market_engine is not None:
@@ -205,36 +215,69 @@ class Backtester:
                 else:
                     slip = _slippage_for(capital, current_bar.close, -1 if position.size > 0 else 1)
                     exit_price = current_bar.close * (1 + slip * (-1 if position.size > 0 else 1))
-                pnl = position.size * (exit_price - position.entry_price)
-                fee = _fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
-                pnl -= fee
-                funding_paid = 0.0
-                if self.funding is not None:
-                    notional = abs(position.size) * position.entry_price
-                    side = 1 if position.size > 0 else -1
-                    funding_frac = self.funding.accrued(entry_bar, current_bar.timestamp, side)
-                    funding_paid = notional * funding_frac
-                    pnl -= funding_paid
-                trade = Trade(
-                    entry_time=entry_bar or current_bar.timestamp,
-                    entry_price=position.entry_price,
-                    size=abs(position.size),
-                    exit_time=current_bar.timestamp,
-                    exit_price=exit_price,
-                    pnl=pnl,
-                    pnl_pct=pnl / capital * 100,
-                    funding_paid=funding_paid,
-                    direction="long" if position.size > 0 else "short",
-                    exit_reason="signal",
-                    holding_bars=(current_bar_index - entry_bar_index) if entry_bar_index is not None else 0,
-                    mae=trade_mae,
-                    mfe=trade_mfe,
-                )
-                trades.append(trade)
-                capital += pnl
-                position = None
-                entry_bar = None
-                entry_bar_index = None
+                _close_position(exit_price, current_bar, current_bar_index, reason="signal")
+
+        def _close_position(exit_price: float, close_bar: Any, close_bar_index: int, reason: str = "signal") -> None:
+            """Flatten the current position and record a Trade. Resets OCO state."""
+            nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe, oco_sl, oco_tp
+            if position is None:
+                return
+            order_type = "limit" if self.force_limit else "market"
+            is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
+            pnl = position.size * (exit_price - position.entry_price)
+            fee = _fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
+            pnl -= fee
+            funding_paid = 0.0
+            if self.funding is not None:
+                notional = abs(position.size) * position.entry_price
+                side = 1 if position.size > 0 else -1
+                funding_paid = notional * self.funding.accrued(entry_bar, close_bar.timestamp, side)
+                pnl -= funding_paid
+            trade = Trade(
+                entry_time=entry_bar or close_bar.timestamp,
+                entry_price=position.entry_price,
+                size=abs(position.size),
+                exit_time=close_bar.timestamp,
+                exit_price=exit_price,
+                pnl=pnl,
+                pnl_pct=pnl / capital * 100,
+                funding_paid=funding_paid,
+                direction="long" if position.size > 0 else "short",
+                exit_reason=reason,
+                holding_bars=(close_bar_index - entry_bar_index) if entry_bar_index is not None else 0,
+                mae=trade_mae,
+                mfe=trade_mfe,
+            )
+            trades.append(trade)
+            capital += pnl
+            position = None
+            entry_bar = None
+            entry_bar_index = None
+            oco_sl = None
+            oco_tp = None
+
+        def _check_oco(bar: Any, bar_index: int) -> None:
+            """Evaluate attached SL/TP (OCO) against bar extremes.
+
+            Bar-level approximation (the legacy engine fills at close): a stop
+            triggers if the bar's low (long) / high (short) breaches it; a
+            take-profit triggers on the opposite extreme. If BOTH breach in the
+            same bar, the stop wins (conservative). Fill price = the OCO level,
+            not the extreme, mirroring how resting orders fill in replay.
+            """
+            nonlocal position, oco_sl, oco_tp
+            if position is None:
+                return
+            long_pos = position.size > 0
+            if oco_sl is not None:
+                breached = bar.low <= oco_sl if long_pos else bar.high >= oco_sl
+                if breached:
+                    _close_position(oco_sl, bar, bar_index, reason="stop_loss")
+                    return
+            if oco_tp is not None:
+                breached = bar.high >= oco_tp if long_pos else bar.low <= oco_tp
+                if breached:
+                    _close_position(oco_tp, bar, bar_index, reason="take_profit")
 
         for i, (_, row) in enumerate(self.data.iterrows()):
             bar = Bar(
@@ -268,6 +311,11 @@ class Backtester:
                     else:
                         still_pending.append((sig_i, sig_bar, sig))
                 pending_signals = still_pending
+
+            # Attached OCO (stop-loss / take-profit) checked on bar extremes.
+            # Runs AFTER signal execution so a same-bar entry can't be stopped
+            # out at its own entry bar.
+            _check_oco(bar, i)
 
             # Update position MTM
             if position is not None:
@@ -308,6 +356,8 @@ class Backtester:
                     position = None
                     entry_bar = None
                     entry_bar_index = None
+                    oco_sl = None
+                    oco_tp = None
             # Legacy perp liquidation path (when no market_engine, perp set directly)
             elif self.perp is not None and position is not None:
                 side = 1 if position.size > 0 else -1
@@ -331,6 +381,8 @@ class Backtester:
                     position = None
                     entry_bar = None
                     entry_bar_index = None
+                    oco_sl = None
+                    oco_tp = None
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)

@@ -106,6 +106,8 @@ class ReplayBacktester(Backtester):
         self._rng = random.Random(tick_seed) if tick_seed is not None else random.Random()
         # resting limit/stop orders carried across bars until filled or cancelled
         self._resting: list[dict] = []
+        # OCO group of the CURRENT position's attached SL/TP orders (if any)
+        self._oco_group: Optional[str] = None
 
     def set_data(self, data: pd.DataFrame) -> None:
         # allow optional 'metadata' column
@@ -173,6 +175,24 @@ class ReplayBacktester(Backtester):
             capital -= fee
             entry_bar = bar.timestamp
             entry_bar_index = bar_index
+            # Attach OCO protection (backtrader-style attached orders):
+            #   - stop-loss   -> resting STOP  order (triggers on breach)
+            #   - take-profit -> resting LIMIT order (fills on touch)
+            # Both share a group id so one fill cancels the other.
+            group = f"oco_{bar_index}_{bar_index}_{id(position)}"
+            self._oco_group = group
+            sl = getattr(sig, "stop_loss", None)
+            tp = getattr(sig, "take_profit", None)
+            if sl is not None:
+                self._resting.append({
+                    "type": "stop", "price": sl,
+                    "direction": direction, "sig": sig, "group": group, "kind": "sl",
+                })
+            if tp is not None:
+                self._resting.append({
+                    "type": "limit", "price": tp,
+                    "direction": direction, "sig": sig, "group": group, "kind": "tp",
+                })
 
         def _close_position(exit_price, bar, bar_index, reason="signal"):
             nonlocal capital, position, entry_bar, entry_bar_index
@@ -203,6 +223,15 @@ class ReplayBacktester(Backtester):
             position = None
             entry_bar = None
             entry_bar_index = None
+            # Cancel this position's OCO sibling orders (OCO semantics): when a
+            # stop OR take-profit fills, its sibling in the same group is dead.
+            # The filled order itself was already removed by the caller; drop any
+            # remaining orders sharing the position's OCO group. Non-OCO resting
+            # orders (user limit/stop entries) must survive.
+            pos_group = getattr(self, "_oco_group", None)
+            if pos_group is not None:
+                self._resting = [o for o in self._resting if o.get("group") != pos_group]
+                self._oco_group = None
 
         for i, (_, row) in enumerate(self.data.iterrows()):
             self._bar_hashes_seen += 1
@@ -219,6 +248,22 @@ class ReplayBacktester(Backtester):
                 for order in self._resting:
                     filled = False
                     for tk in ticks:
+                        # OCO attached orders (kind=sl/tp): CLOSE the position
+                        # when price crosses the level. Stop triggers on breach,
+                        # take-profit fills on touch; sibling cancelled by
+                        # _close_position via the shared group id.
+                        if order.get("kind") in ("sl", "tp"):
+                            long_pos = position is not None and position.size > 0
+                            hit = False
+                            if order["kind"] == "sl":
+                                hit = (tk.price <= order["price"]) if long_pos else (tk.price >= order["price"])
+                            else:  # tp
+                                hit = (tk.price >= order["price"]) if long_pos else (tk.price <= order["price"])
+                            if hit:
+                                _close_position(order["price"], bar, i, reason="stop_loss" if order["kind"] == "sl" else "take_profit")
+                                filled = True
+                                break
+                            continue
                         if order["type"] == "limit":
                             if order["direction"] > 0 and tk.price <= order["price"]:
                                 if order["sig"].action in ("buy", "sell") and position is None:
