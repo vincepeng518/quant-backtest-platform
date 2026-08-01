@@ -116,14 +116,17 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
     # ── Quality score 兜底: 若 backtester 未計算 (舊代碼), API 層補算 ──
     q_score = getattr(r, "quality_score", None)
     q_grade = getattr(r, "quality_grade", None)
-    if q_score is None:
+    # 0.0 也視為未計算 (dataclass 預設值), 除非真的 0 筆交易
+    if q_score is None or (q_score == 0.0 and r.total_trades > 0):
         try:
             from engine.backtester import compute_quality_score
             _w = [t.pnl for t in r.trades if t.pnl is not None and t.pnl > 0]
             _l = [t.pnl for t in r.trades if t.pnl is not None and t.pnl < 0]
+            _pf = (abs(sum(_w) / sum(_l)) if _l
+                   else (float("inf") if _w else 0.0))
             q_score, q_grade = compute_quality_score(
                 sharpe=r.sharpe_ratio,
-                profit_factor=abs(sum(_w) / sum(_l)) if _l else 0.0,
+                profit_factor=_pf,
                 win_rate=r.win_rate,
                 max_drawdown_pct=r.max_drawdown_pct,
                 total_trades=r.total_trades,
@@ -158,8 +161,8 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             "calmar_ratio": r.calmar_ratio,
             "avg_holding_bars": r.avg_holding_bars,
             "trade_freq": r.trade_freq,
-            "quality_score": r.quality_score,
-            "quality_grade": r.quality_grade,
+            "quality_score": q_score,
+            "quality_grade": q_grade,
         },
         equity_curve=equity_curve,
         buy_hold_equity=buy_hold_curve,
@@ -179,15 +182,18 @@ async def get_results(task_id: str):
         d = json.loads(fp.read_text())
         metrics = dict(d.get("metrics", {}))
         # 兜底: 舊 JSON 無 quality_score 時補算
-        if metrics.get("quality_score") is None:
+        m_qs = metrics.get("quality_score")
+        if m_qs is None or (m_qs == 0.0 and (metrics.get("total_trades") or 0) > 0):
             try:
                 from engine.backtester import compute_quality_score
                 trades = d.get("trades", [])
                 _w = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") > 0]
                 _l = [t.get("pnl") for t in trades if t.get("pnl") is not None and t.get("pnl") < 0]
+                _pf = (abs(sum(_w) / sum(_l)) if _l
+                       else (float("inf") if _w else 0.0))
                 qs, qg = compute_quality_score(
                     sharpe=metrics.get("sharpe_ratio") or 0,
-                    profit_factor=abs(sum(_w) / sum(_l)) if _l else 0.0,
+                    profit_factor=_pf,
                     win_rate=metrics.get("win_rate") or 0,
                     max_drawdown_pct=metrics.get("max_drawdown_pct") or 0,
                     total_trades=metrics.get("total_trades") or 0,

@@ -375,7 +375,7 @@ def build_snapshot() -> dict:
     closed_30d = [r for r in closed if (r.get("ts") or 0) >= cutoff_ms]
     logger.info("closed in 30d window: %d / %d", len(closed_30d), len(closed))
 
-    # 官方風格 metrics
+    # 官方風格 metrics (30 天)
     wins = [r for r in closed_30d if r["realizedProfit"] > 0]
     losses = [r for r in closed_30d if r["realizedProfit"] <= 0]
     profit_amt = sum(r["realizedProfit"] for r in wins)
@@ -403,7 +403,7 @@ def build_snapshot() -> dict:
     funding = fetch_funding_fees(ex, symbols)
     logger.info("funding fees: %.4f", funding)
 
-    recs = positions + closed_30d
+    recs = positions + closed  # 全部歷史記錄
     # 所有原始成交的費用總和（不依賴配對邏輯）
     fees_all = round(sum(
         float((t.get("fee") or {}).get("cost", 0) or 0)

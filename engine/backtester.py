@@ -488,9 +488,11 @@ class Backtester:
         # ── Quality score ──
         _winners = [t.pnl for t in winners if t.pnl is not None]
         _losers = [t.pnl for t in losers if t.pnl is not None]
+        _pf_for_score = (abs(sum(_winners) / sum(_losers)) if _losers
+                         else (float("inf") if _winners else 0.0))
         q_score, q_grade = compute_quality_score(
             sharpe=self._sharpe(sr_returns),
-            profit_factor=abs(sum(_winners) / sum(_losers)) if _losers else 0.0,
+            profit_factor=_pf_for_score,
             win_rate=len(winners) / len(trades) * 100 if trades else 0,
             max_drawdown_pct=max(dd),
             total_trades=len(trades),
@@ -635,25 +637,46 @@ def compute_quality_score(
 
     | 指標 | 權重 | 滿分條件 | 零分條件 |
     |------|------|---------|---------|
-    | Sharpe | 30% | ≥2.0 | ≤0 |
-    | Profit Factor | 25% | ≥2.0 | ≤0.5 |
+    | Sharpe | 30% | ≥3.0 | ≤0 |
+    | Profit Factor | 25% | ≥3.0 | ≤0.5 |
     | 勝率 | 15% | ≥60% | ≤20% |
     | 最大回撤 | 20% | ≤10% | ≥50% |
     | 交易次數 | 10% | ≥100 | <10 |
     """
+    import math
+
+    def _clean(v, default=0.0, inf_is_max=None):
+        """非 finite 值清洗。inf_is_max 不為 None 時, +inf 映射成該值。"""
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return default
+        if math.isnan(f):
+            return default
+        if math.isinf(f):
+            return (inf_is_max if f > 0 else default) if inf_is_max is not None else default
+        return f
+
+    sharpe = _clean(sharpe, 0.0)
+    profit_factor = _clean(profit_factor, 0.0, inf_is_max=999.0)
+    win_rate = _clean(win_rate, 0.0)
+    max_drawdown_pct = _clean(max_drawdown_pct, 100.0)
+    total_trades = int(_clean(total_trades, 0))
+
+    # 沒進場 / 0 筆交易 → 零分
+    if total_trades <= 0:
+        return 0.0, "F"
+
     def _linear(v, v_max, v_min, v0=0.0):
-        """v >= v_max → 1.0; v <= v_min → 0.0; 線性插值."""
         if v >= v_max:
             return 1.0
         if v <= v_min:
             return 0.0
         return (v - v_min) / (v_max - v_min)
 
-    # 各維度 0-1 分數
     s_sharpe = _linear(sharpe, 3.0, 0.0)
     s_pf = _linear(profit_factor, 3.0, 0.5)
     s_wr = _linear(win_rate, 60.0, 20.0)
-    # 回撤: 越低越好 → 反向線性 (v <= 10% → 1.0, v >= 50% → 0.0)
     s_dd = 1.0 - _linear(max_drawdown_pct, 50.0, 10.0)
     s_trades = _linear(total_trades, 100.0, 10.0)
 
@@ -665,17 +688,23 @@ def compute_quality_score(
         + s_trades * 10
     )
 
-    # 交易數 < 5 視為樣本不足, 封頂 C
-    if total_trades < 5:
-        score = min(score, 65.0)
-    # 虧損策略封頂 B
+    # 樣本數信心懲罰: <30 筆線性打折, 避免過度擬合被誤判成好策略
+    if total_trades < 30:
+        confidence = 0.5 + 0.5 * (total_trades / 30.0)
+        score *= confidence
+    # 硬門檻: 樣本太少不得評為 A/S
+    if total_trades < 20:
+        score = min(score, 79.9)
+    if total_trades < 10:
+        score = min(score, 59.9)
+
+    # 虧損策略 (PF<1 或 Sharpe<0) 封頂 C, 不論其他指標多漂亮
     if profit_factor < 1.0 or sharpe < 0:
-        score = min(score, 75.0)
-    # 總報酬為負 → 封頂 C
-    if score >= 70 and profit_factor < 1.0:
         score = min(score, 65.0)
 
-    score = round(score, 1)
+    if not math.isfinite(score):
+        return 0.0, "F"
+    score = round(max(0.0, min(100.0, score)), 1)
 
     if score >= 90:
         grade = "S"

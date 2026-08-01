@@ -115,6 +115,7 @@ function BacktestView() {
     }
   };
   const [enableFunding, setEnableFunding] = useState(false);
+  const [configOpen, setConfigOpen] = useState(true);
   const [fundingInterval, setFundingInterval] = useState(8);
   const [fundingRate, setFundingRate] = useState(0.0001);
 
@@ -483,16 +484,14 @@ function BacktestView() {
     >
       {/* Configuration Card */}
       <Card>
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
+        <button onClick={() => setConfigOpen(v => !v)} className="w-full mb-4 flex items-center justify-between cursor-pointer group">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary group-hover:text-text transition-colors">
             策略配置
           </h2>
-          <span className="font-mono text-xs text-textSecondary">
-            {selectedTemplate?.name || selectedStrategy}
-          </span>
-        </div>
+          <span className="text-xs text-textSecondary">{configOpen ? '▲' : '▼'}</span>
+        </button>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={`grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 transition-all duration-200 ${configOpen ? '' : 'hidden'}`}>
           <Select
             label="Asset Class"
             value={market}
@@ -605,6 +604,7 @@ function BacktestView() {
             );
           })}
         </div>
+        <div className={`transition-all duration-200 ${configOpen ? "" : "hidden"}`}>
 
         {market === 'crypto' ? (
           <RealismPanel
@@ -657,6 +657,7 @@ function BacktestView() {
           </div>
         </div>
 
+        </div>
         {error && (
           <p className="mt-3 text-sm font-mono text-danger">{error}</p>
         )}
