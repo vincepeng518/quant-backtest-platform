@@ -128,18 +128,25 @@ export default function TradesPage() {
   }, [source]);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError(null);
+    setRecords([]);          // 立即清空舊資料，防止 tab 切換時卡住
+    setMetrics(null);
+    setMetrics30d(null);
+    setSelectedTrade(null);
     const fetcher = source === 'arb' ? api.getArbTrades() : source === 'predict' ? api.getPredictTrades() : api.getTrades();
     fetcher
       .then((d: any) => {
+        if (cancelled) return;
         setRecords(d.records ?? []);
         setMetrics(d.metrics ?? null);
         setMetrics30d(d.metrics_30d ?? null);
         setCurrentPage(1);
       })
-      .catch((e) => setError(e?.message ?? 'failed to load trades'))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [source]);
 
   // fees 用 metrics30d 內建的 fee_total
