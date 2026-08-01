@@ -627,6 +627,13 @@ class Backtester:
         return float(np.mean(excess) / np.std(downside) * np.sqrt(252))
 
 
+_EMPTY_BREAKDOWN = {
+    "sharpe": 0, "profit_factor": 0, "win_rate": 0,
+    "drawdown": 0, "sample": 0, "raw_score": 0.0,
+    "confidence": 0.0, "cap": 0.0, "final_score": 0.0,
+    "penalty_reason": None, "cap_applied": False, "loss_cap_applied": False,
+}
+
 def compute_quality_score(
     sharpe: float,
     profit_factor: float,
@@ -648,6 +655,8 @@ def compute_quality_score(
     - 樣本 <30 筆: 信心係數打折 (0.5+0.5*n/30)
     - 樣本上限隨 n 平滑上升 (cap=40+60*min(1,n/30)), 取代硬門檻
     - PF<1 或 Sharpe<0: 封頂 C (65)
+    - penalty_reason 列出所有實際生效的懲罰（樣本折扣、樣本上限、虧損封頂），
+      僅當該步驟真正改變了分數時才記錄，用 " / " 連接。
     """
     import math
 
@@ -669,11 +678,7 @@ def compute_quality_score(
     total_trades = int(_clean(total_trades, 0))
 
     if total_trades <= 0:
-        return 0.0, "F", {
-            "sharpe": 0, "profit_factor": 0, "win_rate": 0,
-            "drawdown": 0, "sample": 0, "raw_score": 0.0,
-            "confidence": 0.0, "penalty_reason": "無交易",
-        }
+        return 0.0, "F", {**_EMPTY_BREAKDOWN, "penalty_reason": "無交易"}
 
     def _linear(v, v_max, v_min):
         if v >= v_max:
@@ -691,32 +696,35 @@ def compute_quality_score(
     raw_score = s_sharpe * 30 + s_pf * 25 + s_wr * 15 + s_dd * 20 + s_trades * 10
     confidence = 1.0
     penalty_reason = None
+    reasons = []
 
     # 樣本數信心懲罰: <30 筆線性打折
     weighted = raw_score
     if total_trades < 30:
         confidence = 0.5 + 0.5 * (total_trades / 30.0)
         weighted = raw_score * confidence
+        reasons.append(f"樣本不足 ({total_trades} 筆) ×{confidence:.2f}")
 
     # 樣本數上限平滑上升 (取代硬門檻斷崖)
     cap = 40.0 + 60.0 * min(1.0, total_trades / 30.0)
+    cap_applied = cap < weighted
+    if cap_applied:
+        reasons.append(f"樣本上限 {cap:.1f}")
     score = min(weighted, cap)
 
     # 虧損策略封頂 C
+    loss_cap_applied = False
     if profit_factor < 1.0 or sharpe < 0:
-        score = min(score, 65.0)
-        penalty_reason = "虧損策略 (PF<1 或 Sharpe<0) 封頂 C"
-    elif total_trades < 30:
-        penalty_reason = f"樣本不足 ({total_trades} 筆), 信心係數 ×{confidence:.2f}"
+        if score > 65.0:
+            score = 65.0
+            loss_cap_applied = True
+            reasons.append("虧損策略封頂 65")
 
     if not math.isfinite(score):
-        return 0.0, "F", {
-            "sharpe": 0, "profit_factor": 0, "win_rate": 0,
-            "drawdown": 0, "sample": 0, "raw_score": 0.0,
-            "confidence": 0.0, "penalty_reason": "評分計算異常",
-        }
+        return 0.0, "F", {**_EMPTY_BREAKDOWN, "penalty_reason": "評分計算異常"}
 
     score = round(max(0.0, min(100.0, score)), 1)
+    penalty_reason = " / ".join(reasons) if reasons else None
 
     if score >= 90:
         grade = "S"
@@ -742,5 +750,7 @@ def compute_quality_score(
         "cap": round(cap, 1),
         "final_score": score,
         "penalty_reason": penalty_reason,
+        "cap_applied": cap_applied,
+        "loss_cap_applied": loss_cap_applied,
     }
     return score, grade, breakdown

@@ -86,6 +86,8 @@ export interface PerformanceMetrics {
     confidence: number;
     cap: number;
     final_score: number;
+    cap_applied?: boolean;
+    loss_cap_applied?: boolean;
     penalty_reason: string | null;
   };
 }
