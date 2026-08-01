@@ -103,13 +103,25 @@ class BacktestService:
         if data is None or len(data) == 0:
             return {"task_id": task_id, "status": "error", "error": "No data"}
         # 依 start_date/end_date 截斷數據（test/csv 合成數據可能超出範圍）
+        # timestamp 可能是 epoch ms int 或 datetime/string, 統一轉 datetime 再比對
         try:
-            if config.get("start_date"):
-                sd = pd.Timestamp(config["start_date"])
-                data = data[data["timestamp"] >= sd].copy()
-            if config.get("end_date"):
-                ed = pd.Timestamp(config["end_date"]) + pd.Timedelta(days=1)
-                data = data[data["timestamp"] < ed].copy()
+            if data.get("timestamp") is not None and len(data) > 0:
+                first_ts = data["timestamp"].iloc[0]
+                if isinstance(first_ts, (int, float)) and first_ts > 1e11:
+                    # epoch ms → datetime
+                    ts_col = pd.to_datetime(data["timestamp"], unit="ms")
+                elif isinstance(first_ts, (int, float)):
+                    ts_col = pd.to_datetime(data["timestamp"], unit="s")
+                else:
+                    ts_col = pd.to_datetime(data["timestamp"])
+            else:
+                ts_col = None
+            if ts_col is not None:
+                if config.get("start_date"):
+                    data = data.loc[ts_col >= pd.Timestamp(config["start_date"])].copy()
+                if config.get("end_date"):
+                    ed = pd.Timestamp(config["end_date"]) + pd.Timedelta(days=1)
+                    data = data.loc[ts_col < ed].copy()
         except Exception:
             pass
         if data is None or len(data) == 0:
