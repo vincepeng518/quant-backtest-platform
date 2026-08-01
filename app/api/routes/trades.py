@@ -56,7 +56,7 @@ if _token:
 # ── Cache ──
 _cache_lock = Lock()
 _cache: dict = {"ts": 0, "records": [], "snapshots": [], "fees_total": None}
-CACHE_TTL = 300  # 5 min
+CACHE_TTL = 900  # 15 min (之前 5 min 太短, 快照每4h才更新)
 
 
 def _gh_get(api_base: str, path: str):
@@ -98,13 +98,28 @@ def _load_all_trades() -> dict:
         if _cache["ts"] and (now - _cache["ts"]) < CACHE_TTL and _cache["records"]:
             return _cache
 
-    names = sorted(_list_files(TRADES_API))
-    if not names:
-        return {"records": [], "snapshots": [], "fees_total": None}
+    # 跳過 GitHub API list 目錄, 直接猜最新快照檔名
+    # 快照由 bot/trade_bot.py 每4h產生, 格式 trades_YYYYMMDD_{HH}0000.json
+    latest = None
+    snap = None
+    import datetime as _dt
+    for i in range(3):
+        t = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=i*4)
+        h = (t.hour // 4) * 4
+        fn = t.strftime(f"trades_%Y%m%d_{h:02d}0000.json")
+        sn = _read_raw(fn)
+        if sn:
+            latest = fn
+            snap = sn
+            break
 
-    # 只讀最新一份快照
-    latest = names[-1]
-    snap = _read_raw(latest)
+    if not latest:
+        # Fallback: GitHub API
+        names = sorted(_list_files(TRADES_API))
+        if not names:
+            return {"records": [], "snapshots": [], "fees_total": None}
+        latest = names[-1]
+        snap = _read_raw(latest)
     records = []
     fees_total = 0.0
     funding_total = 0.0
