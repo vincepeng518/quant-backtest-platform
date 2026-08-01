@@ -202,6 +202,12 @@ def _load_all_trades() -> dict:
         fees_total = float(snap.get("fees_total") or 0)
         funding_total = float(snap.get("funding_total") or 0)
         fees_total_all = float(snap.get("fees_total_all") or 0)
+        # fallback: 從 records 累計 entry_fee + exit_fee
+        if not fees_total_all and records:
+            fees_total_all = round(sum(
+                float(r.get("entry_fee") or 0) + float(r.get("exit_fee") or 0)
+                for r in records
+            ), 4)
 
     # 沒有跨快照重複問題, 但 OPEN 同持倉可能出現在多份快照中
     # 用 (symbol, side, avgPrice, positionAmt) 去重 OPEN
