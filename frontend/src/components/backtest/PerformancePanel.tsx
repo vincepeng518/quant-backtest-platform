@@ -71,25 +71,33 @@ const QualityScoreBanner: React.FC<{
     drawdown: number; sample: number;
     raw_score: number; confidence: number;
     cap: number; final_score: number;
+    cap_applied?: boolean; loss_cap_applied?: boolean;
     penalty_reason: string | null;
   };
 }> = ({ score, grade, breakdown }) => {
   const gc = GRADE_COLORS[grade] ?? '#ef4444';
   const b = breakdown;
   const dims = [
-    { label: 'Sharpe', v: b.sharpe, weight: '30%' },
-    { label: '獲利因子', v: b.profit_factor, weight: '25%' },
-    { label: '勝率', v: b.win_rate, weight: '15%' },
-    { label: '低回撤', v: b.drawdown, weight: '20%' },
-    { label: '樣本數', v: b.sample, weight: '10%' },
+    { label: 'Sharpe', v: b.sharpe ?? 0, weight: '30%' },
+    { label: '獲利因子', v: b.profit_factor ?? 0, weight: '25%' },
+    { label: '勝率', v: b.win_rate ?? 0, weight: '15%' },
+    { label: '低回撤', v: b.drawdown ?? 0, weight: '20%' },
+    { label: '樣本數', v: b.sample ?? 0, weight: '10%' },
   ];
 
-  // 扣分鏈摘要: 只有當最終分數低於原始分數時才顯示
-  const showChain = b.confidence < 1.0 || b.cap < b.raw_score;
+  // 扣分鏈: 用後端回傳的 *_applied flag 判斷哪幾步真的削到分數
+  const conf = b.confidence ?? 1;
+  const rawScore = b.raw_score ?? score;
+  const capVal = b.cap ?? 100;
+  const capOn = b.cap_applied ?? (capVal < rawScore);
+  const lossOn = b.loss_cap_applied ?? false;
   const chainParts: string[] = [];
-  if (b.confidence < 1.0) chainParts.push(`×${b.confidence.toFixed(2)}`);
-  if (b.cap < b.raw_score) chainParts.push(`cap ${b.cap.toFixed(1)}`);
-  const chainText = showChain ? `${b.raw_score.toFixed(1)} → ${chainParts.join(' → ')} → ${score.toFixed(1)}` : null;
+  if (conf < 1.0) chainParts.push(`×${conf.toFixed(2)}`);
+  if (capOn) chainParts.push(`cap ${capVal.toFixed(1)}`);
+  if (lossOn) chainParts.push('封頂 65');
+  const chainText = chainParts.length
+    ? `${rawScore.toFixed(1)} → ${chainParts.join(' → ')} → ${score.toFixed(1)}`
+    : null;
 
   return (
     <div className="flex items-center gap-4 px-4 sm:px-5 py-3 border-b border-border/12 bg-surface">

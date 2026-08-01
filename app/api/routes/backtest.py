@@ -133,7 +133,8 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
                 total_trades=r.total_trades,
             )
         except Exception:
-            q_score, q_grade, q_breakdown = 0.0, "F", {"penalty_reason": "兜底計算異常"}
+            from engine.backtester import _EMPTY_BREAKDOWN
+            q_score, q_grade, q_breakdown = 0.0, "F", {**_EMPTY_BREAKDOWN, "penalty_reason": "兜底計算異常"}
     return BacktestResultOut(
         task_id=task_id,
         status="completed",
