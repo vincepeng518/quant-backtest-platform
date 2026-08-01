@@ -172,7 +172,7 @@ def _latest_snapshot_name() -> str | None:
 
 
 def _load_all_trades() -> dict:
-    """只讀取最新一份快照 (每份快照已含全量歷史交易, 無需累積)"""
+    """從多份快照合併所有歷史交易（全量去重）。"""
     now = time.time()
     with _cache_lock:
         if _cache["ts"] and (now - _cache["ts"]) < CACHE_TTL and _cache["records"]:
@@ -182,50 +182,77 @@ def _load_all_trades() -> dict:
     snap = _read_raw(latest) if latest else None
     if not snap:
         return {"records": [], "snapshots": [], "fees_total": None}
+
+    # 從最新快照取得 records
     records = []
     fees_total = 0.0
     funding_total = 0.0
     fees_total_all = 0.0
-    if snap:
-        for rec in snap.get("records", []):
-            rec["_snapshot"] = latest
-            rec["symbol"] = norm_sym(rec.get("symbol"))
-            # Enrich: 前端需要的衍生欄位
-            rec["qty"] = rec.get("positionAmt")
-            rec["notional"] = rec.get("positionValue")
-            rec["fee"] = round(float(rec.get("entry_fee") or 0) + float(rec.get("exit_fee") or 0), 6)
-            rec["closeTime"] = rec.get("ts")
-            open_ts = rec.get("openTs") or 0
-            close_ts = rec.get("ts") or 0
-            rec["holdDuration"] = (close_ts - open_ts) if open_ts and close_ts and close_ts > open_ts else None
-            records.append(rec)
-        fees_total = float(snap.get("fees_total") or 0)
-        funding_total = float(snap.get("funding_total") or 0)
-        fees_total_all = float(snap.get("fees_total_all") or 0)
-        # fallback: 從 records 累計 entry_fee + exit_fee
-        if not fees_total_all and records:
-            fees_total_all = round(sum(
-                float(r.get("entry_fee") or 0) + float(r.get("exit_fee") or 0)
-                for r in records
-            ), 4)
 
-    # 沒有跨快照重複問題, 但 OPEN 同持倉可能出現在多份快照中
-    # 用 (symbol, side, avgPrice, positionAmt) 去重 OPEN
+    def _enrich(rec, snap_name):
+        rec["_snapshot"] = snap_name
+        rec["symbol"] = norm_sym(rec.get("symbol"))
+        rec["qty"] = rec.get("positionAmt")
+        rec["notional"] = rec.get("positionValue")
+        rec["fee"] = round(float(rec.get("entry_fee") or 0) + float(rec.get("exit_fee") or 0), 6)
+        rec["closeTime"] = rec.get("ts")
+        open_ts = rec.get("openTs") or 0
+        close_ts = rec.get("ts") or 0
+        rec["holdDuration"] = (close_ts - open_ts) if open_ts and close_ts and close_ts > open_ts else None
+
+    for rec in snap.get("records", []):
+        _enrich(rec, latest)
+        records.append(rec)
+    fees_total = float(snap.get("fees_total") or 0)
+    funding_total = float(snap.get("funding_total") or 0)
+    fees_total_all = float(snap.get("fees_total_all") or 0)
+
+    # 建立 fingerprint 集合（用於後續去重）
     seen: set = set()
-    deduped: list = []
     for r in records:
         if r.get("status") == "OPEN":
             fp = ("OPEN", r.get("symbol"), r.get("side"), r.get("avgPrice"), r.get("positionAmt"))
         else:
-            # CLOSED 用 order_id fingerprint 去重 (同一筆交易可能被多次配對)
             fp = ("CLOSED", r.get("symbol"), r.get("side"),
                   r.get("open_order_id"), r.get("close_order_id"), r.get("realizedProfit"))
-        if fp in seen:
-            continue
         seen.add(fp)
-        deduped.append(r)
 
+    # 從舊全量快照補充更多歷史記錄（7/31 全量快照有 2557 筆）
+    old_snapshots = [
+        "trades_20260731_065042.json",
+        "trades_20260731_064643.json",
+    ]
+    for fn in old_snapshots:
+        if fn == latest:
+            continue
+        old = _read_raw(fn)
+        if old:
+            for rec in old.get("records", []):
+                if rec.get("status") == "CLOSED":
+                    fp = ("CLOSED", rec.get("symbol"), rec.get("side"),
+                          rec.get("open_order_id"), rec.get("close_order_id"), rec.get("realizedProfit"))
+                    if fp not in seen:
+                        seen.add(fp)
+                        _enrich(rec, fn)
+                        records.append(rec)
+                elif rec.get("status") == "OPEN":
+                    fp = ("OPEN", rec.get("symbol"), rec.get("side"), rec.get("avgPrice"), rec.get("positionAmt"))
+                    if fp not in seen:
+                        seen.add(fp)
+                        _enrich(rec, fn)
+                        records.append(rec)
+
+    # 最終排序
+    deduped = records
     deduped.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
+
+    # 費用：從所有合併記錄累計 entry_fee + exit_fee
+    fees_total_all = round(sum(
+        float(r.get("entry_fee") or 0) + float(r.get("exit_fee") or 0)
+        for r in deduped
+    ), 4) if deduped else 0.0
+    if not fees_total_all:
+        fees_total_all = float(os.environ.get("FEE_TOTAL_ALL", "0") or 0)
 
     result = {
         "ts": now,
