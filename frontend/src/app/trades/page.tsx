@@ -406,7 +406,10 @@ export default function TradesPage() {
         {loading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : error ? (
-          <p className="text-sm font-mono text-danger p-6">{error}</p>
+          <div className="p-6">
+            <p className="text-sm font-mono text-danger">載入失敗 — 請稍後重試</p>
+            <p className="text-xs font-mono text-textSecondary mt-1 opacity-70 truncate max-w-full">{error}</p>
+          </div>
         ) : records.length === 0 ? (
           <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "Run bot/trade_bot.py to capture BingX data."} />
         ) : (
