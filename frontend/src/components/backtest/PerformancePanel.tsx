@@ -7,7 +7,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { StatTable, StatRow } from '@/components/backtest/StatTable';
 import {
   TV_UP, TV_DOWN,
-  safeFmt, safePct, safeSigned, safeInt,
+  safeFmt, safePct, safeSigned, safeInt, fmtProfitFactor,
 } from '@/lib/format';
 
 interface PerformancePanelProps {
@@ -268,7 +268,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
     { label: '最大回撤', en: 'Max Drawdown', value: safeFmt(maxDdAmount), sub: safePct(maxDdPct, { signed: false }), color: 'neg', tip: '權益曲線從歷史峰值到谷值的最大跌幅' },
     { label: '總交易數', en: 'Total Trades', value: safeInt(totalTrades), sub: `${safeInt(winningTrades)}W/${safeInt(losingTrades)}L`, color: 'neutral', tip: '測試區間內產生的所有交易' },
     { label: '勝率', en: 'Percent Profitable', value: safePct(winRate, { signed: false }), color: winRate >= 50 ? 'pos' : 'neutral', tip: '獲利交易數 / 總交易數' },
-    { label: '獲利因子', en: 'Profit Factor', value: safeFmt(profitFactor), color: profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg', tip: '總毛利 / 總毛損。>1 表示系統盈利' },
+    { label: '獲利因子', en: 'Profit Factor', value: fmtProfitFactor(profitFactor), color: profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg', tip: '總毛利 / 總毛損。>1 表示系統盈利' },
     { label: '夏普比率', en: 'Sharpe Ratio', value: safeFmt(sharpeRatio), color: sharpeRatio >= 1 ? 'pos' : sharpeRatio >= 0 ? 'neutral' : 'neg', tip: '超額報酬 / 報酬標準差。>1 為佳' },
     { label: '索提諾比率', en: 'Sortino Ratio', value: safeFmt(sortinoRatio), color: sortinoRatio >= 1 ? 'pos' : sortinoRatio >= 0 ? 'neutral' : 'neg', tip: '超額報酬 / 下行風險' },
     { label: '年化回報', en: 'Annual Return', value: safePct(annualReturnPct), color: annualReturnPct >= 0 ? 'pos' : 'neg', tip: '以測試區間天數年化（CAGR）' },
@@ -374,7 +374,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         <HeroKpi
           label="獲利因子"
           en="Profit Factor"
-          value={safeFmt(profitFactor)}
+          value={fmtProfitFactor(profitFactor)}
           sub={`勝率 ${safePct(winRate, { signed: false })}`}
           color={profitFactor >= 1.5 ? 'pos' : profitFactor >= 1 ? 'neutral' : 'neg'}
         />

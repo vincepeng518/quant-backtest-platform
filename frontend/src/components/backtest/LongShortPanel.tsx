@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { PerformanceMetrics } from '@/types/api';
+import { fmtProfitFactor } from '@/lib/format';
 
 interface LongShortPanelProps {
   metrics: PerformanceMetrics;
@@ -100,7 +101,7 @@ export const LongShortPanel: React.FC<LongShortPanelProps> = ({ metrics }) => {
           <Row label="Win Rate" long={metrics.long_win_rate} short={metrics.short_win_rate} isPercent />
           <Row label="Net PnL" long={metrics.long_pnl} short={metrics.short_pnl} />
           <Row label="Expectancy" long={metrics.long_expectancy} short={metrics.short_expectancy} />
-          <Row label="Profit Factor" long={metrics.long_profit_factor} short={metrics.short_profit_factor} />
+          <Row label="Profit Factor" long={metrics.long_profit_factor} short={metrics.short_profit_factor} format={fmtProfitFactor} />
         </tbody>
       </table>
     </div>

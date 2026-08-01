@@ -8,6 +8,7 @@ import { TradingCalendar } from '@/components/TradingCalendar';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { api } from '@/lib/api';
+import { fmtProfitFactor } from '@/lib/format';
 
 interface TradeRec {
   symbol?: string;
@@ -392,7 +393,7 @@ export default function TradesPage() {
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">Profit Factor</p>
-              <p className="text-xl font-mono font-semibold text-accent">{metrics?.profit_factor ?? '—'}</p>
+              <p className="text-xl font-mono font-semibold text-accent">{fmtProfitFactor(metrics?.profit_factor)}</p>
             </Card>
           </div>
         </>
