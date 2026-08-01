@@ -80,6 +80,9 @@ class BacktestResult:
     short_expectancy: float = 0.0
     long_profit_factor: float = 0.0
     short_profit_factor: float = 0.0
+    # ── Quality score (0-100) ──
+    quality_score: float = 0.0
+    quality_grade: str = "F"
     trades: list[Trade] = field(default_factory=list)
     equity_curve: list[float] = field(default_factory=list)
     drawdown_curve: list[float] = field(default_factory=list)
@@ -482,6 +485,17 @@ class Backtester:
         long_pf = abs(sum(t.pnl for t in long_winners) / sum(t.pnl for t in long_losers)) if long_losers else 0.0
         short_pf = abs(sum(t.pnl for t in short_winners) / sum(t.pnl for t in short_losers)) if short_losers else 0.0
 
+        # ── Quality score ──
+        _winners = [t.pnl for t in winners if t.pnl is not None]
+        _losers = [t.pnl for t in losers if t.pnl is not None]
+        q_score, q_grade = compute_quality_score(
+            sharpe=self._sharpe(sr_returns),
+            profit_factor=abs(sum(_winners) / sum(_losers)) if _losers else 0.0,
+            win_rate=len(winners) / len(trades) * 100 if trades else 0,
+            max_drawdown_pct=max(dd),
+            total_trades=len(trades),
+        )
+
         return BacktestResult(
             total_trades=len(trades),
             winning_trades=len(winners),
@@ -520,6 +534,8 @@ class Backtester:
             short_expectancy=short_expectancy,
             long_profit_factor=long_pf,
             short_profit_factor=short_pf,
+            quality_score=q_score,
+            quality_grade=q_grade,
             trades=trades,
             equity_curve=equity,
             drawdown_curve=dd,
@@ -606,3 +622,71 @@ class Backtester:
         if len(downside) == 0 or np.std(downside) == 0:
             return 0.0
         return float(np.mean(excess) / np.std(downside) * np.sqrt(252))
+
+
+def compute_quality_score(
+    sharpe: float,
+    profit_factor: float,
+    win_rate: float,
+    max_drawdown_pct: float,
+    total_trades: int,
+) -> tuple[float, str]:
+    """多維度回測品質評分 (0-100) + 等級 (S/A/B/C/D/F)。
+
+    | 指標 | 權重 | 滿分條件 | 零分條件 |
+    |------|------|---------|---------|
+    | Sharpe | 30% | ≥2.0 | ≤0 |
+    | Profit Factor | 25% | ≥2.0 | ≤0.5 |
+    | 勝率 | 15% | ≥60% | ≤20% |
+    | 最大回撤 | 20% | ≤10% | ≥50% |
+    | 交易次數 | 10% | ≥100 | <10 |
+    """
+    def _linear(v, v_max, v_min, v0=0.0):
+        """v >= v_max → 1.0; v <= v_min → 0.0; 線性插值."""
+        if v >= v_max:
+            return 1.0
+        if v <= v_min:
+            return 0.0
+        return (v - v_min) / (v_max - v_min)
+
+    # 各維度 0-1 分數
+    s_sharpe = _linear(sharpe, 3.0, 0.0)
+    s_pf = _linear(profit_factor, 3.0, 0.5)
+    s_wr = _linear(win_rate, 60.0, 20.0)
+    # 回撤: 越低越好 → 反向線性 (v <= 10% → 1.0, v >= 50% → 0.0)
+    s_dd = 1.0 - _linear(max_drawdown_pct, 50.0, 10.0)
+    s_trades = _linear(total_trades, 100.0, 10.0)
+
+    score = (
+        s_sharpe * 30
+        + s_pf * 25
+        + s_wr * 15
+        + s_dd * 20
+        + s_trades * 10
+    )
+
+    # 交易數 < 5 視為樣本不足, 封頂 C
+    if total_trades < 5:
+        score = min(score, 65.0)
+    # 虧損策略封頂 B
+    if profit_factor < 1.0 or sharpe < 0:
+        score = min(score, 75.0)
+    # 總報酬為負 → 封頂 C
+    if score >= 70 and profit_factor < 1.0:
+        score = min(score, 65.0)
+
+    score = round(score, 1)
+
+    if score >= 90:
+        grade = "S"
+    elif score >= 80:
+        grade = "A"
+    elif score >= 70:
+        grade = "B"
+    elif score >= 60:
+        grade = "C"
+    elif score >= 40:
+        grade = "D"
+    else:
+        grade = "F"
+    return score, grade
