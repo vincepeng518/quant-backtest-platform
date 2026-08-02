@@ -31,6 +31,13 @@ class BacktestService:
 
     async def run(self, config: dict[str, Any]) -> dict:
         task_id = create_task_id()
+        # 先註冊 task (running), 再載資料 — 否則 BingX 慢速拉資料期間
+        # 輪詢 /results/{task_id} 會 404 (task 尚未寫入 _backtest_tasks)
+        _backtest_tasks[task_id] = {"status": "running", "backtester": None, "config": config}
+
+        async def _fail(msg: str) -> dict:
+            _backtest_tasks[task_id] = {"status": "error", "error": msg, "backtester": None, "config": config}
+            return {"task_id": task_id, "status": "error", "error": msg}
 
         funding_cfg = config.get("funding") or {}
         perp_cfg = config.get("perpetual") or {}
@@ -101,7 +108,7 @@ class BacktestService:
             source=source,
         )
         if data is None or len(data) == 0:
-            return {"task_id": task_id, "status": "error", "error": "No data"}
+            return await _fail("No data")
         # 依 start_date/end_date 截斷數據（test/csv 合成數據可能超出範圍）
         # timestamp 可能是 epoch ms int 或 datetime/string, 統一轉 datetime 再比對
         try:
@@ -125,7 +132,7 @@ class BacktestService:
         except Exception:
             pass
         if data is None or len(data) == 0:
-            return {"task_id": task_id, "status": "error", "error": "No data in date range"}
+            return await _fail("No data in date range")
         bt.set_data(data)
 
         # Setup strategy
@@ -153,7 +160,6 @@ class BacktestService:
         _backtest_tasks[task_id] = {"status": "running", "backtester": bt, "config": config}
         asyncio.create_task(_execute_backtest(task_id, bt, _backtest_tasks))
         return {"task_id": task_id, "status": "running"}
-
     def get_status(self, task_id: str) -> dict:
         task = _backtest_tasks.get(task_id)
         if not task:
