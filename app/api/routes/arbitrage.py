@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from engine.arbitrage import ArbitrageEngine, ArbConfig
 from engine.exchange import ExchangeModel
@@ -35,6 +35,14 @@ class ArbRunRequest(BaseModel):
     entry_threshold: float = Field(default=0.003, gt=0.0, le=10.0)
     exit_threshold: float = Field(default=0.001, ge=0.0, le=10.0)
     mode: str = "basis"
+
+    @field_validator("mode")
+    @classmethod
+    def _mode_valid(cls, v):
+        if v not in {"basis", "locked"}:
+            raise ValueError(f"unsupported arbitrage mode: {v!r}")
+        return v
+
     unlock_threshold: float = Field(default=0.01, ge=0.0, le=10.0)
     funding_enabled: bool = False
     funding_interval_hours: int = Field(default=8, ge=1, le=24 * 365)
