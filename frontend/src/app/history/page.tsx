@@ -163,11 +163,11 @@ export default function HistoryPage() {
                       {it.task_id} · {it.created_at?.slice(0, 19)?.replace('T', ' ')}
                     </p>
                   </div>
-                  <div className="ml-4 shrink-0 text-right">
-                    <p className={`text-sm font-mono ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
+                  <div className="flex shrink-0 items-center gap-4 text-right">
+                    <p className={`w-20 text-sm font-mono ${it.sharpe != null && it.sharpe >= 0 ? 'text-success' : 'text-danger'}`}>
                       {it.sharpe != null ? it.sharpe.toFixed(3) : '—'}
                     </p>
-                    <p className="text-xs text-textSecondary font-mono">{it.total_trades ?? 0} trades</p>
+                    <p className="w-20 text-xs text-textSecondary font-mono">{it.total_trades ?? 0}</p>
                   </div>
                 </button>
               ))}
