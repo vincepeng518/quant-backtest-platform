@@ -99,7 +99,7 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
   }, [year, month]);
 
   const monthLabel = `${year}年${month + 1}月`;
-  const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   // ── CSS Variables 注入：精準配色 ──
   // 暗色（Lucid Trading）＆ 亮色（Cursor 官網）

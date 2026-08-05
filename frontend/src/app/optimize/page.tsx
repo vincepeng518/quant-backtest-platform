@@ -147,13 +147,15 @@ function OptimizeView() {
         />
         <div className="flex items-end">
           <p className="text-xs font-mono text-textSecondary leading-relaxed">
-            參數組合: {paramSpace.reduce((acc, p) => {
-              const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
-              return acc * Math.max(steps, 1);
-            }, 1)} 種 · 約 {Math.max(1, Math.round(paramSpace.reduce((acc, p) => {
-              const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
-              return acc * Math.max(steps, 1);
-            }, 1) * maxTrials / 30))} 次評估
+            {algorithm === 'grid'
+              ? `${paramSpace.reduce((acc, p) => {
+                  const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
+                  return acc * Math.max(steps, 1);
+                }, 1)} 種組合 · 約 ${Math.max(1, Math.round(paramSpace.reduce((acc, p) => {
+                  const steps = p.step > 0 ? Math.floor((p.max - p.min) / p.step) + 1 : 1;
+                  return acc * Math.max(steps, 1);
+                }, 1) * maxTrials / 30))} 次評估`
+              : `Bayesian 模式 · 約 ${maxTrials} 次評估`}
           </p>
         </div>
         <Select
