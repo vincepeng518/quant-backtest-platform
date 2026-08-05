@@ -160,7 +160,8 @@ class Backtester:
             if self.exchange is not None:
                 rate = self.exchange.fee_for(order_type, is_maker)
                 return notional * rate
-            return self.commission
+            # Legacy fallback: treat commission as a proportional rate
+            return notional * self.commission
 
         def _slippage_for(capital_to_risk: float, price: float, direction: int) -> float:
             if self.market_engine is not None:
