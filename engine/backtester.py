@@ -127,6 +127,29 @@ class Backtester:
             raise ValueError(f"Data must contain columns: {required}")
         self.data = data.sort_values("timestamp").reset_index(drop=True)
 
+    # ── 重構：將 fees/slippage/size 閉包提升為實例方法 ──
+    def _fee_for(self, order_type: str, is_maker: bool, notional: float = 0.0, action: str = "") -> float:
+        if self.market_engine is not None:
+            return self.market_engine.commission(notional, is_open=(action in ("buy", "sell")))
+        if self.exchange is not None:
+            rate = self.exchange.fee_for(order_type, is_maker)
+            return notional * rate
+        # Legacy fallback: treat commission as a proportional rate
+        return notional * self.commission
+
+    def _slippage_for(self, capital_to_risk: float, price: float, direction: int) -> float:
+        if self.market_engine is not None:
+            return self.market_engine.slippage_factor(direction) - 1.0
+        if self.exchange is not None:
+            qty = abs(capital_to_risk / price) if price else 0.0
+            return self.exchange.slippage_for(depth=1000.0, qty=qty)
+        return self.slippage
+
+    def _size_for(self, capital: float, price: float) -> float:
+        if self.market_engine is not None:
+            return self.market_engine.position_size(capital, price, self.leverage)
+        return (capital * self.leverage) / price if self.perp is not None else capital / price
+
     def run(self) -> BacktestResult:
         if self.strategy is None or self.data is None:
             raise ValueError("Strategy and data must be set")
@@ -154,28 +177,6 @@ class Backtester:
         pending_signals: list[tuple[int, Any, Any]] = []
         delay = self.exchange.fill_delay_bars() if self.exchange is not None else 0
 
-        def _fee_for(order_type: str, is_maker: bool, notional: float = 0.0, action: str = "") -> float:
-            if self.market_engine is not None:
-                return self.market_engine.commission(notional, is_open=(action in ("buy", "sell")))
-            if self.exchange is not None:
-                rate = self.exchange.fee_for(order_type, is_maker)
-                return notional * rate
-            # Legacy fallback: treat commission as a proportional rate
-            return notional * self.commission
-
-        def _slippage_for(capital_to_risk: float, price: float, direction: int) -> float:
-            if self.market_engine is not None:
-                return self.market_engine.slippage_factor(direction) - 1.0
-            if self.exchange is not None:
-                qty = abs(capital_to_risk / price) if price else 0.0
-                return self.exchange.slippage_for(depth=1000.0, qty=qty)
-            return self.slippage
-
-        def _size_for(capital: float, price: float) -> float:
-            if self.market_engine is not None:
-                return self.market_engine.position_size(capital, price, self.leverage)
-            return (capital * self.leverage) / price if self.perp is not None else capital / price
-
         def _execute(sig: Any, current_bar: Any, current_bar_index: int) -> None:
             nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe, oco_sl, oco_tp
             order_type = "limit" if self.force_limit else getattr(sig, "order_type", "market")
@@ -191,11 +192,11 @@ class Backtester:
                 if self.market_engine is not None:
                     fill_price = self.market_engine.exec_model.fill_price(price, sig.action, is_entry=True)
                 else:
-                    slip = _slippage_for(capital, price, direction)
+                    slip = self._slippage_for(capital, price, direction)
                     fill_price = price * (1 + slip * direction)
                 notional = capital * (self.leverage if self.perp is not None else 1.0)
-                fee = _fee_for(order_type, is_maker, notional if self.market_engine is not None else capital, action=sig.action)
-                size = _size_for(capital, fill_price)
+                fee = self._fee_for(order_type, is_maker, notional if self.market_engine is not None else capital, action=sig.action)
+                size = self._size_for(capital, fill_price)
                 size = size if direction > 0 else -size
                 position = Position(size=size, entry_price=fill_price, current_price=fill_price)
                 capital -= fee
@@ -218,7 +219,7 @@ class Backtester:
                         current_bar.close, "sell" if position.size > 0 else "buy", is_entry=False
                     )
                 else:
-                    slip = _slippage_for(capital, current_bar.close, -1 if position.size > 0 else 1)
+                    slip = self._slippage_for(capital, current_bar.close, -1 if position.size > 0 else 1)
                     exit_price = current_bar.close * (1 + slip * (-1 if position.size > 0 else 1))
                 _close_position(exit_price, current_bar, current_bar_index, reason="signal")
 
@@ -230,7 +231,7 @@ class Backtester:
             order_type = "limit" if self.force_limit else "market"
             is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
             pnl = position.size * (exit_price - position.entry_price)
-            fee = _fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
+            fee = self._fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
             pnl -= fee
             funding_paid = 0.0
             if self.funding is not None:
