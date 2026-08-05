@@ -30,6 +30,17 @@ class ArbRunRequest(BaseModel):
     start_date: str = ""
     end_date: str = ""
     initial_capital: float = Field(default=100_000.0, gt=0.0)
+
+    @field_validator("initial_capital")
+    @classmethod
+    def _capital_finite(cls, v):
+        import math
+        if not math.isfinite(v):
+            raise ValueError("initial_capital must be finite")
+        if v > 1e12:
+            raise ValueError("initial_capital too large (max 1e12)")
+        return v
+
     allocation_pct: float = Field(default=0.5, ge=0.0, le=1.0)
     leverage: float = Field(default=1.0, ge=1.0, le=200.0)
     entry_threshold: float = Field(default=0.003, gt=0.0, le=10.0)
