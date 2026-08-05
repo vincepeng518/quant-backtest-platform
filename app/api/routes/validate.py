@@ -21,10 +21,19 @@ async def validate_indicator(payload: dict[str, Any]) -> dict:
     timeframe = payload.get("timeframe", "1h")
     source = payload.get("source", "bingx")
     name = payload.get("name", "sma")
-    period = int(payload.get("period", 14))
+    try:
+        period = int(payload.get("period", 14))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "period must be an integer")
     reference = payload.get("reference")
     if not symbol or not reference:
         raise HTTPException(400, "symbol and reference are required")
+    # timeframe / period bounds (mirror BacktestConfig to avoid 500 on bad values)
+    import re
+    if not re.fullmatch(r"^\d+[smhdwM]$", str(timeframe)):
+        raise HTTPException(422, f"invalid timeframe: {timeframe!r}")
+    if period < 1 or period > 100000:
+        raise HTTPException(422, f"period out of range: {period}")
 
     try:
         from engine.indicator_validation import validate
