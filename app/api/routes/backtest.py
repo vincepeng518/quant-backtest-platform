@@ -23,6 +23,13 @@ svc = BacktestService()
 
 @router.post("/run", status_code=202)
 async def run_backtest(config: BacktestConfig):
+    # Defense-in-depth: sandbox-check custom_code even if not currently exec'd,
+    # so a future execution path can't RCE. Mirrors strategy/upload validation.
+    if config.strategy.custom_code:
+        from app.core.sandbox import check_strategy_code
+        ok, err = check_strategy_code(config.strategy.custom_code)
+        if not ok:
+            raise HTTPException(status_code=400, detail=f"Strategy rejected: {err}")
     return await svc.run(config.model_dump())
 
 
