@@ -150,7 +150,12 @@ class BacktestService:
 
         # Setup strategy
         strategy_cfg = config.get("strategy", {})
-        cls = get_strategy(strategy_cfg.get("template_id", "ma_cross"))
+        template_id = strategy_cfg.get("template_id", "ma_cross")
+        try:
+            cls = get_strategy(template_id)
+        except KeyError as e:
+            _backtest_tasks[task_id] = {"status": "error", "error": str(e)}
+            return {"task_id": task_id, "status": "error", "error": str(e)}
         strategy = cls()
         strategy.init(strategy_cfg.get("params", {}))
         bt.set_strategy(strategy)
