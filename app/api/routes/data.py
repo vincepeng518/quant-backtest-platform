@@ -27,7 +27,7 @@ async def get_symbols():
 @router.get("/ohlcv", response_model=list[OHLCVPoint])
 async def get_ohlcv(symbol: str, timeframe: str = "1h", source: str = "bingx", start_date: str = "", end_date: str = ""):
     import re
-    if not re.fullmatch(r"^\d+[smhdwM]$", timeframe):
+    if not re.fullmatch(r"^\d{1,5}[smhdwM]$", timeframe):
         from fastapi import HTTPException
         raise HTTPException(status_code=422, detail=f"invalid timeframe: {timeframe!r}")
     df = await ds.get_ohlcv(symbol, timeframe, start_date, end_date, source=source)

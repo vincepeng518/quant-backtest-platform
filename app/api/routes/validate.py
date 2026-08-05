@@ -30,7 +30,7 @@ async def validate_indicator(payload: dict[str, Any]) -> dict:
         raise HTTPException(400, "symbol and reference are required")
     # timeframe / period bounds (mirror BacktestConfig to avoid 500 on bad values)
     import re
-    if not re.fullmatch(r"^\d+[smhdwM]$", str(timeframe)):
+    if not re.fullmatch(r"^\d{1,5}[smhdwM]$", str(timeframe)):
         raise HTTPException(422, f"invalid timeframe: {timeframe!r}")
     if period < 1 or period > 100000:
         raise HTTPException(422, f"period out of range: {period}")
