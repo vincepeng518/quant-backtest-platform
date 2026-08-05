@@ -76,21 +76,21 @@ class UserStrategyMeta(BaseModel):
 
 class FundingConfig(BaseModel):
     enabled: bool = False
-    interval_hours: int = 8
-    default_rate: float = 0.0001
+    interval_hours: int = Field(default=8, ge=1, le=24 * 365)
+    default_rate: float = Field(default=0.0001, ge=-1.0, le=1.0)
 
 class PerpetualConfig(BaseModel):
     enabled: bool = False
-    leverage: float = 1.0
-    maintenance_margin_rate: float = 0.005
+    leverage: float = Field(default=1.0, ge=1.0, le=200.0)
+    maintenance_margin_rate: float = Field(default=0.005, gt=0.0, lt=1.0)
 
 class ExchangeConfig(BaseModel):
     enabled: bool = False
-    maker_fee: float = 0.0002
-    taker_fee: float = 0.0005
-    latency_bars: int = 0
-    book_base_slippage: float = 0.0005
-    maker_probability: float = 0.0  # fraction of limit orders that fill as maker (0=all maker, 1=all taker)
+    maker_fee: float = Field(default=0.0002, ge=0.0, le=1.0)
+    taker_fee: float = Field(default=0.0005, ge=0.0, le=1.0)
+    latency_bars: int = Field(default=0, ge=0)
+    book_base_slippage: float = Field(default=0.0005, ge=0.0, le=1.0)
+    maker_probability: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class BacktestConfig(BaseModel):
@@ -101,18 +101,50 @@ class BacktestConfig(BaseModel):
     source: str = "binance"  # data source: binance | bingx | csv | test | tradfi
     start_date: str = ""
     end_date: str = ""
-    initial_capital: float = 100_000.0
-    commission: float = 0.001
-    slippage: float = 0.0005
+    initial_capital: float = Field(default=100_000.0, gt=0.0)
+    commission: float = Field(default=0.001, ge=0.0, le=1.0)
+    slippage: float = Field(default=0.0005, ge=0.0, le=1.0)
     funding: FundingConfig = Field(default_factory=FundingConfig)
     perpetual: PerpetualConfig = Field(default_factory=PerpetualConfig)
     exchange: ExchangeConfig = Field(default_factory=ExchangeConfig)
     equity: dict = Field(default_factory=dict)
     forex: dict = Field(default_factory=dict)
     engine: str = "bar"  # bar | replay (tick-level intrabar execution)
-    ticks_per_bar: int = 20  # replay engine: synthesized ticks per bar
+    ticks_per_bar: int = Field(default=20, ge=1, le=10_000)  # replay engine: synthesized ticks per bar
     tick_seed: int | None = None  # replay engine: reproducible tick path
     exchanges: list[str] = Field(default_factory=list)  # multi-exchange execution (paper/live)
+
+    @field_validator("initial_capital")
+    @classmethod
+    def _capital_finite(cls, v, info):
+        import math
+        if not math.isfinite(v):
+            raise ValueError("initial_capital must be finite")
+        if v > 1e12:
+            raise ValueError("initial_capital too large (max 1e12)")
+        return v
+
+    @field_validator("source")
+    @classmethod
+    def _source_valid(cls, v):
+        if v not in {"binance", "bingx", "csv", "test", "tradfi", "bingx_tradfi"}:
+            raise ValueError(f"unsupported source: {v!r}")
+        return v
+
+    @field_validator("engine")
+    @classmethod
+    def _engine_valid(cls, v):
+        if v not in {"bar", "replay"}:
+            raise ValueError(f"unsupported engine: {v!r}")
+        return v
+
+    @field_validator("timeframe")
+    @classmethod
+    def _timeframe_valid(cls, v):
+        import re
+        if not re.fullmatch(r"^\d+[smhdwM]$", v):
+            raise ValueError(f"invalid timeframe: {v!r}")
+        return v
 
 
 # ── Results ──
