@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
+from fastapi import HTTPException
 
 from app.utils.cache import cache
 from data.providers.binance import BinanceProvider
@@ -32,6 +33,9 @@ _analysis_tasks: dict[str, dict] = {}
 
 
 class DataService:
+    # Cap concurrent ohlcv processing; beyond this, requests get 429.
+    _ohlcv_sem = asyncio.Semaphore(5)
+
     def __init__(self) -> None:
         self.binance = BinanceProvider()
         self.bingx = BingXProvider()
@@ -82,7 +86,25 @@ class DataService:
         end_date: str = "",
         source: str = "bingx",
     ) -> pd.DataFrame:
-        # ── Parquet cache: read before network fetch ──
+        # Concurrency cap: if _ohlcv_sem is full, return empty immediately
+        # (caller should treat empty as 429 — too many concurrent requests).
+        if not self._ohlcv_sem.locked():
+            await self._ohlcv_sem.acquire()
+            try:
+                return await self._get_ohlcv_impl(symbol, timeframe, start_date, end_date, source)
+            finally:
+                self._ohlcv_sem.release()
+        # Concurrency cap reached → 429 Too Many Requests
+        raise HTTPException(status_code=429, detail="too many concurrent ohlcv requests")
+
+    async def _get_ohlcv_impl(
+        self,
+        symbol: str,
+        timeframe: str = "1h",
+        start_date: str = "",
+        end_date: str = "",
+        source: str = "bingx",
+    ) -> pd.DataFrame:
         if source not in ("test", "csv") and not start_date and not end_date:
             pp = self._parquet_path(symbol, timeframe, source)
             cached_df = self._parquet_read(pp)
