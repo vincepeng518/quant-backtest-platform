@@ -382,12 +382,11 @@ class Backtester:
                 if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage,
                                               notional=abs(position.size) * position.entry_price):
                     # Converge onto _close_position. The legacy perp path uses a
-                    # capital-based fee and an explicitly recorded funding amount
-                    # (both differ from the generic path) — pass them through so
-                    # PnL stays numerically identical.
+                    # capital-based fee (differs from the generic path) — pass it
+                    # through so PnL stays numerically identical. Funding goes
+                    # through the generic accrued() branch (liq_funding omitted).
                     _close_position(mark, bar, i, reason="liquidation",
                                     liquidated=True,
-                                    liq_funding=getattr(self, '_last_funding', 0.0),
                                     liq_fee=capital * self.commission)
 
             current_equity = capital + (position.pnl if position else 0)
@@ -485,13 +484,20 @@ class Backtester:
         long_expectancy = (long_wr_frac * long_avg_win - (1 - long_wr_frac) * long_avg_loss) if long_trades else 0.0
         short_expectancy = (short_wr_frac * short_avg_win - (1 - short_wr_frac) * short_avg_loss) if short_trades else 0.0
 
-        long_pf = abs(sum(t.pnl for t in long_winners) / sum(t.pnl for t in long_losers)) if long_losers else (999.0 if long_winners else 0.0)
-        short_pf = abs(sum(t.pnl for t in short_winners) / sum(t.pnl for t in short_losers)) if short_losers else (999.0 if short_winners else 0.0)
+        def _sum_pnl(ts):
+            return sum((t.pnl or 0.0) for t in ts)
+
+        long_pf = (abs(_sum_pnl(long_winners) / _sum_pnl(long_losers))
+                   if long_losers and _sum_pnl(long_losers) != 0 else
+                   (999.0 if long_winners else 0.0))
+        short_pf = (abs(_sum_pnl(short_winners) / _sum_pnl(short_losers))
+                    if short_losers and _sum_pnl(short_losers) != 0 else
+                    (999.0 if short_winners else 0.0))
 
         # ── Quality score ──
         _winners = [t.pnl for t in winners if t.pnl is not None]
         _losers = [t.pnl for t in losers if t.pnl is not None]
-        _pf_val = abs(sum(_winners) / sum(_losers)) if _losers else (999.0 if _winners else 0.0)
+        _pf_val = abs(sum(_winners) / sum(_losers)) if _losers and sum(_losers) != 0 else (999.0 if _winners else 0.0)
         q_score, q_grade, q_breakdown = compute_quality_score(
             sharpe=self._sharpe(sr_returns),
             profit_factor=_pf_val,
