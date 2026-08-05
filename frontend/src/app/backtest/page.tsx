@@ -575,9 +575,11 @@ function BacktestView() {
 
           {params.map((p) => {
             const isWeight = p.name.startsWith('w_');
+            const _humanLabel = (n: string) =>
+              n.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
             const label = isWeight
-              ? `權重 · ${FACTOR_CN[p.name.slice(2)] || p.name.slice(2)}`
-              : p.name;
+              ? `權重 · ${FACTOR_CN[p.name.slice(2)] || _humanLabel(p.name.slice(2))}`
+              : _humanLabel(p.name);
             return p.type === 'choice' || p.values ? (
               <Select
                 key={p.name}

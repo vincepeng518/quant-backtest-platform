@@ -91,7 +91,23 @@ export default function HistoryPage() {
             <p className="text-sm text-textSecondary font-mono">載入回測記錄…</p>
           </div>
         ) : error ? (
-          <p className="text-sm font-mono text-danger p-6">{error}</p>
+          <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm text-danger">載入回測歷史失敗。</p>
+            <p className="text-xs font-mono text-textSecondary max-w-md break-all">{error}</p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                api.getBacktestHistory()
+                  .then(setItems)
+                  .catch((e) => setError(e?.message ?? 'failed to load history'))
+                  .finally(() => setLoading(false));
+              }}
+              className="mt-1 rounded-md border border-accCyan/30 px-4 py-1.5 text-sm text-accCyan hover:bg-accCyan/10 transition-colors"
+            >
+              重試
+            </button>
+          </div>
         ) : items.length === 0 ? (
           <EmptyState title="暫無回測記錄" description="執行回測後，記錄會自動保存在這裡。" />
         ) : (
