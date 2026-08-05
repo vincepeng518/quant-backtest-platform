@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from fastapi import HTTPException
+
 from app.services.data_service import DataService, _analysis_tasks, create_task_id
 from app.services.strategy_service import get_strategy
 from engine.analyzer import WalkForwardAnalyzer, MonteCarloSimulator
@@ -13,12 +15,18 @@ class AnalysisService:
     def __init__(self) -> None:
         self.data_service = DataService()
     async def run_walk_forward(self, config: dict[str, Any]) -> dict:
+        n_windows = config.get("n_windows", 5)
+        if not isinstance(n_windows, int) or n_windows < 1 or n_windows > 50:
+            raise HTTPException(status_code=422, detail="n_windows must be between 1 and 50")
         task_id = create_task_id()
         _analysis_tasks[task_id] = {"status": "running"}
         asyncio.create_task(self._execute_wf(task_id, config))
         return {"task_id": task_id, "status": "running"}
 
     async def run_monte_carlo(self, config: dict[str, Any]) -> dict:
+        n_sim = config.get("n_simulations", 500)
+        if not isinstance(n_sim, int) or n_sim < 1 or n_sim > 100_000:
+            raise HTTPException(status_code=422, detail="n_simulations must be between 1 and 100000")
         task_id = create_task_id()
         _analysis_tasks[task_id] = {"status": "running"}
         asyncio.create_task(self._execute_mc(task_id, config))
