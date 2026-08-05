@@ -8,6 +8,8 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, HTTPException, Depends
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades
@@ -19,7 +21,31 @@ from app.core.middleware import TimingMiddleware
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=settings.log_level.upper())
 
+# Reject oversized request bodies (max 10 MB) before the app reads them — a
+# resource-exhaustion / DoS guard. cvxpy/numpy backends will happily parse and
+# buffer a 50 MB JSON body and spin for 12+s otherwise.
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "10_000_000"))
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method in ("POST", "PUT", "PATCH"):
+            cl = request.headers.get("content-length")
+            if cl:
+                try:
+                    if int(cl) > MAX_BODY_BYTES:
+                        return Response(
+                            json.dumps({"detail": f"Request body too large (max {MAX_BODY_BYTES} bytes)"}),
+                            status_code=413,
+                            media_type="application/json",
+                        )
+                except ValueError:
+                    pass
+        return await call_next(request)
+
+
 app = FastAPI(title="Quant Backtest Platform API", version="1.0.0", docs_url="/docs", redoc_url=None)
+
 
 # Redoc served with a pinned CDN version. `redoc@next` is broken (404) and makes
 # /redoc render blank. Pin to a known-good release.
@@ -51,6 +77,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(TimingMiddleware)
 
 

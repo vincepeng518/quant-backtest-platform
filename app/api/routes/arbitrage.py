@@ -14,11 +14,11 @@ router = APIRouter(prefix="/api/arbitrage", tags=["arbitrage"])
 
 class ArbExchangeConfig(BaseModel):
     enabled: bool = False
-    maker_fee: float = 0.0002
-    taker_fee: float = 0.0005
-    maker_probability: float = 0.0
-    latency_bars: int = 0
-    book_base_slippage: float = 0.0005
+    maker_fee: float = Field(default=0.0002, ge=0.0, le=1.0)
+    taker_fee: float = Field(default=0.0005, ge=0.0, le=1.0)
+    maker_probability: float = Field(default=0.0, ge=0.0, le=1.0)
+    latency_bars: int = Field(default=0, ge=0)
+    book_base_slippage: float = Field(default=0.0005, ge=0.0, le=1.0)
 
 
 class ArbRunRequest(BaseModel):
@@ -29,21 +29,21 @@ class ArbRunRequest(BaseModel):
     timeframe: str = "1h"
     start_date: str = ""
     end_date: str = ""
-    initial_capital: float = 100_000.0
-    allocation_pct: float = 0.5
-    leverage: float = 1.0
-    entry_threshold: float = 0.003
-    exit_threshold: float = 0.001
+    initial_capital: float = Field(default=100_000.0, gt=0.0)
+    allocation_pct: float = Field(default=0.5, ge=0.0, le=1.0)
+    leverage: float = Field(default=1.0, ge=1.0, le=200.0)
+    entry_threshold: float = Field(default=0.003, gt=0.0, le=10.0)
+    exit_threshold: float = Field(default=0.001, ge=0.0, le=10.0)
     mode: str = "basis"
-    unlock_threshold: float = 0.01
+    unlock_threshold: float = Field(default=0.01, ge=0.0, le=10.0)
     funding_enabled: bool = False
-    funding_interval_hours: int = 8
-    funding_rate: float = 0.0001
+    funding_interval_hours: int = Field(default=8, ge=1, le=24 * 365)
+    funding_rate: float = Field(default=0.0001, ge=-1.0, le=1.0)
     long_exchange: ArbExchangeConfig = Field(default_factory=ArbExchangeConfig)
     short_exchange: ArbExchangeConfig = Field(default_factory=ArbExchangeConfig)
     basis_simulation: bool = False
-    basis_amp: float = 0.01
-    basis_window: int = 40
+    basis_amp: float = Field(default=0.01, gt=0.0, le=10.0)
+    basis_window: int = Field(default=40, ge=1, le=10_000)
 
 
 def _build_exchange(cfg: ArbExchangeConfig) -> ExchangeModel | None:

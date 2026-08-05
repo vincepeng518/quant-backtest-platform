@@ -239,8 +239,32 @@ class ParamRange(BaseModel):
     name: str
     min: float = 0.0
     max: float = 100.0
-    step: float = 1.0
+    step: float = Field(default=1.0, gt=0.0)
     type: str = "range"
+
+    @field_validator("step")
+    @classmethod
+    def _step_finite_and_bounded(cls, v):
+        import math
+        if not math.isfinite(v):
+            raise ValueError("step must be finite")
+        # step too small (relative to range) expands the grid to a billion entries
+        # -> memory DoS (step=1e-9 on [0,100] tried to allocate 7+ TiB). Floor it.
+        if v < 1e-5:
+            raise ValueError("step too small (min 1e-5)")
+        return v
+
+    @field_validator("max")
+    @classmethod
+    def _max_ge_min(cls, v, info):
+        mn = info.data.get("min")
+        if mn is not None and v < mn:
+            raise ValueError("max must be >= min")
+        if info.data.get("step"):
+            _span = v - (mn or 0.0)
+            if _span / info.data["step"] > 1_000_000:
+                raise ValueError("param range / step produces too many points (max 1M)")
+        return v
 
 
 class OptimizeConfig(BaseModel):
