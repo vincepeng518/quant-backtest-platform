@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 import pandas as pd
 import logging
 logger = logging.getLogger(__name__)
+
+from fastapi import HTTPException
 
 from app.services.data_service import DataService, _backtest_tasks, _execute_backtest, create_task_id
 from app.services.strategy_service import get_strategy
@@ -30,6 +33,16 @@ class BacktestService:
         self.data_service = DataService()
 
     async def run(self, config: dict[str, Any]) -> dict:
+        # Cap concurrent running tasks to prevent cascading 502s under
+        # concurrent storm. Single-worker in-memory store + Railway's 8GB
+        # node can't handle 50+ parallel backtests.
+        MAX_RUNNING = int(os.getenv("MAX_RUNNING_BACKTESTS", "15"))
+        running = sum(1 for t in _backtest_tasks.values() if t.get("status") == "running")
+        if running >= MAX_RUNNING:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many running backtests ({running} >= {MAX_RUNNING}). Wait for some to finish."
+            )
         task_id = create_task_id()
         # 先註冊 task (running), 再載資料 — 否則 BingX 慢速拉資料期間
         # 輪詢 /results/{task_id} 會 404 (task 尚未寫入 _backtest_tasks)
