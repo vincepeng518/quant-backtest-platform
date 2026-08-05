@@ -19,7 +19,9 @@ class Settings:
     )
     db_path: str = os.getenv("DB_PATH", "./data/backtest.db")
     log_level: str = os.getenv("LOG_LEVEL", "info")
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = os.getenv("CORS_ORIGINS", "https://quant-backtest-platform-v2.vercel.app,https://frontend-kappa-*.vercel.app,http://localhost:3000,http://localhost:5173,http://localhost:8000").split(",")
+    # If cors_origins contains "*", allow_credentials MUST be False per CORS spec.
+    # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors/CORSNotSupportingCredentials
 
 
 settings = Settings()

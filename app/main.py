@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades
 from app.config import settings
 from app.core.auth import auth_required
@@ -19,7 +19,30 @@ from app.core.middleware import TimingMiddleware
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=settings.log_level.upper())
 
-app = FastAPI(title="Quant Backtest Platform API", version="1.0.0", docs_url="/docs")
+app = FastAPI(title="Quant Backtest Platform API", version="1.0.0", docs_url="/docs", redoc_url=None)
+
+# Redoc served with a pinned CDN version. `redoc@next` is broken (404) and makes
+# /redoc render blank. Pin to a known-good release.
+_REDOC_HTML = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Quant Backtest Platform API - ReDoc</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="shortcut icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>"/>
+<style>body{margin:0;padding:0}</style>
+</head>
+<body>
+<noscript>ReDoc requires Javascript to function.</noscript>
+<redoc spec-url="/openapi.json"></redoc>
+<script src="https://cdn.jsdelivr.net/npm/redoc@2.2.0/bundles/redoc.standalone.js"></script>
+</body>
+</html>"""
+
+
+@app.get("/redoc", include_in_schema=False, response_class=HTMLResponse)
+async def redoc():
+    return HTMLResponse(_REDOC_HTML)
 
 app.add_middleware(
     CORSMiddleware,
