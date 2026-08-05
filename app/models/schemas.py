@@ -247,7 +247,7 @@ class OptimizeConfig(BaseModel):
     strategy_id: str
     param_space: list[ParamRange] = []
     algorithm: str = "grid"
-    max_trials: int = 100
+    max_trials: int = Field(default=100, ge=1, le=10_000)
     # Engine realism (opt-in; disabled = legacy 1x spot)
     funding: FundingConfig = Field(default_factory=FundingConfig)
     perpetual: PerpetualConfig = Field(default_factory=PerpetualConfig)
