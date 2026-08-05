@@ -223,22 +223,44 @@ class Backtester:
                     exit_price = current_bar.close * (1 + slip * (-1 if position.size > 0 else 1))
                 _close_position(exit_price, current_bar, current_bar_index, reason="signal")
 
-        def _close_position(exit_price: float, close_bar: Any, close_bar_index: int, reason: str = "signal") -> None:
-            """Flatten the current position and record a Trade. Resets OCO state."""
+        def _close_position(exit_price: float, close_bar: Any, close_bar_index: int,
+                            reason: str = "signal", liquidated: bool = False,
+                            liq_funding: Optional[float] = None,
+                            liq_fee: Optional[float] = None) -> None:
+            """Flatten the current position and record a Trade. Resets OCO state.
+
+            Single close entry-point for all three paths (signal/stop/take-profit
+            plus both liquidation paths). PnL = size*(exit-entry) minus fee and —
+            for the standard path — funding accrued on [entry, close]. The two
+            liquidation paths pass pre-computed values so the PnL stays numerically
+            identical to the pre-refactor code:
+              * liq_fee: explicit close fee (perp path uses capital*commission,
+                which differs from the generic notional-based fee).
+              * liq_funding: funding already charged to capital by the caller
+                (market-engine hook); recorded on the Trade but NOT deducted again.
+            """
             nonlocal capital, position, entry_bar, entry_bar_index, trade_mae, trade_mfe, oco_sl, oco_tp
             if position is None:
                 return
-            order_type = "limit" if self.force_limit else "market"
-            is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
             pnl = position.size * (exit_price - position.entry_price)
-            fee = self._fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
+            if liq_fee is not None:
+                fee = liq_fee
+            else:
+                order_type = "limit" if self.force_limit else "market"
+                is_maker = self.exchange.decide_maker(order_type) if self.exchange is not None else (order_type == "limit")
+                fee = self._fee_for(order_type, is_maker, abs(position.size) * position.entry_price if self.market_engine is not None else capital, action="close")
             pnl -= fee
-            funding_paid = 0.0
-            if self.funding is not None:
-                notional = abs(position.size) * position.entry_price
-                side = 1 if position.size > 0 else -1
-                funding_paid = notional * self.funding.accrued(entry_bar, close_bar.timestamp, side)
-                pnl -= funding_paid
+            if liq_funding is not None:
+                # Funding already deducted from capital by the market-engine hook;
+                # record it on the trade but do not double-subtract from pnl.
+                funding_paid = liq_funding
+            else:
+                funding_paid = 0.0
+                if self.funding is not None:
+                    notional = abs(position.size) * position.entry_price
+                    side = 1 if position.size > 0 else -1
+                    funding_paid = notional * self.funding.accrued(entry_bar, close_bar.timestamp, side)
+                    pnl -= funding_paid
             trade = Trade(
                 entry_time=entry_bar or close_bar.timestamp,
                 entry_price=position.entry_price,
@@ -248,6 +270,7 @@ class Backtester:
                 pnl=pnl,
                 pnl_pct=pnl / capital * 100,
                 funding_paid=funding_paid,
+                liquidated=liquidated,
                 direction="long" if position.size > 0 else "short",
                 exit_reason=reason,
                 holding_bars=(close_bar_index - entry_bar_index) if entry_bar_index is not None else 0,
@@ -347,48 +370,25 @@ class Backtester:
                 if hook.get("liquidated"):
                     slip = self.market_engine.slippage_factor(-1 if position.size > 0 else 1) - 1.0
                     exit_price = bar.close * (1 + slip * (-1 if position.size > 0 else 1))
-                    pnl = position.size * (exit_price - position.entry_price)
-                    fee = self.market_engine.commission(abs(position.size) * position.entry_price, is_open=False)
-                    pnl -= fee
-                    trade = Trade(entry_time=entry_bar or bar.timestamp, entry_price=position.entry_price,
-                                  size=abs(position.size), exit_time=bar.timestamp, exit_price=exit_price,
-                                  pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=hook.get("funding_fee", 0.0),
-                                  liquidated=True, direction="long" if position.size > 0 else "short",
-                                  exit_reason="liquidation",
-                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0,
-                                  mae=trade_mae, mfe=trade_mfe)
-                    trades.append(trade)
-                    capital += pnl
-                    position = None
-                    entry_bar = None
-                    entry_bar_index = None
-                    oco_sl = None
-                    oco_tp = None
+                    # Converge onto _close_position. Funding_fee was already
+                    # charged to capital above; pass it along so it is recorded
+                    # on the Trade (liquidated=True) but not double-subtracted.
+                    _close_position(exit_price, bar, i, reason="liquidation",
+                                    liquidated=True, liq_funding=hook.get("funding_fee", 0.0))
             # Legacy perp liquidation path (when no market_engine, perp set directly)
             elif self.perp is not None and position is not None:
                 side = 1 if position.size > 0 else -1
                 mark = bar.low if side > 0 else bar.high
                 if self.perp.check_liquidation(mark, position.entry_price, position.size, self.leverage,
                                               notional=abs(position.size) * position.entry_price):
-                    liq_price = mark
-                    exit_price = liq_price
-                    pnl = position.size * (exit_price - position.entry_price)
-                    pnl -= capital * self.commission
-                    # funding (if T2 wiring present, also accrue on forced close)
-                    trade = Trade(entry_time=entry_bar or bar.timestamp, entry_price=position.entry_price,
-                                  size=abs(position.size), exit_time=bar.timestamp, exit_price=exit_price,
-                                  pnl=pnl, pnl_pct=pnl / capital * 100, funding_paid=getattr(self, '_last_funding', 0.0), liquidated=True,
-                                  direction="long" if position.size > 0 else "short",
-                                  exit_reason="liquidation",
-                                  holding_bars=(i - entry_bar_index) if entry_bar_index is not None else 0,
-                                  mae=trade_mae, mfe=trade_mfe)
-                    trades.append(trade)
-                    capital += pnl
-                    position = None
-                    entry_bar = None
-                    entry_bar_index = None
-                    oco_sl = None
-                    oco_tp = None
+                    # Converge onto _close_position. The legacy perp path uses a
+                    # capital-based fee and an explicitly recorded funding amount
+                    # (both differ from the generic path) — pass them through so
+                    # PnL stays numerically identical.
+                    _close_position(mark, bar, i, reason="liquidation",
+                                    liquidated=True,
+                                    liq_funding=getattr(self, '_last_funding', 0.0),
+                                    liq_fee=capital * self.commission)
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
