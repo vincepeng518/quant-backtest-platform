@@ -213,12 +213,28 @@ async def get_results(task_id: str):
                 metrics["quality_breakdown"] = qbrk
             except Exception:
                 pass
+        # 兜底: 舊 JSON equity_curve 可能是 float[]（無 time key），轉成 dict 格式
+        _ec_raw = d.get("equity_curve", [])
+        if _ec_raw and isinstance(_ec_raw[0], (int, float)):
+            _ts = d.get("timestamps", [])
+            _ec = []
+            for i, v in enumerate(_ec_raw):
+                _tv = _ts[i] if i < len(_ts) and _ts[i] else None
+                _tu = None
+                if _tv is not None:
+                    try:
+                        _tu = int(pd.Timestamp(_tv).timestamp())
+                    except Exception:
+                        _tu = None
+                _ec.append({"time": (_tu if _tu is not None else i), "equity": float(v)})
+        else:
+            _ec = _ec_raw
         return BacktestResultOut(
             task_id=task_id,
             status=d.get("status", "completed"),
             config=d.get("config", {}),
             metrics=metrics,
-            equity_curve=d.get("equity_curve", []),
+            equity_curve=_ec,
             trades=d.get("trades", []),
         )
     raise HTTPException(status_code=404, detail="task not found")
