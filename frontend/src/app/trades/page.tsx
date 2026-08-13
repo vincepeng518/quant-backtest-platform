@@ -209,6 +209,16 @@ export default function TradesPage() {
   const monthIndexRef = useRef(1);
   monthIndexRef.current = monthIndex;
 
+  // 跨月序列實際涵蓋的月份數(供表格標題)
+  const coveredMonthCount = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of records) {
+      const t = sortKey(r);
+      if (t) s.add(new Date(t).toISOString().slice(0, 7));
+    }
+    return s.size;
+  }, [records]);
+
   // summary.metrics 簡化取用
   const metrics = summary?.metrics ?? null;
   // 手續費 = summary 全期費用
@@ -449,9 +459,9 @@ export default function TradesPage() {
       {/* 交易表格 — 當月明細 (rB: 已解耦全量, 顯示 viewMonth 當月) */}
       <Card className="min-h-[300px]">
         <div className="flex items-center justify-between px-4 pt-3 pb-1 border-b border-border/10">
-          <span className="text-sm font-semibold text-text">跨月交易 (最新 {filtered.length} 筆{loading || !hasMore ? '' : ` / ${monthIndex + 1} 個月`})</span>
+          <span className="text-sm font-semibold text-text">跨月交易 (最新 {filtered.length} 筆 / {coveredMonthCount} 個月)</span>
           <span className="text-xs font-mono text-textSecondary">
-            {loading ? '載入中…' : loadingMore ? `載入 ${summary?.months?.[monthIndex] ?? ''}…` : ((hasMore && summary?.months?.length) ? summary.months[monthIndex] ? '' : '' : '全部歷史已載入')}
+            {loading ? '載入中…' : loadingMore ? `載入 ${summary?.months?.[monthIndex] ?? ''}…` : (hasMore ? `再載入會延伸至 ${summary?.months?.[monthIndex] ?? ''}` : '全部歷史已載入')}
           </span>
         </div>
         {loading ? (
