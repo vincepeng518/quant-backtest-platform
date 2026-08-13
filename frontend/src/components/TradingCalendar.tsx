@@ -129,19 +129,25 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
   );
 
   // 月份或 props 改變時觸發載入僅當該月不在 props / 未載入
+  // 優先使用 props 全量(等同已載入快取):任何月資料若在 props 內,直接用,零 GitHub 網路延遲。
+  // 只有 props 尚未就緒或確實缺該月時,才動態 fetch by-month 檔。
   useEffect(() => {
     const inProps = byMonthFromProps.get(monthKey);
-    // 若該月 props 有資料用 props;否則需要載入(除非正在載入同月)
     if (inProps && inProps.length > 0) {
       setLoadedKey(monthKey);
       setRemoteRecords(inProps);
       setMonthError(null);
+      setMonthLoading(false);
+      return;
+    }
+    // props 還沒載入(records 空)時,不要急著 fetch 當前月——等 props 就緒再評估
+    if (records.length === 0 && !byMonthFromProps.has(monthKey)) {
       return;
     }
     if (loadedKey === monthKey && remoteRecords) return;
     loadMonth(monthKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthKey, byMonthFromProps]); // 只對 monthKey / byMonthFromProps 改變觸發
+  }, [monthKey, byMonthFromProps, records.length]); // 只對 monthKey / byMonthFromProps 改變觸發
 
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
