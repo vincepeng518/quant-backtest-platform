@@ -573,16 +573,12 @@ export default function TradesPage() {
             </div>
           </div>
         )}
-        {/* 載入更多跨月歷史(滾動到底或點按鈕) */}
+        {/* 跨月載入狀態提示(無手動按鈕,捲到底自動載入下一月) */}
         {(hasMore && records.length > 0 && source === 'bingx') && (
-          <div className="flex items-center justify-center px-4 py-3 border-t border-border/10">
-            <button
-              onClick={loadMoreMonth}
-              disabled={loadingMore}
-              className="px-4 py-2 rounded-md bg-surface hover:bg-surface/80 border border-border/30 text-sm font-mono text-textSecondary hover:text-text disabled:opacity-40 disabled:cursor-wait transition-colors"
-            >
-              {loadingMore ? `載入 ${summary?.months?.[monthIndex] ?? ''}…` : `載入更早月份 (${summary?.months?.[monthIndex] ?? '…'})`}
-            </button>
+          <div className="px-4 py-3 border-t border-border/10 text-center text-[11px] font-mono text-textSecondary">
+            {loadingMore
+              ? `載入 ${summary?.months?.[monthIndex] ?? ''} 歷史…`
+              : (hasMore && summary?.months?.[monthIndex]) ? `已顯示，繼續往下捲會載入 ${summary.months[monthIndex]}` : '全部歷史已載入'}
           </div>
         )}
       </Card>
