@@ -44,6 +44,20 @@ interface ParamSpec {
   values?: string[];
 }
 
+// ── 三階段進度輔助(T2) ──
+const STAGE_ORDER = ['loading', 'backtesting', 'finalizing'];
+const STAGE_LABELS: Record<string, string> = { loading: '載入資料', backtesting: '執行回測', finalizing: '結果匯總' };
+const stageIdx = (s: string) => STAGE_ORDER.indexOf(s);
+const stageLabel = (s: string) => STAGE_LABELS[s] ?? STAGE_LABELS.backtesting;
+
+function StageTag({ label, active, done }: { label: string; active: boolean; done: boolean }) {
+  return (
+    <span className={done ? 'text-success' : active ? 'text-accent' : 'opacity-40'}>
+      {done ? '✓ ' : ''}{label}
+    </span>
+  );
+}
+
 const FACTOR_CN: Record<string, string> = {
   momentum: '動量',
   mean_reversion: '均值回歸',
@@ -54,7 +68,7 @@ const FACTOR_CN: Record<string, string> = {
 
 function BacktestView() {
   const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
-  const { runBacktest, results, status, progress, error, lookaheadWarning } = useBacktestStore();
+  const { runBacktest, results, status, progress, stage, error, lookaheadWarning, cancelBacktest } = useBacktestStore();
 
   const searchParams = useSearchParams();
   const taskParam = searchParams.get('task');
@@ -640,22 +654,41 @@ function BacktestView() {
           </Card>
         )}
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/10 pt-4">
+        <div className="mt-6 flex flex-col gap-3 border-t border-border/10 pt-4">
+          {/* 三階段進度條 */}
           <div className="text-sm font-mono text-textSecondary">
-            {status === 'running' ? (
+            {status === 'running' || status === 'cancelled' ? (
               <span className="flex items-center gap-2">
                 <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                Backtesting… {Math.round(progress)}%
+                {status === 'cancelled' ? '已中斷' : `${stageLabel(stage)}… ${Math.round(progress)}%`}
               </span>
             ) : 'Ready'}
           </div>
-          <div className="flex items-center gap-3">
-            <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
-              {status === 'running' ? 'Running…' : 'Execute Backtest'}
-            </Button>
-            {results && (
-              <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
-            )}
+          {status === 'running' && (
+            <div className="w-full">
+              <div className="mb-1 flex justify-between text-[11px] font-mono text-textSecondary">
+                <StageTag label="載入資料" active={stage === 'loading' || stageIdx(stage) > 0} done={stageIdx(stage) > 0} />
+                <StageTag label="執行回測" active={stage === 'backtesting' || stageIdx(stage) > 1} done={stageIdx(stage) > 1} />
+                <StageTag label="結果匯總" active={stage === 'finalizing'} done={stageIdx(stage) > 2} />
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded bg-surface">
+                <div className="h-full bg-accent transition-all duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-mono text-textSecondary opacity-0">·</span>
+            <div className="flex items-center gap-3">
+              {status === 'running' && (
+                <Button variant="ghost" onClick={cancelBacktest} className="text-danger hover:text-danger border border-danger/30">中斷</Button>
+              )}
+              <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
+                {status === 'running' ? 'Running…' : 'Execute Backtest'}
+              </Button>
+              {results && (
+                <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
+              )}
+            </div>
           </div>
         </div>
 

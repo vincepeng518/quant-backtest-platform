@@ -116,7 +116,9 @@ export const api = {
       body: JSON.stringify(config),
     }),
   getBacktestStatus: (taskId: string) =>
-    request<{ status: string; progress: number; error?: string }>(`/backtest/status/${taskId}`),
+    request<{ status: string; stage: string; progress: number; error?: string }>(`/backtest/status/${taskId}`),
+  cancelBacktest: (taskId: string) =>
+    request<{ task_id: string; status: string }>(`/backtest/cancel/${taskId}`, { method: 'POST' }),
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
   getBacktestHistory: () => request<any[]>('/backtest/history'),
   getMonitorStats: () => request<MonitorStats>('/monitoring/stats'),

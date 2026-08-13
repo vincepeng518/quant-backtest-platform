@@ -123,7 +123,7 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
           aria-hidden
         />
         {open && (
-          <div className="absolute z-30 mt-1 w-full rounded-md border border-border/40 bg-surface shadow-xl">
+          <div className="absolute z-50 mt-1 w-full rounded-md border border-border/40 bg-surface shadow-xl">
             {/* 板块 Tabs */}
             <div className="flex flex-wrap gap-1 border-b border-border/30 px-2 py-1.5">
               {SECTORS.map((s) => (

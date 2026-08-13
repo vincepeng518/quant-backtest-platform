@@ -222,6 +222,7 @@ class TaskStatus(BaseModel):
     task_id: str
     status: str = "running"
     progress: float = 0.0
+    stage: str = "loading"  # T2: 三階段(loading/backtesting/finalizing/completed/cancelled)
     error: str | None = None
 
 

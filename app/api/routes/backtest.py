@@ -70,6 +70,11 @@ async def get_status(task_id: str):
     return TaskStatus(**s)
 
 
+@router.post("/cancel/{task_id}")
+async def cancel_backtest(task_id: str):
+    return svc.cancel(task_id)
+
+
 def _result_to_out(task_id: str, result, config: dict | None = None) -> BacktestResultOut:
     """Convert an in-memory BacktestResult dataclass to BacktestResultOut.
 

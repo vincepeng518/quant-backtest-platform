@@ -387,7 +387,17 @@ def create_task_id() -> str:
 
 async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) -> None:
     try:
+        # T2: 三階段進度 — backtesting(執行回測)
+        store[task_id]["stage"] = "backtesting"
         result = backtester.run()
+        # 若被要求中斷 → 回報 cancelled,不結案
+        if getattr(backtester, "_cancelled", False):
+            store[task_id]["status"] = "cancelled"
+            store[task_id]["stage"] = "cancelled"
+            store[task_id]["result"] = None
+            return
+        # T2: finalizing(結果匯總/persist)
+        store[task_id]["stage"] = "finalizing"
         store[task_id]["status"] = "completed"
         store[task_id]["result"] = result
 
