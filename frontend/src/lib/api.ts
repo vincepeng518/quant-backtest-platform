@@ -20,6 +20,40 @@ import {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 const ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || '';
 
+// ══ GitHub 交易資料(按月解耦,不走 /api/trades 全量)══════
+const GITHUB_RAW = 'https://raw.githubusercontent.com/vincepeng518/quant-backtest-platform/master';
+export const tradesSummaryUrl = `${GITHUB_RAW}/trades/summary.json`;
+export const tradesMonthUrl = (ym: string) => `${GITHUB_RAW}/trades/by-month/${ym}.json`;
+
+const _ghCache = new Map<string, any>();
+async function ghFetch(url: string): Promise<any> {
+  const cached = _ghCache.get(url);
+  if (cached) return cached;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: controller.signal, cache: 'force-cache' });
+    if (res.status === 404) return { _notFound: true };
+    if (!res.ok) throw new Error(`GitHub HTTP ${res.status}`);
+    const data = await res.json();
+    _ghCache.set(url, data);
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function getTradesSummary(): Promise<any> {
+  const d = await ghFetch(tradesSummaryUrl);
+  return d && d._notFound ? null : d;
+}
+
+export async function getMonthTrades(ym: string): Promise<any[]> {
+  const d = await ghFetch(tradesMonthUrl(ym));
+  if (!d || d._notFound) return [];
+  return Array.isArray(d) ? d : (d?.records ?? []);
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
