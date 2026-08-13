@@ -28,6 +28,7 @@ const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/vincepeng518/quant-ba
 const byMonthUrl = (ym: string) => `${GITHUB_RAW_BASE}/trades/by-month/${ym}.json`;
 
 // 模組級快取:跨組件/跨切換累積已載入月份,避免重複 fetch
+// 空陣列也快取(代表該月無資料,避免每次切回都重打 404)
 const _monthCache = new Map<string, TradeItem[]>();
 
 async function fetchMonth(ym: string): Promise<TradeItem[]> {
@@ -37,6 +38,11 @@ async function fetchMonth(ym: string): Promise<TradeItem[]> {
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(byMonthUrl(ym), { signal: controller.signal, cache: 'force-cache' });
+    if (res.status === 404) {
+      // 該月無交易資料 → 留空(快取空結果,避免重複請求)
+      _monthCache.set(ym, []);
+      return [];
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const recs = (data?.records ?? []) as TradeItem[];
