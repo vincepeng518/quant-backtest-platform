@@ -74,6 +74,38 @@ async def list_history():
     return items
 
 
+@router.delete("/history")
+async def delete_history(ids: list[str]):
+    """批次刪除歷史回測紀錄(本機檔 + GitHub)。回報刪除結果與失敗。"""
+    if not ids:
+        return {"deleted": [], "failed": []}
+    bd = BACKTESTS_DIR
+    deleted, failed = [], []
+    removed_local = []
+    for tid in ids:
+        fp = bd / f"{tid}.json"
+        if fp.exists():
+            try:
+                fp.unlink()
+                removed_local.append(str(fp))
+                deleted.append(tid)
+            except Exception as e:
+                failed.append({"task_id": tid, "error": f"本地刪除失敗: {str(e)[:100]}"})
+        else:
+            # 本機沒有但可能在 GitHub → 標記待刪(透過 git_persist 的 _delete)
+            removed_local.append(str(bd / f"{tid}.json"))
+            deleted.append(tid)
+    if removed_local:
+        try:
+            from app.services.strategy_git import git_persist
+            ok, detail = git_persist(removed_local, f"feat(backtest): delete history {len(deleted)}")
+            if not ok:
+                failed.append({"task_id": "all", "error": f"GitHub 同步失敗: {detail}"})
+        except Exception as e:
+            failed.append({"task_id": "all", "error": f"GitHub 同步錯誤: {str(e)[:100]}"})
+    return {"deleted": deleted, "failed": failed}
+
+
 @router.get("/status/{task_id}")
 async def get_status(task_id: str):
     s = svc.get_status(task_id)

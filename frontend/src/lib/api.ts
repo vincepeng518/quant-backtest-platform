@@ -121,6 +121,11 @@ export const api = {
     request<{ task_id: string; status: string }>(`/backtest/cancel/${taskId}`, { method: 'POST' }),
   getBacktestResults: (taskId: string) => request<BacktestResult>(`/backtest/results/${taskId}`),
   getBacktestHistory: () => request<any[]>('/backtest/history'),
+  deleteBacktestHistory: (ids: string[]) =>
+    request<{ deleted: string[]; failed: any[] }>(`/backtest/history`, {
+      method: 'DELETE',
+      body: JSON.stringify(ids),
+    }),
   getMonitorStats: () => request<MonitorStats>('/monitoring/stats'),
   getMonitorTrades: (limit = 50) =>
     request<{ trades: any[]; count: number }>(`/monitoring/trades?limit=${limit}`),

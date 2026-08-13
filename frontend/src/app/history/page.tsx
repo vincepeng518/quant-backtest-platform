@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
+import { useToastStore } from '@/stores/useToastStore';
 import api from '@/lib/api';
 
 interface HistoryItem {
@@ -32,6 +33,27 @@ export default function HistoryPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
   const [strategyFilter, setStrategyFilter] = useState('all');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+
+  const toggleSel = (tid: string) =>
+    setSelected((prev) => { const n = new Set(prev); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+
+  const deleteSelected = () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setDeleting(true);
+    api.deleteBacktestHistory(ids)
+      .then((r) => {
+        const del = new Set(r.deleted ?? []);
+        setItems((prev) => prev.filter((i) => !del.has(i.task_id)));
+        setSelected(new Set());
+        useToastStore.getState().push({ kind: 'success', title: '已刪除', message: `刪除 ${r.deleted?.length ?? 0} 筆` });
+        if (r.failed?.length) useToastStore.getState().push({ kind: 'danger', title: '部分刪除失敗', message: JSON.stringify(r.failed[0]).slice(0, 120) });
+      })
+      .catch((e) => useToastStore.getState().push({ kind: 'danger', title: '刪除失敗', message: e?.message ?? String(e) }))
+      .finally(() => setDeleting(false));
+  };
 
   useEffect(() => {
     api.getBacktestHistory()
@@ -131,6 +153,15 @@ export default function HistoryPage() {
                 ))}
               </select>
               <span className="ml-auto text-xs text-textSecondary font-mono">{sorted.length} / {items.length} 筆</span>
+              {selected.size > 0 && (
+                <button
+                  onClick={deleteSelected}
+                  disabled={deleting}
+                  className="shrink-0 rounded-md border border-danger/30 px-3 py-1.5 text-xs font-mono text-danger hover:bg-danger/10 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? '刪除中…' : `批次刪除 (${selected.size})`}
+                </button>
+              )}
             </div>
 
             {/* Sortable header */}
@@ -151,11 +182,19 @@ export default function HistoryPage() {
             {/* List */}
             <div className="divide-y divide-border/10">
               {sorted.map((it) => (
-                <button
+                <div
                   key={it.task_id}
                   onClick={() => router.push(`/backtest?task=${it.task_id}`)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 text-left transition-colors cursor-pointer"
                 >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(it.task_id)}
+                    onChange={() => toggleSel(it.task_id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mr-3 h-4 w-4 accent-accent"
+                    aria-label="選擇"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-mono text-text">
                       {it.strategy ?? '—'} · {it.symbol ?? '—'} · {it.timeframe ?? '—'}
@@ -192,7 +231,7 @@ export default function HistoryPage() {
                       複製參數
                     </button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </>
