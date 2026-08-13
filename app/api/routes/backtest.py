@@ -35,6 +35,14 @@ async def run_backtest(config: BacktestConfig):
 
 @router.get("/history")
 async def list_history():
+    import math as _m
+    def _j(n):
+        """inf/NaN → None(JSON 不安全 float)"""
+        try:
+            f = float(n)
+            return None if (_m.isinf(f) or _m.isnan(f)) else n
+        except (TypeError, ValueError):
+            return None
     bd = BACKTESTS_DIR
     if not bd.exists():
         return []
@@ -56,9 +64,9 @@ async def list_history():
             "strategy": strat,
             "symbol": cfg.get("symbol"),
             "timeframe": cfg.get("timeframe"),
-            "sharpe": m.get("sharpe_ratio"),
-            "total_trades": m.get("total_trades"),
-            "quality_score": m.get("quality_score"),
+            "sharpe": _j(m.get("sharpe_ratio")),
+            "total_trades": _j(m.get("total_trades")),
+            "quality_score": _j(m.get("quality_score")),
             "quality_grade": m.get("quality_grade"),
             # T3: 帶入完整 config(供「複製參數」填表單)
             "config": {
@@ -67,8 +75,8 @@ async def list_history():
                 "timeframe": cfg.get("timeframe"),
                 "start_date": cfg.get("start_date", ""),
                 "end_date": cfg.get("end_date", ""),
-                "initial_capital": cfg.get("initial_capital", 100000),
-                "commission": cfg.get("commission", 0.001),
+                "initial_capital": _j(cfg.get("initial_capital", 100000)),
+                "commission": _j(cfg.get("commission", 0.001)),
             },
         })
     return items
