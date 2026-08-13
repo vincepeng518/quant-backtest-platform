@@ -13,9 +13,13 @@ interface SymbolSearchProps {
 }
 
 const FAV_KEY = 'fav_symbols';
-const SECTORS: string[] = ['fx', 'metal', 'energy', 'index', 'stock', '其他', '收藏'];
+// 分類 tab(優先 symbolCatalog 的分類, 因後端 /data/symbols category 常為 None,
+// 靠 sectorOf(symbol) 提供實際標的分類; 未含者歸「其他」仍可搜尋)。
+const SECTORS: string[] = ['主流', 'Meme', 'DeFi', 'AI', 'Layer2', 'TradFi', '其他', '收藏'];
 // 熱門標的: 每分類在「未輸入關鍵字」時預設帶出的前 N 個(順序=該類別熱門排序)。
 const HOT_N = 8;
+// 標的分類: 優先用 options.category, 否則用 symbolCatalog.sectorOf(symbol) fallback。
+const sectorOfSym = (sym: string, cat?: string) => (cat && cat !== '其他' ? cat : sectorOf(sym));
 
 export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   label,
@@ -71,10 +75,12 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   const q = query.trim().toUpperCase();
 
   const list = useMemo((): { symbol: string; status?: string; category?: string }[] => {
+    // 分類解析: options.category 若有值用之, 否則 fallback 到 symbolCatalog.sectorOf(symbol)
+    const secOf = (s: { symbol: string; category?: string }) => sectorOfSym(s.symbol, s.category);
     let pool: { symbol: string; status?: string; category?: string }[] = allSyms;
     if (tab === '收藏') pool = favs.map((s) => allSyms.find((x) => x.symbol === s)).filter(Boolean) as typeof allSyms;
-    else if (tab !== '其他') pool = allSyms.filter((s) => (s.category || '其他') === tab);
-    else pool = allSyms.filter((s) => !s.category || s.category === '其他');
+    else if (tab !== '其他') pool = allSyms.filter((s) => secOf(s) === tab);
+    else pool = allSyms.filter((s) => secOf(s) === '其他');
 
     if (q) pool = pool.filter((s) => s.symbol.includes(q));
     const uniq = Array.from(new Set(pool.map((p) => p.symbol))).map((sym) => pool.find((p) => p.symbol === sym)!);
@@ -175,15 +181,18 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
                 ))
               )}
               {/* 熱門/全部切換（未輸入關鍵字 + 非收藏）+ 各類別熱門標的提示 */}
-              {!q && tab !== '收藏' && allSyms.filter((s) => (tab === '其他' ? (!s.category || s.category === '其他') : (s.category || '其他') === tab)).length > HOT_N && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll((v) => !v)}
-                  className="block w-full px-3 py-2 text-center text-[11px] font-mono text-textSecondary hover:bg-accent/10 hover:text-text transition-colors"
-                >
-                  {showAll ? `▲ 只看熱門 ${HOT_N} 個` : `▼ 顯示全部（該類別 ${allSyms.filter((s) => (tab === '其他' ? (!s.category || s.category === '其他') : (s.category || '其他') === tab)).length} 個）`}
-                </button>
-              )}
+              {!q && tab !== '收藏' && (() => {
+                const total = allSyms.filter((s) => sectorOfSym(s.symbol, s.category) === (tab === '其他' ? '其他' : tab)).length;
+                return total > HOT_N ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll((v) => !v)}
+                    className="block w-full px-3 py-2 text-center text-[11px] font-mono text-textSecondary hover:bg-accent/10 hover:text-text transition-colors"
+                  >
+                    {showAll ? `▲ 只看熱門 ${HOT_N} 個` : `▼ 顯示全部（該類別 ${total} 個）`}
+                  </button>
+                ) : null;
+              })()}
             </div>
           </div>
         )}
