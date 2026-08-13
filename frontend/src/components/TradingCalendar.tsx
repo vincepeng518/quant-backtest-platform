@@ -18,6 +18,8 @@ export interface TradeItem {
 interface TradingCalendarProps {
   records: TradeItem[];
   currencySymbol?: string;
+  /** 月份切換回調:切到 ym 時通知外部(供交易頁表格同步載入該月)。 */
+  onMonthChange?: (ym: string) => void;
 }
 
 /**
@@ -65,6 +67,7 @@ function tsMonth(ts?: number | string): string | null {
 export const TradingCalendar: React.FC<TradingCalendarProps> = ({
   records,
   currencySymbol = '$',
+  onMonthChange,
 }) => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [mode, setMode] = useState<'pnl' | 'events'>('pnl');
@@ -155,9 +158,22 @@ export const TradingCalendar: React.FC<TradingCalendarProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthKey, byMonthFromProps, records.length]); // 只對 monthKey / byMonthFromProps 改變觸發
 
-  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const handleToday = () => setCurrentDate(new Date());
+  const handlePrevMonth = () => {
+    const d = new Date(year, month - 1, 1);
+    setCurrentDate(d);
+    onMonthChange?.(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+  const handleNextMonth = () => {
+    const d = new Date(year, month + 1, 1);
+    setCurrentDate(d);
+    onMonthChange?.(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+  const handleToday = () => {
+    const d = new Date();
+    if (d.getFullYear() === year && d.getMonth() === month) return;
+    setCurrentDate(d);
+    onMonthChange?.(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
 
   // ── Daily Group By(原邏輯保留,輸入改為 effectiveRecords)──
   const dailySummary = useMemo(() => {

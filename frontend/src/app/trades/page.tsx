@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { TradingCalendar } from '@/components/TradingCalendar';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { api } from '@/lib/api';
+import { api, getTradesSummary, getMonthTrades } from '@/lib/api';
 import { fmtProfitFactor } from '@/lib/format';
 
 interface TradeRec {
@@ -110,9 +110,12 @@ function heatClass(pnl: number): string {
 
 export default function TradesPage() {
   const [source, setSource] = useState<'bingx' | 'arb' | 'predict'>('bingx');
-  const [records, setRecords] = useState<TradeRec[]>([]);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [metrics30d, setMetrics30d] = useState<Record<string, number> | null>(null);
+  const [records, setRecords] = useState<TradeRec[]>([]);   // 當月交易(rB: decouple 後當月明細)
+  const [summary, setSummary] = useState<any>(null);          // summary.json 全量統計 SSOT
+  const [viewMonth, setViewMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
@@ -120,7 +123,6 @@ export default function TradesPage() {
   const pageSize = 25;
   const [selectedTrade, setSelectedTrade] = useState<TradeRec | null>(null);
   const [heartbeat, setHeartbeat] = useState<{ alive: boolean; updated_at: string | null } | null>(null);
-  const [feesTotalAll, setFeesTotalAll] = useState<number | null>(null);
 
   useEffect(() => {
     if (source !== 'predict') return;
@@ -129,34 +131,40 @@ export default function TradesPage() {
       .catch(() => setHeartbeat(null)); // Hide status if endpoint doesn't exist
   }, [source]);
 
+  // 並行載入: bingx 主頁 → summary.json(統計) + 當月 by-month(明細)— 不再打 /api/trades 全量
+  // arb / predict → 維持原 API(非本任務解耦範圍,資料量小)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setRecords([]);          // 立即清空舊資料，防止 tab 切換時卡住
-    setMetrics(null);
-    setMetrics30d(null);
     setSelectedTrade(null);
-    const fetcher = source === 'arb' ? api.getArbTrades() : source === 'predict' ? api.getPredictTrades() : api.getTrades();
-    fetcher
-      .then((d: any) => {
-        if (cancelled) return;
-        setRecords(d.records ?? []);
-        setMetrics(d.metrics ?? null);
-        setMetrics30d(d.metrics_30d ?? null);
-        setFeesTotalAll(d.fees_total_all ?? (
-          // fallback: 從 records 累計 fee 欄位
-          d.records?.length ? d.records.reduce((s: number, r: any) => s + (r.fee ?? 0), 0) : null
-        ));
-        setCurrentPage(1);
-      })
-      .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    setCurrentPage(1);
+    if (source === 'bingx') {
+      Promise.all([getTradesSummary(), getMonthTrades(viewMonth)])
+        .then(([s, m]) => {
+          if (cancelled) return;
+          if (s) setSummary(s);
+          setRecords(m ?? []);
+        })
+        .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    } else {
+      const fetcher = source === 'arb' ? api.getArbTrades() : api.getPredictTrades();
+      fetcher
+        .then((d: any) => { if (cancelled) return; setRecords(d.records ?? []); })
+        .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }
     return () => { cancelled = true; };
-  }, [source]);
+  }, [source, viewMonth]);
 
-  // fees 用 feesTotalAll（歷史累計總費用）
-  const feesTotal = feesTotalAll;
+  // summary.metrics 簡化取用
+  const metrics = summary?.metrics ?? null;
+  // 手續費 = summary 全期費用
+  const feesTotal = summary?.totals?.fees_total ?? null;
+
+  // 當月統計卡資料(優先 summary.monthly_agg[該月],無則用全期 totals)
+  const monthStat = summary?.monthly_agg?.[viewMonth] ?? null;
 
   const now = Date.now();
   // 從 _snapshot 檔名解析時間 (fallback, 格式 trades_YYYYMMDD_HHMMSS.json)
@@ -196,51 +204,36 @@ export default function TradesPage() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
 
+  // ══ 統計卡資料(單一來源 = summary.json 全量 SSOT, 與舊全量 /api/trades 一致)══
   const stats = useMemo(() => {
-    let totalPnl = 0, totalPos = 0, wins = 0, losses = 0, scr = 0;
-    let longPnl = 0, shortPnl = 0;
-    let gainsAmt = 0, lossesAmt = 0;
-    let streak = 0, maxWinStreak = 0, maxLossStreak = 0;
-    // 按 ts 排序算連續 (升冪)
-    const sorted = [...filtered].sort((a, b) => sortKey(a) - sortKey(b));
-    for (const r of sorted) {
-      const p = pnlOf(r);
-      totalPnl += p;
-      totalPos += Number(r.positionValue ?? 0);
-      if (p > 0) { wins++; gainsAmt += p; streak = streak > 0 ? streak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, streak); }
-      else if (p < 0) { losses++; lossesAmt += p; streak = streak < 0 ? streak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, -streak); }
-      else scr++;
-      const s = String(r.side ?? '').toUpperCase();
-      if (s.includes('LONG')) longPnl += p;
-      else if (s.includes('SHORT')) shortPnl += p;
+    const t = summary?.totals;
+    if (!t) {
+      return { totalPnl: 0, totalPos: 0, wins: 0, losses: 0, scr: 0, winRate: 0, avgPnl: 0,
+               longPnl: 0, shortPnl: 0, gainsAmt: 0, lossesAmt: 0, maxWinStreak: 0, maxLossStreak: 0 };
     }
-    const closed = wins + losses;
-    const winRate = closed > 0 ? (wins / closed) * 100 : 0;
-    const avgPnl = closed > 0 ? totalPnl / closed : 0;
-    return { totalPnl, totalPos, wins, losses, scr, winRate, avgPnl, longPnl, shortPnl, gainsAmt, lossesAmt, maxWinStreak, maxLossStreak };
-  }, [filtered]);
+    return {
+      totalPnl: t.pnl ?? 0, totalPos: t.position_value ?? 0,
+      wins: t.wins ?? 0, losses: t.losses ?? 0, scr: t.scratch ?? 0,
+      winRate: t.win_rate ?? 0, avgPnl: t.avg_pnl ?? 0,
+      longPnl: t.long_pnl ?? 0, shortPnl: t.short_pnl ?? 0,
+      gainsAmt: t.gains_amt ?? 0, lossesAmt: t.losses_amt ?? 0,
+      maxWinStreak: t.max_win_streak ?? 0, maxLossStreak: t.max_loss_streak ?? 0,
+    };
+  }, [summary]);
 
-  // PnL Calendar Heatmap (journalit 風格)
-  const heatmap = useMemo(() => {
-    const dayMap = new Map<string, number>();
-    for (const r of filtered) {
-      const t = sortKey(r) / 1000;
-      if (!t) continue;
-      const d = new Date(t * 1000);
-      const key = d.toISOString().slice(0, 10);
-      dayMap.set(key, (dayMap.get(key) ?? 0) + pnlOf(r));
-    }
-    // 產生近 12 週格子 (從今天往前)
-    const days = [];
-    const today = new Date();
-    for (let i = 83; i >= 0; i--) { // 12週*7
-      const dt = new Date(today);
-      dt.setDate(dt.getDate() - i);
-      const key = dt.toISOString().slice(0, 10);
-      days.push({ key, pnl: dayMap.get(key) ?? 0, dow: dt.getDay() });
-    }
-    return days;
-  }, [filtered]);
+  // 當月(30d)統計卡: 優先 monthly_agg[viewMonth], 無則用全期 totals
+  const monthStatCard = useMemo(() => {
+    const m = summary?.monthly_agg?.[viewMonth];
+    if (!m) return null;
+    const wins = m.wins ?? 0, losses = m.losses ?? 0;
+    return { win_rate: losses + wins > 0 ? (wins / (losses + wins)) * 100 : 0, wins, losses, pnl: m.pnl ?? 0 };
+  }, [summary, viewMonth]);
+
+  // PnL Calendar Heatmap — 用 summary.heatmap_12w(全量,與舊版一致)
+  const heatmap = useMemo<{ key: string; pnl: number; dow: number }[]>(() => {
+    if (summary?.heatmap_12w) return summary.heatmap_12w;
+    return [];
+  }, [summary]);
 
   const tabs: { key: Range; label: string }[] = [
     { key: 'all', label: '全部' },
@@ -302,12 +295,12 @@ export default function TradesPage() {
         ))}
       </div>
 
-      {/* 統計卡 (journalit 風格擴充) — 僅在有資料時顯示 */}
-      {records.length > 0 && (
+      {/* 統計卡 (journalit 風格) — 全期統計來自 summary.json, 有統計即顯示 */}
+      {summary && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">P/L ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
+              <p className="text-xs text-textSecondary font-mono mb-1">P/L (全期)</p>
               <p className={`text-xl font-mono font-semibold ${stats.totalPnl >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {stats.totalPnl >= 0 ? '+' : ''}{fmt(stats.totalPnl)} USDT
               </p>
@@ -332,16 +325,16 @@ export default function TradesPage() {
             </Card>
           </div>
 
-          {/* 30d 統計 (保留勝率) */}
-          {metrics30d && (
+          {/* 30d 統計 (保留勝率) — 來源 monthStatCard=summary.monthly_agg[該月] */}
+          {monthStatCard && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">勝率 (30d)</p>
-                <p className="text-xl font-mono font-semibold text-text">{fmt(metrics30d.win_rate ?? 0, 1)}%</p>
-                <p className="text-xs text-textSecondary font-mono">{metrics30d.wins}W / {metrics30d.losses}L</p>
+                <p className="text-xs text-textSecondary font-mono mb-1">勝率 ({viewMonth})</p>
+                <p className="text-xl font-mono font-semibold text-text">{fmt(monthStatCard.win_rate ?? 0, 1)}%</p>
+                <p className="text-xs text-textSecondary font-mono">{monthStatCard.wins}W / {monthStatCard.losses}L</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額 ({range === 'all' ? '全部' : range === 'month' ? '近30日' : '近24h'})</p>
+                <p className="text-xs text-textSecondary font-mono mb-1">盈利 / 虧損金額 (全期)</p>
                 <p className="text-sm font-mono">
                   <span className="text-accent">+{fmt(stats.gainsAmt ?? 0)} USDT</span>
                   {' / '}
@@ -399,11 +392,15 @@ export default function TradesPage() {
         </>
       )}
 
-      {/* 交易日曆組件 */}
-      <TradingCalendar records={records} />
+      {/* 交易日曆組件 — 切月同步載入當月表格 */}
+      <TradingCalendar records={records} onMonthChange={setViewMonth} />
 
-      {/* 交易表格 */}
+      {/* 交易表格 — 當月明細 (rB: 已解耦全量, 顯示 viewMonth 當月) */}
       <Card className="min-h-[300px]">
+        <div className="flex items-center justify-between px-4 pt-3 pb-1 border-b border-border/10">
+          <span className="text-sm font-semibold text-text">當月交易 ({viewMonth})</span>
+          <span className="text-xs font-mono text-textSecondary">{loading ? '載入中…' : `${filtered.length} 筆`}</span>
+        </div>
         {loading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : error ? (
@@ -412,7 +409,7 @@ export default function TradesPage() {
             <p className="text-xs font-mono text-textSecondary mt-1 opacity-70 truncate max-w-full">{error}</p>
           </div>
         ) : records.length === 0 ? (
-          <EmptyState title="No trades yet" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "Run bot/trade_bot.py to capture BingX data."} />
+          <EmptyState title={`${viewMonth} 無交易`} description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "該月份沒有交易記錄，切換其他月份查看。"} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-base font-mono">
