@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout/PageShell';
 import { Card } from '@/components/ui/Card';
 import { TradingCalendar } from '@/components/TradingCalendar';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { api, getTradesSummary, getMonthTrades } from '@/lib/api';
+import { api, getTradesSummary, getMonthTrades, getLatestTrades } from '@/lib/api';
 import { fmtProfitFactor } from '@/lib/format';
 
 interface TradeRec {
@@ -131,8 +131,16 @@ export default function TradesPage() {
       .catch(() => setHeartbeat(null)); // Hide status if endpoint doesn't exist
   }, [source]);
 
-  // 並行載入: bingx 主頁 → summary.json(統計) + 當月 by-month(明細)— 不再打 /api/trades 全量
-  // arb / predict → 維持原 API(非本任務解耦範圍,資料量小)
+  // ══ 跨月表格序列 + 分頁 ══
+  // 首載: latest_trades.json(跨月最新50) → summary。往下載更多: 依 summary.months[] 依序向後補 by-month。
+  // 表格 `records` = 跨月降冪序列(ts), 跨月去重; 日曆仍獨立依月份載入。
+  const [monthIndex, setMonthIndex] = useState(1);   // 下一個待載月份在 summary.months 的 index(latest 已涵蓋前幾個月)
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  // 指紋去重(跨月 append 防重複)
+  const fp = (r: any) => `${r.ts ?? ''}|${r.symbol ?? ''}|${r.side ?? ''}|${r.realizedProfit ?? ''}`;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -140,23 +148,66 @@ export default function TradesPage() {
     setSelectedTrade(null);
     setCurrentPage(1);
     if (source === 'bingx') {
-      Promise.all([getTradesSummary(), getMonthTrades(viewMonth)])
-        .then(([s, m]) => {
+      Promise.all([getTradesSummary(), getLatestTrades()])
+        .then(([s, latest]) => {
           if (cancelled) return;
           if (s) setSummary(s);
-          setRecords(m ?? []);
+          setRecords((latest ?? []).sort((a: any, b: any) => sortKey(b) - sortKey(a)));
+          // monthIndex = latest 已涵蓋 summary.months 前 N 個月(無需重載)
+          const latestMonths = (latest as any)?.months?.length;
+          const covered = Array.isArray(latestMonths) ? (latest as any).months.length : (latestMonths ?? 2);
+          setMonthIndex(covered); // 下一個待載 = months[covered](更早一月)
+          setHasMore((s?.months?.length ?? 0) > covered);
         })
         .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else {
       const fetcher = source === 'arb' ? api.getArbTrades() : api.getPredictTrades();
       fetcher
-        .then((d: any) => { if (cancelled) return; setRecords(d.records ?? []); })
+        .then((d: any) => { if (cancelled) return; setRecords((d.records ?? []).sort((a: any, b: any) => sortKey(b) - sortKey(a))); })
         .catch((e) => { if (!cancelled) setError(e?.message ?? 'failed to load trades'); })
         .finally(() => { if (!cancelled) setLoading(false); });
     }
     return () => { cancelled = true; };
-  }, [source, viewMonth]);
+  }, [source]);
+
+  // 載入下一個更早月份(跨月補載,去重 append)
+  const loadMoreMonth = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    if (!summary?.months?.length) { setHasMore(false); return; }
+    const idx = monthIndexRef.current;
+    if (idx >= summary.months.length) { setHasMore(false); return; }
+    const ym = summary.months[idx];
+    setLoadingMore(true);
+    try {
+      const more = await getMonthTrades(ym);
+      setRecords((prev) => {
+        const seen = new Set(prev.map(fp));
+        const added = more.filter((r: any) => !seen.has(fp(r)));
+        const merged = [...prev, ...added].sort((a: any, b: any) => sortKey(b) - sortKey(a));
+        return merged;
+      });
+      setMonthIndex((i) => i + 1);
+    } catch (e: any) {
+      setError(e?.message ?? '載入更早月份失敗');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, summary]);
+
+  // 滾動到底自動載入更早月份(滾動分頁)
+  useEffect(() => {
+    const onScroll = () => {
+      if (!hasMore || loadingMore) return;
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
+      if (nearBottom) loadMoreMonth();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [hasMore, loadingMore, loadMoreMonth]);
+
+  const monthIndexRef = useRef(1);
+  monthIndexRef.current = monthIndex;
 
   // summary.metrics 簡化取用
   const metrics = summary?.metrics ?? null;
@@ -398,8 +449,10 @@ export default function TradesPage() {
       {/* 交易表格 — 當月明細 (rB: 已解耦全量, 顯示 viewMonth 當月) */}
       <Card className="min-h-[300px]">
         <div className="flex items-center justify-between px-4 pt-3 pb-1 border-b border-border/10">
-          <span className="text-sm font-semibold text-text">當月交易 ({viewMonth})</span>
-          <span className="text-xs font-mono text-textSecondary">{loading ? '載入中…' : `${filtered.length} 筆`}</span>
+          <span className="text-sm font-semibold text-text">跨月交易 (最新 {filtered.length} 筆{loading || !hasMore ? '' : ` / ${monthIndex + 1} 個月`})</span>
+          <span className="text-xs font-mono text-textSecondary">
+            {loading ? '載入中…' : loadingMore ? `載入 ${summary?.months?.[monthIndex] ?? ''}…` : ((hasMore && summary?.months?.length) ? summary.months[monthIndex] ? '' : '' : '全部歷史已載入')}
+          </span>
         </div>
         {loading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
@@ -409,7 +462,7 @@ export default function TradesPage() {
             <p className="text-xs font-mono text-textSecondary mt-1 opacity-70 truncate max-w-full">{error}</p>
           </div>
         ) : records.length === 0 ? (
-          <EmptyState title={`${viewMonth} 無交易`} description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "該月份沒有交易記錄，切換其他月份查看。"} />
+          <EmptyState title="暫無交易記錄" description={source === 'arb' ? "Arb bot 尚未成交 (DRY_RUN 或無套利信號)。" : source === 'predict' ? "Predict.fun 15m BTC/ETH 預測市場尚無持倉。" : "尚無交易,等待 bot 抓取。"} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-base font-mono">
@@ -504,6 +557,18 @@ export default function TradesPage() {
                 &gt;
               </button>
             </div>
+          </div>
+        )}
+        {/* 載入更多跨月歷史(滾動到底或點按鈕) */}
+        {(hasMore && records.length > 0 && source === 'bingx') && (
+          <div className="flex items-center justify-center px-4 py-3 border-t border-border/10">
+            <button
+              onClick={loadMoreMonth}
+              disabled={loadingMore}
+              className="px-4 py-2 rounded-md bg-surface hover:bg-surface/80 border border-border/30 text-sm font-mono text-textSecondary hover:text-text disabled:opacity-40 disabled:cursor-wait transition-colors"
+            >
+              {loadingMore ? `載入 ${summary?.months?.[monthIndex] ?? ''}…` : `載入更早月份 (${summary?.months?.[monthIndex] ?? '…'})`}
+            </button>
           </div>
         )}
       </Card>

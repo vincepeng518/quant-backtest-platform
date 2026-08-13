@@ -24,6 +24,7 @@ const ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || '';
 const GITHUB_RAW = 'https://raw.githubusercontent.com/vincepeng518/quant-backtest-platform/master';
 export const tradesSummaryUrl = `${GITHUB_RAW}/trades/summary.json`;
 export const tradesMonthUrl = (ym: string) => `${GITHUB_RAW}/trades/by-month/${ym}.json`;
+export const tradesLatestUrl = `${GITHUB_RAW}/trades/latest_trades.json`;
 
 const _ghCache = new Map<string, any>();
 async function ghFetch(url: string): Promise<any> {
@@ -50,6 +51,12 @@ export async function getTradesSummary(): Promise<any> {
 
 export async function getMonthTrades(ym: string): Promise<any[]> {
   const d = await ghFetch(tradesMonthUrl(ym));
+  if (!d || d._notFound) return [];
+  return Array.isArray(d) ? d : (d?.records ?? []);
+}
+
+export async function getLatestTrades(): Promise<any[]> {
+  const d = await ghFetch(tradesLatestUrl);
   if (!d || d._notFound) return [];
   return Array.isArray(d) ? d : (d?.records ?? []);
 }
