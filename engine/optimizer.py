@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import itertools
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import pickle
+import time
+from concurrent.futures import ProcessPoolExecutor
 from typing import Any, Optional
 
 import numpy as np
@@ -20,11 +22,39 @@ def _to_native(v: Any) -> Any:
     return v
 
 
+def _run_grid_one(args: tuple) -> dict:
+    """頂層 worker(可 pickle): 對單一 param combo 跑一次回測。
+
+    每個 subprocess 收到已 set_data 的 backtester(pickle)、params 與 metric name,
+    獨立跑一次 → 結果與順序完全一致(ProcessPool 安全隔離, 單次速度不變)。
+    """
+    bt, params, metric = args
+    try:
+        bt.strategy.init(params)
+        result = bt.run()
+        metric_val = getattr(result, metric, 0)
+    except Exception:
+        metric_val = 0.0
+    return {"params": params, "score": metric_val, "result": None}
+
+
 class Optimizer:
     def __init__(self, backtester: Backtester, metric: str = "sharpe_ratio", maximize: bool = True) -> None:
         self.backtester = backtester
         self.metric = metric
         self.maximize = maximize
+
+    def _score_one(self, params: dict) -> float:
+        """對單一 params 跑一次回測取 metric(順序執行用)。"""
+        try:
+            st = self.backtester.strategy
+            if st is None:
+                return 0.0
+            st.init(params)
+            r = self.backtester.run()
+            return float(getattr(r, self.metric, 0) or 0)
+        except Exception:
+            return 0.0
 
     def grid_search(self, param_space: dict[str, Any], max_workers: int = 4) -> list[dict[str, Any]]:
         keys = list(param_space.keys())
@@ -37,18 +67,30 @@ class Optimizer:
                 values.append(p["values"])
 
         combos = list(itertools.product(*values))
-        results: list[dict] = []
-        for combo in combos:
-            params = dict(zip(keys, combo))
-            params = {k: _to_native(v) for k, v in params.items()}
+        n = len(combos)
+        t_start = time.perf_counter()
+
+        if n > 1 and max_workers > 1:
             try:
-                self.backtester.strategy.init(params)
-                result = self.backtester.run()
-                metric_val = getattr(result, self.metric, 0)
+                base = pickle.dumps(self.backtester)
+                args = [ (pickle.loads(base), {k: _to_native(v) for k, v in dict(zip(keys, c)).items()}, self.metric) for c in combos ]
+                with ProcessPoolExecutor(max_workers=max_workers) as ex:
+                    results = list(ex.map(_run_grid_one, args))
+                mode = "process_pool"
             except Exception:
-                result = None
-                metric_val = 0.0
-            results.append({"params": params, "score": metric_val, "result": result})
+                # ProcessPool 失敗(如不可 pickle) → 退回順序,結果不變
+                results = [{"params": {k: _to_native(v) for k, v in dict(zip(keys, c)).items()},
+                            "score": self._score_one({k: _to_native(v) for k, v in dict(zip(keys, c)).items()})} for c in combos]
+                mode = "sequential_fallback"
+        else:
+            results = [{"params": {k: _to_native(v) for k, v in dict(zip(keys, c)).items()},
+                        "score": self._score_one({k: _to_native(v) for k, v in dict(zip(keys, c)).items()})} for c in combos]
+            mode = "sequential"
+
+        elapsed = time.perf_counter() - t_start
+        # 每優化一個節點:記錄線程數(process workers)、總耗時。
+        self.last_run = {"workers": max_workers if (n > 1) else 1, "n_combos": n,
+                          "elapsed_sec": round(elapsed, 3), "mode": mode}
 
         results.sort(key=lambda x: x["score"], reverse=self.maximize)
         return results

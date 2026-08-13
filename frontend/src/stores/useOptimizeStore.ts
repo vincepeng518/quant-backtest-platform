@@ -18,6 +18,7 @@ interface OptimizeStore {
   bestScore: number | null;
   grid: any | null;
   trials: { params: Record<string, any>; score: number }[];
+  optimizeMeta: { workers?: number; n_combos?: number; elapsed_sec?: number; mode?: string } | null;
   strategyId: string;
   symbol: string;
   timeframe: string;
@@ -73,6 +74,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
   bestScore: null,
   grid: null,
   trials: [],
+  optimizeMeta: null,
   strategyId: 'ma_cross',
   symbol: 'BTC/USDT',
   timeframe: '1h',
@@ -113,7 +115,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
       makerProbability, forceLimit,
       algorithm, maxTrials,
     } = get();
-    set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] });
+    set({ status: 'running', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [], optimizeMeta: null });
     try {
       const payload: Record<string, any> = {
         strategy_id: strategyId,
@@ -148,7 +150,7 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
           set({ progress: data.status === 'completed' ? 100 : 50 });
           if (data.status === 'completed') {
             clearInterval(poll);
-            set({ status: 'completed', bestParams: data.best_params, bestScore: data.best_score, grid: data.grid, trials: data.trials });
+            set({ status: 'completed', bestParams: data.best_params, bestScore: data.best_score, grid: data.grid, trials: data.trials, optimizeMeta: data.optimize_meta ?? null });
             useToastStore.getState().push({ kind: 'success', title: '優化完成', message: data.best_score != null ? `最佳 Sharpe ${Number(data.best_score).toFixed(2)}` : undefined });
           } else if (data.status === 'error') {
             clearInterval(poll);
@@ -166,5 +168,5 @@ export const useOptimizeStore = create<OptimizeStore>((set, get) => ({
       useToastStore.getState().push({ kind: 'danger', title: '優化失敗', message: e?.message ?? 'failed to start' });
     }
   },
-  reset: () => set({ status: 'idle', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [] }),
+  reset: () => set({ status: 'idle', progress: 0, error: null, bestParams: null, bestScore: null, grid: null, trials: [], optimizeMeta: null }),
 }));

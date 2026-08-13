@@ -184,6 +184,7 @@ export interface OptimizeResult {
   best_score: number;
   trials: { params: Record<string, any>; score: number }[];
   grid: OptimizeGrid | null;
+  optimize_meta?: { workers?: number; n_combos?: number; elapsed_sec?: number; mode?: string } | null;
 }
 
 export interface MonitorStats {
