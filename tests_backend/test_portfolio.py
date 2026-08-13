@@ -41,9 +41,9 @@ check("健康eq無clip警告", not any("≤0 equity" in e for e in pf.errors), f
 check("相關性矩陣有2標的", set(pf.correlation_matrix.keys())=={"X","Y"})
 
 # ── T3: 異常負值防護 ──
-# 3a. 爆倉防護: 單標equity跌破0 → clip到0並記錄
+# 3a. 爆倉防護: 單標equity跌破0 → 爆倉退出組合並記錄
 pf_zero = run_portfolio({"X":[100,50,30,-10,5], "Y":[100,110,120,130,140]})
-check("負equity被clip+記錄", any("≤0 equity" in e for e in pf_zero.errors), f"errors={pf_zero.errors}")
+check("負equity爆倉被記錄", any("爆倉" in e for e in pf_zero.errors), f"errors={pf_zero.errors}")
 # 3b. 負權重對沖被記錄(健康eq)
 random.seed(3)
 wx=[0.002*random.gauss(0,1) for _ in range(120)]; wy=[0.002*random.gauss(0,1) for _ in range(120)]

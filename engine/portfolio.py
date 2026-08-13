@@ -162,15 +162,16 @@ def run_portfolio(
 
     # ⚠️ 異常負值防護: 單標 equity 若 ≤0(標的爆倉/歸零), 截斷到 0(損失 100% 上緣),
     #   避免「負 equity」被帶入組合加權 → 組合被拉成異常負值/回撤>100%。
-    #   記錄被 clip 的標的與點數到 warning(供「異常負值停下回報」)。
+    #   ⚠️ 爆倉標的「退出組合」: 從爆倉 index 起不再參與後續日回報(否則「0→正恢復」會被
+    #      compute_returns 算成爆量正報酬, 虛增組合)。權重在其餘標的重歸一化。
     warning_msgs: List[str] = []
-    clip_warn = []
+    exit_idx: Dict[str, int] = {}   # sym -> 首個 ≤0 equity 的 index 之後退出
     for s, eq in aligned.items():
         le0 = [i for i, v in enumerate(eq) if v <= 0]
         if le0:
-            clip_warn.append(f"{s}: 出現 ≤0 equity({len(le0)}/點) 已截斷為 0(爆倉防護)")
-            aligned[s] = [v if v > 0 else 0.0 for v in eq]
-    warning_msgs = warning_msgs + clip_warn
+            exit_idx[s] = le0[0]
+            warning_msgs.append(f"{s}: 於 index {le0[0]} 爆倉(equity≤0)後退出組合(損失100%防護)")
+            aligned[s] = [v if v > 0 else 0.0 for v in eq]  # clip(單指標的仍顯示歸零)但組合不再用它
 
     # 權重(等權或給定), 負權重=對沖空頭腿, 記錄但不早退
     w = weights or {s: 1.0 / len(symbols) for s in symbols}
@@ -203,7 +204,20 @@ def run_portfolio(
     wsum = sum(norm_w.values())
     if wsum == 0:
         wsum = 1.0
-    port_returns = [sum(norm_w[s] / wsum * returns_by_sym[s][i] for s in symbols) for i in range(n_ret)]
+    # 動態權重: 每天只用「未爆倉」標的(exit_idx 之後標的退出), 其餘重歸一化。
+    # 避免爆倉標的「0→恢復」虛增組合報酬(異常正值防護)。
+    port_returns = []
+    for i in range(n_ret):
+        active = [s for s in symbols if (s not in exit_idx) or (i < exit_idx[s])]
+        if not active:
+            port_returns.append(0.0)
+            continue
+        a_w = {s: norm_w.get(s, 0) for s in active}
+        wsum_a = sum(a_w.values())
+        if wsum_a == 0:
+            port_returns.append(0.0)
+            continue
+        port_returns.append(sum(a_w[s] / wsum_a * returns_by_sym[s][i] for s in active))
     # 組合 equity(從 100 起累乘)
     port_equity = [100.0]
     for r in port_returns:
