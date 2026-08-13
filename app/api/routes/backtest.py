@@ -60,6 +60,16 @@ async def list_history():
             "total_trades": m.get("total_trades"),
             "quality_score": m.get("quality_score"),
             "quality_grade": m.get("quality_grade"),
+            # T3: 帶入完整 config(供「複製參數」填表單)
+            "config": {
+                "strategy": cfg.get("strategy") if isinstance(cfg.get("strategy"), dict) else {"template_id": strat},
+                "symbol": cfg.get("symbol"),
+                "timeframe": cfg.get("timeframe"),
+                "start_date": cfg.get("start_date", ""),
+                "end_date": cfg.get("end_date", ""),
+                "initial_capital": cfg.get("initial_capital", 100000),
+                "commission": cfg.get("commission", 0.001),
+            },
         })
     return items
 
