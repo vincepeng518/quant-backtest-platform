@@ -211,6 +211,8 @@ export default function TradesPage() {
 
   // summary.metrics 簡化取用
   const metrics = summary?.metrics ?? null;
+  // 全歷史靜態總筆數:直接讀 summary.json(不依賴歷史分批載入)
+  const totalRecordCount = summary?.total_records ?? null;
   // 手續費 = summary 全期費用
   const feesTotal = summary?.totals?.fees_total ?? null;
 
@@ -371,9 +373,10 @@ export default function TradesPage() {
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-xs text-textSecondary font-mono mb-1">勝率 / 筆數</p>
+              <p className="text-xs text-textSecondary font-mono mb-1">勝率</p>
               <p className="text-xl font-mono font-semibold text-text">{fmt(stats.winRate, 1)}%</p>
               <p className="text-xs text-textSecondary font-mono">{stats.wins}W / {stats.losses}L / {stats.scr}平</p>
+              <p className="text-[11px] text-textSecondary font-mono mt-0.5">全歷史總計 <span className="text-text font-semibold">{totalRecordCount}</span> 筆</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-textSecondary font-mono mb-1">平均盈虧</p>
