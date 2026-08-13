@@ -49,7 +49,7 @@ export default function OptimizePage() {
 
 function OptimizeView() {
   const {
-    status, progress, error, bestParams, bestScore, grid, trials,
+    status, progress, error, bestParams, bestScore, grid, trials, optimizeMeta,
     strategyId, symbol, timeframe, source, paramSpace,
     enableFunding, fundingInterval, fundingRate,
     enablePerp, leverage, maintMargin,
@@ -261,6 +261,14 @@ function OptimizeView() {
               ...Object.entries(bestParams).map(([k, v]) => ({ label: k, value: String(v) })),
             ]}
           />
+          {optimizeMeta && (
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-mono text-textSecondary">
+              <span className="rounded bg-surface px-2 py-1">線程: {optimizeMeta.workers ?? '—'}</span>
+              <span className="rounded bg-surface px-2 py-1">組合數: {optimizeMeta.n_combos ?? '—'}</span>
+              <span className="rounded bg-surface px-2 py-1">總耗時: {optimizeMeta.elapsed_sec != null ? `${optimizeMeta.elapsed_sec}s` : '—'}</span>
+              <span className="rounded bg-surface px-2 py-1">模式: {optimizeMeta.mode ?? '—'}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="space-y-4">

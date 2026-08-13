@@ -122,6 +122,7 @@ class OptimizeService:
                 "best_score": results[0]["score"] if results else 0.0,
                 "trials": [{"params": r["params"], "score": r["score"]} for r in results[:10]],
                 "grid": grid,
+                "optimize_meta": getattr(opt, "last_run", None),  # 線程數/總耗時/模式
             }
             # P-improve: record optimization as experiment (Qlib-style Recorder)
             try:
