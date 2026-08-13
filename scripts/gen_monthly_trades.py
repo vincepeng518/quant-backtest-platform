@@ -1,14 +1,13 @@
 """
 Generate per-month trade JSON files: trades/by-month/YYYY-MM.json
 ===============================================================
-來源:後端 `_load_all_trades` 合併後的權威快照(全量去重)。
-做法:按 records 的 `ts` 切分到對應月份,並套用後端 `_enrich` 同款欄位
-      (symbol 簡化 / qty / notional / fee / closeTime / holdDuration)。
+來源:複刻後端 `_load_all_trades` 合併邏輯:
+  - 最新快照(含最近 OPEN + 新平倉)
+  - + 2 個全量舊快照(歷史全量)
+  按 records `ts` 切分到對應月份,套用後端同款 `_enrich` 欄位。
 
-輸出:寫入 trades/by-month/YYYY-MM.json,每檔含該月 records。
-      commit 由外部處理(push 前請先 git add)。
-
-用法: python3 scripts/gen_monthly_trades.py
+輸出: trades/by-month/YYYY-MM.json
+用法: python3 scripts/gen_monthly_trades.py   (產生後 commit+push)
 """
 from __future__ import annotations
 import json
@@ -16,10 +15,17 @@ import os
 import re as _re
 import collections
 import datetime
+import glob
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SNAPSHOT = os.path.join(REPO_ROOT, "trades", "trades_20260731_065042.json")
 OUT_DIR = os.path.join(REPO_ROOT, "trades", "by-month")
+TRADES_DIR = os.path.join(REPO_ROOT, "trades")
+
+# 全量舊快照(歷史全量,補充早期交易)
+FULL_SNAPSHOTS = [
+    "trades_20260731_065042.json",
+    "trades_20260728_062541.json",
+]
 
 
 def norm_sym(sym):
@@ -53,24 +59,54 @@ def enrich(rec, snap_name):
     return rec
 
 
-def main():
-    with open(SNAPSHOT, "r", encoding="utf-8") as f:
-        snap = json.load(f)
-    raw_records = snap.get("records", [])
+def _fingerprint(r):
+    if r.get("status") == "OPEN":
+        return ("OPEN", r.get("symbol"), r.get("side"), r.get("avgPrice"), r.get("positionAmt"))
+    return ("CLOSED", r.get("symbol"), r.get("side"), r.get("open_order_id"),
+            r.get("close_order_id"), r.get("realizedProfit"))
 
-    # 去重(與後端同款 fingerprint)
+
+def latest_snapshot_name():
+    """最新快照 = 最新的 trades_*.json(mtime)。"""
+    cands = [f for f in glob.glob(os.path.join(TRADES_DIR, "trades_*.json"))
+             if "by-month" not in f]
+    if not cands:
+        return None
+    cands.sort(key=os.path.getmtime, reverse=True)
+    return os.path.basename(cands[0])
+
+
+def main():
+    latest = latest_snapshot_name()
+    if not latest:
+        print("找不到任何 trades 快照"); return
+
     seen = set()
     records = []
-    for r in raw_records:
-        if r.get("status") == "OPEN":
-            fp = ("OPEN", r.get("symbol"), r.get("side"), r.get("avgPrice"), r.get("positionAmt"))
-        else:
-            fp = ("CLOSED", r.get("symbol"), r.get("side"), r.get("open_order_id"),
-                  r.get("close_order_id"), r.get("realizedProfit"))
+
+    # 1) 最新快照(主)
+    with open(os.path.join(TRADES_DIR, latest), "r", encoding="utf-8") as f:
+        snap = json.load(f)
+    for r in snap.get("records", []):
+        fp = _fingerprint(r)
         if fp in seen:
             continue
         seen.add(fp)
-        records.append(enrich(r, os.path.basename(SNAPSHOT)))
+        records.append(enrich(r, latest))
+
+    # 2) 全量舊快照補歷史
+    for fn in FULL_SNAPSHOTS:
+        p = os.path.join(TRADES_DIR, fn)
+        if fn == latest or not os.path.exists(p):
+            continue
+        with open(p, "r", encoding="utf-8") as f:
+            old = json.load(f)
+        for r in old.get("records", []):
+            fp = _fingerprint(r)
+            if fp in seen:
+                continue
+            seen.add(fp)
+            records.append(enrich(r, fn))
 
     # 切分月份
     by_month = collections.OrderedDict()
@@ -80,8 +116,6 @@ def main():
             continue
         m = datetime.datetime.utcfromtimestamp(ts / 1000).strftime("%Y-%m")
         by_month.setdefault(m, []).append(r)
-
-    # 排序(新股在上,與後端一致 ts desc)
     for m in by_month:
         by_month[m].sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
 
@@ -89,23 +123,16 @@ def main():
     report = []
     for m in sorted(by_month):
         recs = by_month[m]
-        payload = {
-            "month": m,
-            "source": "github-trades/by-month",
-            "generated_from": os.path.basename(SNAPSHOT),
-            "count": len(recs),
-            "records": recs,
-        }
+        payload = {"month": m, "source": "github-trades/by-month",
+                   "generated_from": latest, "count": len(recs), "records": recs}
         path = os.path.join(OUT_DIR, f"{m}.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-        kb = os.path.getsize(path) / 1024
-        report.append((m, len(recs), kb))
+        report.append((m, len(recs), os.path.getsize(path) / 1024))
 
-    print("已生成月份檔:")
+    print(f"[來源: {latest}] 已生成月份檔(共 {len(report)} 個月):")
     for m, n, kb in report:
         print(f"  {m}: {n} 筆, {kb:.0f} KB")
-    print(f"共 {len(report)} 個月份檔, 寫入 {OUT_DIR}")
 
 
 if __name__ == "__main__":
