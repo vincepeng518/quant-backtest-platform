@@ -125,7 +125,7 @@ class OptimizeService:
                 "status": "completed",
                 "best_params": results[0]["params"] if results else {},
                 "best_score": results[0]["score"] if results else 0.0,
-                "trials": [{"params": r["params"], "score": r["score"]} for r in results[:10]],
+                "trials": [{"params": r["params"], "score": r["score"], "sortino": r.get("sortino"), "calmar": r.get("calmar")} for r in results[:10]],
                 "grid": grid,
                 "optimize_meta": getattr(opt, "last_run", None),  # 線程數/總耗時/模式
             }
