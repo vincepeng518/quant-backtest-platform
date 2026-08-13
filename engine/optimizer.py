@@ -33,9 +33,26 @@ def _run_grid_one(args: tuple) -> dict:
         bt.strategy.init(params)
         result = bt.run()
         metric_val = getattr(result, metric, 0)
+        # T5: 附帶 Sortino/Calmar(不影響單次速度)
+        sc = getattr(result, "sortino_ratio", None)
+        cm = getattr(result, "calmar_ratio", None)
     except Exception:
         metric_val = 0.0
-    return {"params": params, "score": metric_val, "result": None}
+        sc = cm = 0.0
+    return {"params": params, "score": metric_val, "sortino": sc, "calmar": cm}
+
+def _score_one_multi(bt, params, metric) -> dict:
+    """對單一 params 跑一次回測取 score+sortino+calmar(順序執行用)。"""
+    try:
+        st = bt.strategy
+        if st is None:
+            return {"params": params, "score": 0.0, "sortino": 0.0, "calmar": 0.0}
+        st.init(params)
+        r = bt.run()
+        return {"params": params, "score": float(getattr(r, metric, 0) or 0),
+                "sortino": getattr(r, "sortino_ratio", 0.0), "calmar": getattr(r, "calmar_ratio", 0.0)}
+    except Exception:
+        return {"params": params, "score": 0.0, "sortino": 0.0, "calmar": 0.0}
 
 
 class Optimizer:
@@ -79,12 +96,10 @@ class Optimizer:
                 mode = "process_pool"
             except Exception:
                 # ProcessPool 失敗(如不可 pickle) → 退回順序,結果不變
-                results = [{"params": {k: _to_native(v) for k, v in dict(zip(keys, c)).items()},
-                            "score": self._score_one({k: _to_native(v) for k, v in dict(zip(keys, c)).items()})} for c in combos]
+                results = [_score_one_multi(self.backtester, {k: _to_native(v) for k, v in dict(zip(keys, c)).items()}, self.metric) for c in combos]
                 mode = "sequential_fallback"
         else:
-            results = [{"params": {k: _to_native(v) for k, v in dict(zip(keys, c)).items()},
-                        "score": self._score_one({k: _to_native(v) for k, v in dict(zip(keys, c)).items()})} for c in combos]
+            results = [_score_one_multi(self.backtester, {k: _to_native(v) for k, v in dict(zip(keys, c)).items()}, self.metric) for c in combos]
             mode = "sequential"
 
         elapsed = time.perf_counter() - t_start

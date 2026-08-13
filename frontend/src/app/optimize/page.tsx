@@ -261,6 +261,13 @@ function OptimizeView() {
               ...Object.entries(bestParams).map(([k, v]) => ({ label: k, value: String(v) })),
             ]}
           />
+          {/* T5: Sortino / Calmar(取最佳 trial) */}
+          {trials && trials[0] && (
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px] font-mono text-textSecondary">
+              <span className="rounded bg-surface px-2 py-1">Sortino: {(trials[0] as any).sortino != null ? Number((trials[0] as any).sortino).toFixed(2) : '—'}</span>
+              <span className="rounded bg-surface px-2 py-1">Calmar: {(trials[0] as any).calmar != null ? Number((trials[0] as any).calmar).toFixed(2) : '—'}</span>
+            </div>
+          )}
           {optimizeMeta && (
             <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-mono text-textSecondary">
               <span className="rounded bg-surface px-2 py-1">線程: {optimizeMeta.workers ?? '—'}</span>
