@@ -14,6 +14,8 @@ interface SymbolSearchProps {
 
 const FAV_KEY = 'fav_symbols';
 const SECTORS: string[] = ['fx', 'metal', 'energy', 'index', 'stock', '其他', '收藏'];
+// 熱門標的: 每分類在「未輸入關鍵字」時預設帶出的前 N 個(順序=該類別熱門排序)。
+const HOT_N = 8;
 
 export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   label,
@@ -25,6 +27,7 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<string>('主流');
+  const [showAll, setShowAll] = useState(false);
   const [favs, setFavs] = useState<string[]>([]);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -75,8 +78,10 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
 
     if (q) pool = pool.filter((s) => s.symbol.includes(q));
     const uniq = Array.from(new Set(pool.map((p) => p.symbol))).map((sym) => pool.find((p) => p.symbol === sym)!);
-    return uniq.slice(0, 80);
-  }, [allSyms, tab, q, favs]);
+    // 未輸入關鍵字 + 非收藏 → 顯示該類別「熱門」前 HOT_N(順序=類別熱門排序); 有 q 或 showAll → 完整過濾
+    const sliced = (!q && tab !== '收藏' && !showAll) ? uniq.slice(0, HOT_N) : uniq;
+    return sliced.slice(0, 80);
+  }, [allSyms, tab, q, favs, showAll]);
 
   const commit = (sym: string) => {
     const s = sym.trim().toUpperCase();
@@ -119,7 +124,7 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setTab(s)}
+                  onClick={() => { setTab(s); setShowAll(false); setQuery(''); }}
                   className={clsx(
                     'rounded px-2 py-0.5 text-xs',
                     tab === s ? 'bg-accent text-white' : 'text-textSecondary hover:bg-accent/10'
@@ -168,6 +173,16 @@ export const SymbolSearch: React.FC<SymbolSearchProps> = ({
                     </button>
                   </div>
                 ))
+              )}
+              {/* 熱門/全部切換（未輸入關鍵字 + 非收藏）+ 各類別熱門標的提示 */}
+              {!q && tab !== '收藏' && allSyms.filter((s) => (tab === '其他' ? (!s.category || s.category === '其他') : (s.category || '其他') === tab)).length > HOT_N && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll((v) => !v)}
+                  className="block w-full px-3 py-2 text-center text-[11px] font-mono text-textSecondary hover:bg-accent/10 hover:text-text transition-colors"
+                >
+                  {showAll ? `▲ 只看熱門 ${HOT_N} 個` : `▼ 顯示全部（該類別 ${allSyms.filter((s) => (tab === '其他' ? (!s.category || s.category === '其他') : (s.category || '其他') === tab)).length} 個）`}
+                </button>
               )}
             </div>
           </div>

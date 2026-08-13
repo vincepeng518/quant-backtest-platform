@@ -707,6 +707,25 @@ function BacktestView() {
             逗號或空白分隔 · 共用當前策略參數
           </span>
         </div>
+        {/* 一鍵載入常用對沖組合 */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-mono text-textSecondary">常用對沖組合：</span>
+          {[
+            { name: '主流', syms: 'BTC/USDT, ETH/USDT, SOL/USDT' },
+            { name: '主+低相關', syms: 'BTC/USDT, ETH/USDT, XRP/USDT, ADA/USDT' },
+            { name: '高波動', syms: 'SOL/USDT, DOGE/USDT, AVAX/USDT' },
+          ].map((p) => (
+            <button
+              key={p.name}
+              type="button"
+              onClick={() => setBatchInput(p.syms)}
+              className="rounded-md border border-accent/30 px-2.5 py-1 text-xs font-mono text-accent hover:bg-accent/10 transition-colors"
+              title={`載入 ${p.syms}`}
+            >
+              載入 {p.name}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             label="Symbols"
