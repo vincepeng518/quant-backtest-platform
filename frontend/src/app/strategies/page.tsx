@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { PageShell } from '@/components/layout/PageShell';
 import { useToastStore } from '@/stores/useToastStore';
+import PythonCodeEditor from '@/components/ui/PythonCodeEditor';
 
 interface UserMeta {
   id: string;
@@ -322,10 +323,11 @@ export default function StrategiesPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
-            <textarea
-              className="w-full h-72 bg-background border border-border/10 rounded-md px-3 py-2 text-xs font-mono text-text"
+            <PythonCodeEditor
               value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              onChange={(text) => setForm({ ...form, code: text })}
+              heightCls="h-72"
+              className="w-full"
             />
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowUpload(false)} className="text-sm text-textSecondary px-4 py-2">取消</button>
