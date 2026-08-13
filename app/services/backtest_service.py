@@ -51,7 +51,7 @@ class BacktestService:
         task_id = create_task_id()
         # 先註冊 task (running), 再載資料 — 否則 BingX 慢速拉資料期間
         # 輪詢 /results/{task_id} 會 404 (task 尚未寫入 _backtest_tasks)
-        _backtest_tasks[task_id] = {"status": "running", "backtester": None, "config": config}
+        _backtest_tasks[task_id] = {"status": "running", "backtester": None, "config": config, "stage": "loading"}
 
         async def _fail(msg: str) -> dict:
             _backtest_tasks[task_id] = {"status": "error", "error": msg, "backtester": None, "config": config}
@@ -187,7 +187,27 @@ class BacktestService:
         task = _backtest_tasks.get(task_id)
         if not task:
             return {"task_id": task_id, "status": "error", "error": "Not found"}
-        return {"task_id": task_id, "status": task["status"], "progress": 50.0 if task["status"] == "running" else 100.0}
+        status = task.get("status", "error")
+        stage = task.get("stage", "completed" if status == "completed" else "loading")
+        # 三階段進度:loading 0-33 / backtesting 34-66 / finalizing 67-99 / completed 100
+        progress = {
+            "completed": 100.0,
+            "cancelled": -1.0,
+            "error": 100.0,
+        }.get(status)
+        if progress is None:
+            progress = {"loading": 20.0, "backtesting": 50.0, "finalizing": 85.0}.get(stage, 50.0)
+        return {"task_id": task_id, "status": status, "stage": stage, "progress": progress}
+
+    def cancel(self, task_id: str) -> dict:
+        task = _backtest_tasks.get(task_id)
+        if not task:
+            return {"task_id": task_id, "status": "error", "error": "Not found"}
+        bt = task.get("backtester")
+        if bt is not None and hasattr(bt, "request_cancel"):
+            bt.request_cancel()  # run() 下個檢查點中斷
+        task["cancel_requested"] = True
+        return {"task_id": task_id, "status": "cancelling"}
 
     def get_results(self, task_id: str) -> dict:
         task = _backtest_tasks.get(task_id)

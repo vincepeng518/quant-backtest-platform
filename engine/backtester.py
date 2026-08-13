@@ -127,6 +127,14 @@ class Backtester:
             raise ValueError(f"Data must contain columns: {required}")
         self.data = data.sort_values("timestamp").reset_index(drop=True)
 
+    # ── 中斷支援(僅供 T2 中斷按鈕;預設關閉,不影響既有回測) ──
+    _cancel_requested = False
+    _cancelled = False
+
+    def request_cancel(self) -> None:
+        """要求中斷:run() 主迴圈每 CHUNK bar 檢查,收到後提前結束(回 partial)。"""
+        self._cancel_requested = True
+
     # ── 重構：將 fees/slippage/size 閉包提升為實例方法 ──
     def _fee_for(self, order_type: str, is_maker: bool, notional: float = 0.0, action: str = "") -> float:
         if self.market_engine is not None:
@@ -309,6 +317,10 @@ class Backtester:
                     _close_position(oco_tp, bar, bar_index, reason="take_profit")
 
         for i, (_, row) in enumerate(self.data.iterrows()):
+            # 中斷檢查(每 200 bar;預設 _cancel_requested=False 零額外開銷)
+            if (i & 199) == 0 and self._cancel_requested:
+                self._cancelled = True
+                break
             bar = Bar(
                 timestamp=row["timestamp"],
                 open=row["open"],
