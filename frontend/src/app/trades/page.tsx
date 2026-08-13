@@ -209,16 +209,6 @@ export default function TradesPage() {
   const monthIndexRef = useRef(1);
   monthIndexRef.current = monthIndex;
 
-  // 跨月序列實際涵蓋的月份數(供表格標題)
-  const coveredMonthCount = useMemo(() => {
-    const s = new Set<string>();
-    for (const r of records) {
-      const t = sortKey(r);
-      if (t) s.add(new Date(t).toISOString().slice(0, 7));
-    }
-    return s.size;
-  }, [records]);
-
   // summary.metrics 簡化取用
   const metrics = summary?.metrics ?? null;
   // 手續費 = summary 全期費用
@@ -244,6 +234,17 @@ export default function TradesPage() {
     const t = r.ts ?? 0;
     return t > 0 ? t : snapTs(r);
   };
+
+  // 跨月序列實際涵蓋的月份數(供表格標題)——放 sortKey 之後,避免 const TDZ
+  const coveredMonthCount = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of records) {
+      const t = Number(r.ts ?? 0);
+      if (t > 0) s.add(new Date(t).toISOString().slice(0, 7));
+    }
+    return s.size;
+  }, [records]);
+
   const filtered = useMemo(() => {
     let list = records;
     if (range !== 'all') {
