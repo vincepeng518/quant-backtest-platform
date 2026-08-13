@@ -56,11 +56,16 @@ class PortfolioRunRequest(BaseModel):
 
 @router.post("/run")
 async def run_portfolio(req: PortfolioRunRequest):
+    from fastapi.responses import JSONResponse
     from app.services.portfolio_service import run_portfolio_backtest
     try:
         result = await run_portfolio_backtest(req.model_dump())
     except HTTPException:
         raise
     except Exception as e:
-        return {"status": "error", "error": f"組合回測執行失敗: {e}"}
-    return result
+        result = {"status": "error", "error": f"組合回測執行失敗: {e}"}
+    # 明確 no-store, 防止 Vercel/瀏覽器對 POST 響應做快取(舊instance值殘留問題)
+    return JSONResponse(content=result, headers={
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        "Pragma": "no-cache",
+    })
