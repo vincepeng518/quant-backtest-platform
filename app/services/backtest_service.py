@@ -33,6 +33,11 @@ class BacktestService:
         self.data_service = DataService()
 
     async def run(self, config: dict[str, Any]) -> dict:
+        # P1-validate: 數值邊界防護(NaN/Inf/capital<=0/超出範圍) → 攔截
+        from app.services.validation import validate_financial_inputs
+        verr = validate_financial_inputs(config)
+        if verr:
+            return {"task_id": None, "status": "error", "error": f"輸入邊界攔截: {verr}"}
         # Cap concurrent running tasks to prevent cascading 502s under
         # concurrent storm. Single-worker in-memory store + Railway's 8GB
         # node can't handle 50+ parallel backtests.

@@ -25,6 +25,11 @@ class OptimizeService:
         )
 
     async def run(self, config: dict[str, Any]) -> dict:
+        # 數值邊界防護
+        from app.services.validation import validate_financial_inputs
+        verr = validate_financial_inputs(config)
+        if verr:
+            return {"task_id": None, "status": "error", "error": f"輸入邊界攔截: {verr}"}
         task_id = create_task_id()
         _optimize_tasks[task_id] = {"status": "running"}
         asyncio.create_task(self._execute(task_id, config))
