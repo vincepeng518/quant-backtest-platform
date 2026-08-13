@@ -175,6 +175,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
+  runPortfolio: (config: any) =>
+    request<any>('/portfolio/run', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
   applyBestParams: () =>
     request<{ applied: boolean }>('/optimize/best-params', {
       method: 'POST',
