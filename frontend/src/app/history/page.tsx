@@ -18,6 +18,7 @@ interface HistoryItem {
   timeframe: string;
   sharpe: number;
   total_trades: number;
+  config?: { strategy?: { template_id?: string; params?: Record<string, any> }; symbol?: string; timeframe?: string; start_date?: string; end_date?: string };
 }
 
 type SortKey = 'date' | 'sharpe' | 'trades';
@@ -168,6 +169,28 @@ export default function HistoryPage() {
                       {it.sharpe != null ? it.sharpe.toFixed(3) : '—'}
                     </p>
                     <p className="w-20 text-xs text-textSecondary font-mono">{it.total_trades ?? 0}</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const c = (it as any).config;
+                        if (c) {
+                          try {
+                            localStorage.setItem('copyBacktestConfig', JSON.stringify({
+                              strategy: c.strategy?.template_id ?? it.strategy,
+                              symbol: c.symbol ?? it.symbol,
+                              timeframe: c.timeframe ?? it.timeframe,
+                              params: c.strategy?.params ?? {},
+                              start_date: c.start_date ?? '',
+                              end_date: c.end_date ?? '',
+                            }));
+                            router.push('/backtest?copy=1');
+                          } catch { /* ignore */ }
+                        }
+                      }}
+                      className="rounded border border-accent/30 px-2 py-1 text-xs font-mono text-accent hover:bg-accent/10 transition-colors"
+                    >
+                      複製參數
+                    </button>
                   </div>
                 </button>
               ))}

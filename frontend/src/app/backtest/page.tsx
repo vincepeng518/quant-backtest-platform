@@ -201,6 +201,32 @@ function BacktestView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates, userStrategies]);
 
+  // T3: 從歷史紀錄「複製參數」載入 — /backtest?copy=1 → localStorage.copyBacktestConfig
+  useEffect(() => {
+    if (searchParams.get('copy') === '1') {
+      try {
+        const raw = localStorage.getItem('copyBacktestConfig');
+        if (raw) {
+          const c = JSON.parse(raw) as { strategy?: string; symbol?: string; timeframe?: string; params?: Record<string, any>; start_date?: string; end_date?: string };
+          if (c.symbol) setSymbol(c.symbol);
+          if (c.timeframe) setTimeframe(c.timeframe);
+          if (c.start_date) setStartDate(c.start_date);
+          if (c.end_date) setEndDate(c.end_date);
+          if (c.strategy) setSelectedStrategy(c.strategy);
+          if (c.params && Object.keys(c.params).length) {
+            setParamValues((prev) => {
+              const merged = { ...prev };
+              Object.entries(c.params as Record<string, any>).forEach(([k, v]) => { merged[k] = typeof v === 'number' ? v : Number(v); });
+              return merged;
+            });
+          }
+          localStorage.removeItem('copyBacktestConfig');
+        }
+      } catch { /* ignore malformed */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const buildDefaults = (t?: StrategyTemplate): Record<string, any> => {
     const d: Record<string, any> = {};
     const params = (t?.params as unknown as ParamSpec[]) || [];
