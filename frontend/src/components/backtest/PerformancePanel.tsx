@@ -193,7 +193,9 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const [tab, setTab] = useState<TabId>('overview');
 
   const m = metrics as any;
-  const netProfit = Number(m.net_profit ?? 0);
+  // 損益金額來源:後端沒有 net_profit 欄位,用 total_pnl(真實平倉盈虧)避免恆顯示 0 與%號不符。
+  const netProfit = Number(m.total_pnl ?? (m.net_profit ?? 0));
+  const currency = 'USDT'; // 幣種標示
   const totalReturnPct = Number(m.total_return_pct ?? 0);
   const annualReturnPct = Number(m.annual_return_pct ?? 0);
   const maxDdPct = Number(m.max_drawdown_pct ?? 0);
@@ -264,7 +266,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
 
   // ── TV Strategy Tester tabs ──
   const overviewRows: StatRow[] = [
-    { label: '總損益', en: 'Net Profit', value: safeSigned(netProfit), sub: safePct(totalReturnPct), color: netProfit >= 0 ? 'pos' : 'neg', tip: '所有平倉交易盈虧總和（= 期末權益 − 初始資金）' },
+    { label: '總損益', en: 'Net Profit', value: `${safeSigned(netProfit)} ${currency}`, sub: safePct(totalReturnPct), color: netProfit >= 0 ? 'pos' : 'neg', tip: '所有平倉交易盈虧總和（= 期末權益 − 初始資金）' },
     { label: '最大回撤', en: 'Max Drawdown', value: safeFmt(maxDdAmount), sub: safePct(maxDdPct, { signed: false }), color: 'neg', tip: '權益曲線從歷史峰值到谷值的最大跌幅' },
     { label: '總交易數', en: 'Total Trades', value: safeInt(totalTrades), sub: `${safeInt(winningTrades)}W/${safeInt(losingTrades)}L`, color: 'neutral', tip: '測試區間內產生的所有交易' },
     { label: '勝率', en: 'Percent Profitable', value: safePct(winRate, { signed: false }), color: winRate >= 50 ? 'pos' : 'neutral', tip: '獲利交易數 / 總交易數' },
