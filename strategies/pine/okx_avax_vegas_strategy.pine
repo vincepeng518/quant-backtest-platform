@@ -4,11 +4,12 @@
 // 回測(AVAX 4h 2022-2026): 月化~3.6% 回撤~-19% 勝率23%
 // 用法: 貼 Pine Editor → Add to chart (AVAX 4h) → 設 Alert 選此策略
 //       Alert Msg 用 OKX 官方 JSON 格式 (見 OKX help 頁面)
+// 2026-08-14 更新: 資金利用率調降 default_qty_value 30%→10% (一帳戶可多跑幾個策略)
 
 //@version=6
 strategy("OKX AVAX Vegas 通道", shorttitle="AVAXVegas", overlay=true,
      initial_capital=150, default_qty_type=strategy.percent_of_equity,
-     default_qty_value=30, pyramiding=0, commission_type=strategy.commission.percent,
+     default_qty_value=10, pyramiding=0, commission_type=strategy.commission.percent,
      commission_value=0.05)
 
 tunA = input.int(144, "快隧道 EMA")
