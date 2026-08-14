@@ -20,6 +20,7 @@ interface Props {
   initialCapital: number;
   showBuyHold: boolean;
   showSpread?: boolean;
+  currency?: string; // 幣種標示(USDT/USD),圖表 Initial 標籤連動
   theme?: 'light' | 'dark';
 }
 
@@ -32,7 +33,7 @@ const toU = (v: any): number => {
 
 export const EquityPnlChart: React.FC<Props> = ({
   equity, buyHold = [], trades = [], initialCapital,
-  showBuyHold, theme = 'dark',
+  showBuyHold, currency = 'USDT', theme = 'dark',
 }) => {
   const [isFS, setFS] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,7 +137,7 @@ export const EquityPnlChart: React.FC<Props> = ({
     const initVal = showPct ? 0 : initialCapital;
     eqLine.createPriceLine({
       price: initVal, color: BH_GRAY, lineWidth: 1, lineStyle: 2,
-      axisLabelVisible: true, title: showPct ? '0%' : 'Initial',
+      axisLabelVisible: true, title: showPct ? '0%' : `Initial (${currency})`,
     });
 
     // Peak/trough markers

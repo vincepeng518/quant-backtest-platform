@@ -21,7 +21,7 @@ import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
 import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
 import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
 import { RealismPanel } from '@/components/realism/RealismPanel';
-import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fmtProfitFactor, TV_UP, TV_DOWN, TV_STRATEGY } from '@/lib/format';
+import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fmtProfitFactor, TV_UP, TV_DOWN, TV_STRATEGY, currencyOf } from '@/lib/format';
 
 // Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
 // Robust to both backend shapes so the chart markers survive format changes.
@@ -516,6 +516,9 @@ function BacktestView() {
   }));
   const strategyOptions = [...builtinOptions, ...userOptions];
 
+  // 全介面幣種單位(Asset Class → USDT/USD)連動
+  const unit = currencyOf(market);
+
   return (
     <PageShell
       eyebrow="Backtest / workflow"
@@ -927,6 +930,7 @@ function BacktestView() {
               trades={results.trades}
               positionStatus={results.position_status}
               initialCapital={Number(results.config?.initial_capital ?? 100000)}
+              currency={unit}
               onSelectTrade={setSelectedTrade}
             />
           </Card>
@@ -987,7 +991,7 @@ function BacktestView() {
                         className="px-6 py-3 text-right cursor-pointer select-none hover:text-text"
                         onClick={() => toggleSort('pnl')}
                       >
-                        PnL {sortIndicator('pnl')}
+                        PnL ({unit}) {sortIndicator('pnl')}
                       </th>
                       <th className="px-6 py-3 text-right">PnL %</th>
                       <th className="px-6 py-3">Exit Reason</th>

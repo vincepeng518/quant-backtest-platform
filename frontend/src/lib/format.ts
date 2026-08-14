@@ -81,6 +81,10 @@ export const safeSigned = (n: number | null | undefined, decimals = 2): string =
   return body; // already has '-' if negative
 };
 
+/** 資產類別 → 結算幣種。Crypto → USDT;Equity/Forex → USD(全介面單位標記連動)。 */
+export const currencyOf = (market?: string): string =>
+  market === 'crypto' ? 'USDT' : 'USD';
+
 export const safeInt = (n: number | null | undefined): string => {
   if (n == null || Number.isNaN(n)) return '—';
   if (!Number.isFinite(n)) return '∞';
