@@ -17,6 +17,7 @@ interface PerformancePanelProps {
   trades?: TradeRecord[];
   positionStatus?: PositionStatusPoint[];
   initialCapital: number;
+  currency?: string; // 結算幣種(USDT/USD),由 Asset Class 決定,全介面單位連動
   onSelectTrade?: (trade: TradeRecord | null) => void;
 }
 
@@ -187,6 +188,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   trades = [],
   positionStatus = [],
   initialCapital,
+  currency = 'USDT',
   onSelectTrade,
 }) => {
   const [showBuyHold, setShowBuyHold] = useState(false);
@@ -195,7 +197,6 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
   const m = metrics as any;
   // 損益金額來源:後端沒有 net_profit 欄位,用 total_pnl(真實平倉盈虧)避免恆顯示 0 與%號不符。
   const netProfit = Number(m.total_pnl ?? (m.net_profit ?? 0));
-  const currency = 'USDT'; // 幣種標示
   const totalReturnPct = Number(m.total_return_pct ?? 0);
   const annualReturnPct = Number(m.annual_return_pct ?? 0);
   const maxDdPct = Number(m.max_drawdown_pct ?? 0);
@@ -389,6 +390,7 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
         trades={trades}
         initialCapital={initialCapital}
         showBuyHold={showBuyHold}
+        currency={currency}
       />
 
       {/* ── Tab bar (TV Strategy Tester) ── */}
