@@ -69,14 +69,15 @@ class SimulatedExchange:
 
 
 class RealtimeKlineFeed:
-    """BingX swap 實時 kline 訂閱流(含自動重連)。"""
+    """BingX swap 實時 kline 訂閱流(含自動重連 + 可選 callback 推送)。"""
 
     def __init__(self, symbol: str = "BTC-USDT", timeframe: str = "1m",
-                 url: str = BINGX_SWAP_WS) -> None:
+                 url: str = BINGX_SWAP_WS, on_kline=None) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
         self.url = url
         self.ex = SimulatedExchange()
+        self.on_kline_cb = on_kline  # async callback(kline dict) 或 None
         self.last_kline: Optional[dict] = None
         self.connected = False
         self.disconnect_logs: List[str] = []
@@ -139,10 +140,22 @@ class RealtimeKlineFeed:
         if not kline_data:
             return
         rec = {"s": msg.get("s") or self.symbol, "c": kline_data[0].get("c")}
-        self.ex.on_kline(rec)
+        match = self.ex.on_kline(rec)
         self.last_kline = rec
         async with self._buf_lock:
-            self.buf.append({**rec, "ts": kline_data[0].get("T")})
+            self.buf.append({**rec, "ts": kline_data[0].get("T"), "latency_ms": match["latency_ms"]})
+        # 推送給外部(WebSocket 端點):kline + 模擬撮合延遲 + 連線狀態
+        if self.on_kline_cb is not None:
+            try:
+                await self.on_kline_cb({
+                    "symbol": rec["s"], "close": rec["c"],
+                    "ts": kline_data[0].get("T"),
+                    "latency_ms": match["latency_ms"],
+                    "connected": self.connected,
+                    "matches_total": len(self.ex.matches),
+                })
+            except Exception:
+                pass
 
     async def close(self) -> None:
         self.connected = False
