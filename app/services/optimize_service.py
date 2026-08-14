@@ -90,12 +90,15 @@ class OptimizeService:
                 raw_ranges.append(p)
 
             opt = Optimizer(bt, metric="sharpe_ratio")
+            import time as _t
+            t0 = _t.perf_counter()
             if config.get("algorithm") == "bayesian":
                 results = opt.bayesian_optimization(param_space, n_iterations=config.get("max_trials", 30))
             elif config.get("algorithm") == "genetic":
                 results = opt.genetic_algorithm(param_space)
             else:
                 results = opt.grid_search(param_space)
+            elapsed_sec = round(_t.perf_counter() - t0, 3)
 
             # Build 2D grid matrix only when exactly 2 range params
             grid = None
@@ -127,7 +130,13 @@ class OptimizeService:
                 "best_score": results[0]["score"] if results else 0.0,
                 "trials": [{"params": r["params"], "score": r["score"], "sortino": r.get("sortino"), "calmar": r.get("calmar")} for r in results[:10]],
                 "grid": grid,
-                "optimize_meta": getattr(opt, "last_run", None),  # 線程數/總耗時/模式
+                # 線程數/總耗時:grid_search 設 last_run(1自己計時);bayesian/genetic 用此計時
+                "optimize_meta": (lambda lr: lr or {
+                    "workers": 1,
+                    "n_combos": len(results),
+                    "elapsed_sec": elapsed_sec,
+                    "mode": config.get("algorithm", "grid"),
+                })(getattr(opt, "last_run", None)),
             }
             # P-improve: record optimization as experiment (Qlib-style Recorder)
             try:
