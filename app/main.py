@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
-from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades, portfolio
+from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades, portfolio, realtime_ws
 from app.config import settings
 from app.core.auth import auth_required
 from app.core.exceptions import AppException
@@ -107,6 +107,7 @@ app.include_router(optimize.router)
 app.include_router(analysis.router)
 app.include_router(arbitrage.router)
 app.include_router(portfolio.router)
+app.include_router(realtime_ws.router)
 app.include_router(monitoring.router)
 app.include_router(research.router, prefix="/api")
 app.include_router(admin.router)
