@@ -1,0 +1,59 @@
+//@version=6
+strategy("SOL Vegas順勢+RSI反轉 · 合成", shorttitle="SOL_VegasRSI", overlay=true,
+     initial_capital=1000, default_qty_type=strategy.percent_of_equity,
+     default_qty_value=30,   // FRAC=0.30
+     pyramiding=0, commission_type=strategy.commission.percent, commission_value=0.05)
+
+// ── 參數 ──
+ema_inner0 = input.int(144, "Vegas 內隧道 EMA-A")
+ema_inner1 = input.int(169, "Vegas 內隧道 EMA-B")
+rsi_sell   = input.int(75, "反轉腿做空 RSI(超買)")
+rsi_buy    = input.int(20, "反轉腿做多 RSI(超賣)")
+sl_atr     = input.float(2.0, "停損 ATR 倍數")
+
+emaA = ta.ema(close, ema_inner0)
+emaB = ta.ema(close, ema_inner1)
+tmax = math.max(emaA, emaB)
+tmin = math.min(emaA, emaB)
+e12  = ta.ema(close, 12)
+rsi  = ta.rsi(close, 14)
+atr  = ta.atr(14)
+
+noPos   = strategy.position_size == 0
+inLong  = strategy.position_size > 0
+inShort = strategy.position_size < 0
+entName = strategy.position_entry_name
+
+// ── 進場(合成: 順勢腿優先, 反轉腿次之) ──
+if noPos
+    if close > tmax and e12 > tmax
+        strategy.entry("TrendLong", strategy.long)
+    else if close < tmin and e12 < tmin
+        strategy.entry("TrendShort", strategy.short)
+    else if close < tmin and rsi < rsi_buy
+        strategy.entry("RevLong", strategy.long)
+    else if close > tmax and rsi > rsi_sell
+        strategy.entry("RevShort", strategy.short)
+
+// ── 真停損(A 觸價單, 盤中觸及即成交) ──
+if inLong
+    strategy.exit("SL_Long", from_entry=entName, stop=strategy.position_avg_price - sl_atr*atr, comment="SL")
+if inShort
+    strategy.exit("SL_Short", from_entry=entName, stop=strategy.position_avg_price + sl_atr*atr, comment="SL")
+
+// ── 出場: 趨勢腿失效(對側隧道/EMA12 破位) ──
+if inLong and entName == "TrendLong" and (close < tmin or close < e12)
+    strategy.close("TrendLong", comment="trend exit")
+if inShort and entName == "TrendShort" and (close > tmax or close > e12)
+    strategy.close("TrendShort", comment="trend exit")
+
+// ── 出場: 反轉腿 RSI 回 50 ──
+if inLong and entName == "RevLong" and rsi > 50
+    strategy.close("RevLong", comment="rsi50")
+if inShort and entName == "RevShort" and rsi < 50
+    strategy.close("RevShort", comment="rsi50")
+
+// ── 視覺 ──
+plot(emaA, color=color.new(color.aqua, 0), title="EMA144")
+plot(emaB, color=color.new(color.blue, 0), title="EMA169")
+plot(e12,  color=color.new(color.yellow, 0), title="EMA12")
