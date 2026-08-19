@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from collections import defaultdict
 from typing import Any
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -14,6 +16,12 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 _LLM_BASE = os.getenv("LLM_BASE_URL", "https://yuanyuaicloud.cn/v1")
 _LLM_KEY = os.getenv("LLM_API_KEY", os.getenv("GLM_API_KEY", ""))
 _LLM_MODEL = os.getenv("LLM_MODEL", "glm-5.2")
+
+# Simple in-memory rate limit: 20 req/min per IP, 200 req/hour per IP
+_rate_min: dict[str, list[float]] = defaultdict(list)
+_rate_hour: dict[str, list[float]] = defaultdict(list)
+_RATE_MIN = 20
+_RATE_HOUR = 200
 
 SYSTEM_PROMPT = """你是 Quant Platform 的 AI 交易助手，服務於一位專業量化交易者。
 
@@ -43,11 +51,31 @@ SYSTEM_PROMPT = """你是 Quant Platform 的 AI 交易助手，服務於一位�
 
 
 @router.post("/stream")
-async def chat_stream(payload: dict[str, Any]):
-    """Stream LLM response as SSE events."""
+async def chat_stream(payload: dict[str, Any], request: Request):
+    """Stream LLM response as SSE events. Rate-limited per IP."""
+    # Rate limit check
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    # Prune and check minute window
+    _rate_min[client_ip] = [t for t in _rate_min[client_ip] if now - t < 60]
+    if len(_rate_min[client_ip]) >= _RATE_MIN:
+        raise HTTPException(status_code=429, detail="Too many requests (per minute)")
+    _rate_hour[client_ip] = [t for t in _rate_hour[client_ip] if now - t < 3600]
+    if len(_rate_hour[client_ip]) >= _RATE_HOUR:
+        raise HTTPException(status_code=429, detail="Too many requests (per hour)")
+    _rate_min[client_ip].append(now)
+    _rate_hour[client_ip].append(now)
+
     messages = payload.get("messages", [])
     if not messages:
         return {"error": "no messages"}
+
+    # Cap message count and total content length to prevent abuse
+    if len(messages) > 50:
+        messages = messages[-50:]
+    total_len = sum(len(m.get("content", "")) for m in messages)
+    if total_len > 50000:
+        return {"error": "message too long (max 50k chars)"}
 
     # Prepend system prompt
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
@@ -109,4 +137,4 @@ async def chat_stream(payload: dict[str, Any]):
 
 @router.get("/health")
 async def chat_health():
-    return {"status": "ok", "model": _LLM_MODEL}
+    return {"status": "ok"}
