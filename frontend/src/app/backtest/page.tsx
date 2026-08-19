@@ -1,1105 +1,316 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useDataStore, resolveSource } from '@/stores/useDataStore';
-import { useBacktestStore } from '@/stores/useBacktestStore';
-import api from '@/lib/api';
-import { StrategyTemplate, UserStrategy, StrategyParam } from '@/types/api';
-import { TradeMarker } from '@/types/chart';
-import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { PageShell } from '@/components/layout/PageShell';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
-import { SymbolSearch } from '@/components/ui/SymbolSearch';
-import { Input } from '@/components/ui/Input';
-import { PerformancePanel } from '@/components/backtest/PerformancePanel';
-import { LongShortPanel } from '@/components/backtest/LongShortPanel';
-import { MaeMfeScatter } from '@/components/backtest/MaeMfeScatter';
-import { MonthlyReturnsTable } from '@/components/backtest/MonthlyReturnsTable';
-import { TradeStatsDist } from '@/components/backtest/TradeStatsDist';
-import { TvBacktestChart } from '@/components/charts/TvBacktestChart';
-import { RealismPanel } from '@/components/realism/RealismPanel';
-import { safeFmt, safePct, safeSigned, safeInt, formatPrice, formatQty, fmtProfitFactor, TV_UP, TV_DOWN, TV_STRATEGY, currencyOf } from '@/lib/format';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-// Parse entry_time / exit_time (number seconds OR ISO string) → unix seconds.
-// Robust to both backend shapes so the chart markers survive format changes.
-const toUnixSec = (v: any): number => {
-  if (v == null) return 0;
-  if (typeof v === 'number') return v;
-  const ms = Date.parse(v);
-  return Number.isFinite(ms) ? Math.floor(ms / 1000) : 0;
-};
-
-// Local view of the backend param spec (backend sends {type, min, max, step}
-// for ranges and {type, values} for choices). The shared StrategyParam type
-// doesn't carry these fields, so we model them here.
-interface ParamSpec {
-  name: string;
-  type: 'range' | 'choice' | string;
-  min?: number;
-  max?: number;
-  step?: number;
-  values?: string[];
+/* ── types ── */
+interface Msg {
+  role: 'user' | 'assistant';
+  content: string;
+  ts: number;
 }
 
-// ── 三階段進度輔助(T2) ──
-const STAGE_ORDER = ['loading', 'backtesting', 'finalizing'];
-const STAGE_LABELS: Record<string, string> = { loading: '載入資料', backtesting: '執行回測', finalizing: '結果匯總' };
-const stageIdx = (s: string) => STAGE_ORDER.indexOf(s);
-const stageLabel = (s: string) => STAGE_LABELS[s] ?? STAGE_LABELS.backtesting;
+/* ── quick prompts ── */
+const QUICK = [
+  { label: '策略健檢', text: '幫我檢查這個策略的邏輯是否有前視偏差\n\n[貼上你的策略代碼]' },
+  { label: '回測解讀', text: 'Sharpe 1.8, PF 2.1, MaxDD -12%, 87 筆交易，這個策略能用嗎？' },
+  { label: '參數優化', text: '我的策略有 fast_period 和 slow_period 兩個參數，怎麼設計 walk-forward 驗證？' },
+  { label: '風控建議', text: '1萬本金，每筆固定倉位 10%，MaxDD 歷史 -15%，怎麼改善資金管理？' },
+];
 
-function StageTag({ label, active, done }: { label: string; active: boolean; done: boolean }) {
-  return (
-    <span className={done ? 'text-success' : active ? 'text-accent' : 'opacity-40'}>
-      {done ? '✓ ' : ''}{label}
-    </span>
-  );
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-const FACTOR_CN: Record<string, string> = {
-  momentum: '動量',
-  mean_reversion: '均值回歸',
-  volatility: '波動率',
-  rsi: 'RSI',
-  roc: '變動率',
-};
+export default function ChatHome() {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState('');
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
-function BacktestView() {
-  const { symbols, ohlcv, loadSymbols, loadOHLCV } = useDataStore();
-  const { runBacktest, results, status, progress, stage, error, lookaheadWarning, cancelBacktest } = useBacktestStore();
-
-  const searchParams = useSearchParams();
-  const taskParam = searchParams.get('task');
+  /* ── auto-scroll ── */
   useEffect(() => {
-    if (taskParam) {
-      api.getBacktestResults(taskParam)
-        .then((r) => useBacktestStore.setState({ status: 'completed', results: r }))
-        .catch(() => {});
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [taskParam]);
+  }, [messages]);
 
-  const [symbol, setSymbol] = useState('');
-  const [timeframe, setTimeframe] = useState('1h');
-  const [dataSource, setDataSource] = useState('test');
-  const [startDate, setStartDate] = useState(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
-
-  const [templates, setTemplates] = useState<StrategyTemplate[]>([]);
-  const [userStrategies, setUserStrategies] = useState<UserStrategy[]>([]);
-  const [selectedStrategy, setSelectedStrategy] = useState('ma_cross');
-  const [paramValues, setParamValues] = useState<Record<string, any>>({});
-
-  // ── P2-2: 多幣種批量回測 ──
-  const [batchInput, setBatchInput] = useState('');
-  const [batchRunning, setBatchRunning] = useState(false);
-  const [batchResults, setBatchResults] = useState<
-    { symbol: string; status: string; metrics?: any; error?: string }[]
-  >([]);
-
-  // ── P2-3: 回測備註 (localStorage, keyed by task_id) ──
-  const [note, setNote] = useState('');
-  const currentTaskId = (results as any)?.task_id ?? null;
-  const noteKey = currentTaskId ? `bt_note_${currentTaskId}` : null;
+  /* ── textarea auto-resize ── */
   useEffect(() => {
-    if (noteKey) {
-      try {
-        setNote(localStorage.getItem(noteKey) ?? '');
-      } catch {
-        setNote('');
-      }
-    } else {
-      setNote('');
+    if (taRef.current) {
+      taRef.current.style.height = 'auto';
+      taRef.current.style.height = Math.min(taRef.current.scrollHeight, 200) + 'px';
     }
-  }, [noteKey]);
-  const saveNote = (v: string) => {
-    setNote(v);
-    if (noteKey) {
-      try {
-        if (v) localStorage.setItem(noteKey, v);
-        else localStorage.removeItem(noteKey);
-      } catch {
-        /* ignore */
-      }
-    }
-  };
-  const [enableFunding, setEnableFunding] = useState(false);
-  const [configOpen, setConfigOpen] = useState(true);
-  const [fundingInterval, setFundingInterval] = useState(8);
-  const [fundingRate, setFundingRate] = useState(0.0001);
+  }, [input]);
 
-  const [market, setMarket] = useState<'crypto' | 'equity' | 'forex'>('crypto');
+  const send = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || streaming) return;
 
-  const [enablePerp, setEnablePerp] = useState(false);
-  const [leverage, setLeverage] = useState(10);
-  const [maintMargin, setMaintMargin] = useState(0.005);
+    setError(null);
+    const userMsg: Msg = { role: 'user', content: trimmed, ts: Date.now() };
+    const assistantId = Date.now() + 1;
+    setMessages((prev) => [...prev, userMsg, { role: 'assistant', content: '', ts: assistantId }]);
+    setInput('');
+    setStreaming(true);
 
-  // Execution realism (Nautilus / polybot inspired)
-  const [enableExec, setEnableExec] = useState(false);
-  const [execSlippage, setExecSlippage] = useState(0.001);
-  const [execFillProb, setExecFillProb] = useState(0.8);
-  const [execLatency, setExecLatency] = useState(50);
-
-  const [enableExchange, setEnableExchange] = useState(false);
-  const [makerFee, setMakerFee] = useState(0.0002);
-  const [takerFee, setTakerFee] = useState(0.0005);
-  const [latencyBars, setLatencyBars] = useState(0);
-  const [bookSlippage, setBookSlippage] = useState(0.0005);
-
-  const [makerProbability, setMakerProbability] = useState(0);
-  const [forceLimit, setForceLimit] = useState(false);
-
-  useEffect(() => {
-    loadSymbols();
-  }, [loadSymbols]);
-
-  useEffect(() => {
-    if (symbols.length > 0) {
-      const defaultSymbol = symbols[0].symbol;
-      setSymbol(defaultSymbol);
-      loadOHLCV(defaultSymbol, timeframe);
-    }
-  }, [symbols, timeframe, loadOHLCV]);
-
-  useEffect(() => {
-    api.getTemplates().then(setTemplates);
-    api.listUserStrategies().then(setUserStrategies);
-  }, []);
-
-  // P7/P9: preselect strategy (and params) from ?strategy= / ?params= coming from /strategies or /optimize
-  useEffect(() => {
-    const pref = searchParams.get('strategy');
-    if (!pref) return;
-    const isBuiltin = templates.some((t) => t.id === pref);
-    const isUser = userStrategies.some((s) => `user_${s.id}` === pref);
-    if (isBuiltin || isUser) {
-      setSelectedStrategy(pref);
-      const incoming = searchParams.get('params');
-      if (incoming) {
-        try {
-          const parsed = JSON.parse(decodeURIComponent(incoming)) as Record<string, any>;
-          setParamValues((prev) => {
-            const merged = { ...prev };
-            Object.entries(parsed).forEach(([k, v]) => {
-              merged[k] = typeof v === 'number' ? v : Number(v);
-            });
-            return merged;
-          });
-        } catch {
-          /* ignore malformed params */
-        }
-      } else if (isBuiltin && Object.keys(paramValues).length === 0) {
-        const t = templates.find((x) => x.id === pref);
-        if (t) setParamValues(buildDefaults(t));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates, userStrategies]);
-
-  // T3: 從歷史紀錄「複製參數」載入 — /backtest?copy=1 → localStorage.copyBacktestConfig
-  useEffect(() => {
-    if (searchParams.get('copy') === '1') {
-      try {
-        const raw = localStorage.getItem('copyBacktestConfig');
-        if (raw) {
-          const c = JSON.parse(raw) as { strategy?: string; symbol?: string; timeframe?: string; params?: Record<string, any>; start_date?: string; end_date?: string };
-          if (c.symbol) setSymbol(c.symbol);
-          if (c.timeframe) setTimeframe(c.timeframe);
-          if (c.start_date) setStartDate(c.start_date);
-          if (c.end_date) setEndDate(c.end_date);
-          if (c.strategy) setSelectedStrategy(c.strategy);
-          if (c.params && Object.keys(c.params).length) {
-            setParamValues((prev) => {
-              const merged = { ...prev };
-              Object.entries(c.params as Record<string, any>).forEach(([k, v]) => { merged[k] = typeof v === 'number' ? v : Number(v); });
-              return merged;
-            });
-          }
-          localStorage.removeItem('copyBacktestConfig');
-        }
-      } catch { /* ignore malformed */ }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  const buildDefaults = (t?: StrategyTemplate): Record<string, any> => {
-    const d: Record<string, any> = {};
-    const params = (t?.params as unknown as ParamSpec[]) || [];
-    params.forEach((p) => {
-      if (p.type === 'choice' || p.values) {
-        d[p.name] = p.values?.[0] ?? '';
-      } else {
-        d[p.name] = p.min ?? 0;
-      }
-    });
-    return d;
-  };
-
-  // Seed defaults for the initial strategy once templates arrive.
-  useEffect(() => {
-    if (templates.length > 0 && Object.keys(paramValues).length === 0) {
-      const t = templates.find((x) => x.id === selectedStrategy);
-      if (t) setParamValues(buildDefaults(t));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates]);
-
-  const handleStrategyChange = (value: string) => {
-    setSelectedStrategy(value);
-    const t = templates.find((x) => x.id === value);
-    setParamValues(buildDefaults(t));
-  };
-
-  const selectedTemplate = templates.find((t) => t.id === selectedStrategy);
-  const params = (selectedTemplate?.params as unknown as ParamSpec[]) || [];
-
-  // ── TradingView-style entry/exit markers (built from results.trades) ──
-  const [selectedTrade, setSelectedTrade] = useState<any>(null);
-  const [notionState, setNotionState] = useState<{ loading: boolean; msg: string } | null>(null);
-
-  const pushToNotion = async () => {
-    if (!results?.task_id) return;
-    setNotionState({ loading: true, msg: '推送中…' });
     try {
-      const r = await api.pushBacktestToNotion({
-        task_id: results.task_id,
-        symbol: results.config?.symbol ?? symbol,
-        strategy: results.config?.strategy?.template_id ?? selectedStrategy,
-        timeframe: results.config?.timeframe ?? timeframe,
+      const res = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, { role: 'user', content: trimmed }].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
       });
-      setNotionState({
-        loading: false,
-        msg: r.ok ? '✓ 已推送到 Notion ATM 頁' : (r.notion_configured ? '✗ 推送失敗' : '⚠ 未設定 NOTION_ATM_PAGE_ID'),
-      });
-    } catch (e: any) {
-      setNotionState({ loading: false, msg: `✗ ${e?.message || 'error'}` });
-    }
-  };
 
-  // Highlight marker for a selected trade (from PerformancePanel or blotter)
-  const highlightMarker = useMemo((): TradeMarker | null => {
-    if (!selectedTrade) return null;
-    const pnl = Number(selectedTrade.pnl) || 0;
-    return {
-      time: toUnixSec(selectedTrade.entry_time),
-      position: 'belowBar',
-      shape: 'arrowUp',
-      color: TV_STRATEGY,
-      text: `★ 選中`,
-    };
-  }, [selectedTrade]);
-
-  const markers: TradeMarker[] = useMemo(() => {
-    if (!results?.trades) return [];
-    const out: TradeMarker[] = [];
-    for (const t of results.trades as any[]) {
-      const dir: string = t.direction || 'long';
-      const isShort = dir === 'short' || dir === 'sell';
-      const pnl = Number(t.pnl) || 0;
-      // Entry marker
-      out.push({
-        time: toUnixSec(t.entry_time),
-        position: 'belowBar',
-        shape: isShort ? 'arrowDown' : 'arrowUp',
-        color: isShort ? TV_DOWN : TV_UP,
-        text: isShort ? '空' : '多',
-      });
-      // Exit marker
-      out.push({
-        time: toUnixSec(t.exit_time),
-        position: 'aboveBar',
-        shape: 'circle',
-        color: pnl >= 0 ? TV_UP : TV_DOWN,
-        text: `${(() => {
-          const p = Number(t.pnl_pct);
-          if (!Number.isFinite(p)) return '—';
-          // pnl_pct already *100 from engine
-          return `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
-        })()}`,
-      });
-    }
-    // Append highlight marker if a trade is selected
-    if (highlightMarker) {
-      // Remove any existing highlight marker to avoid duplicates
-      const idx = out.findIndex((m) => m.text === '★ 選中');
-      if (idx >= 0) out.splice(idx, 1);
-      out.push(highlightMarker);
-    }
-    return out;
-  }, [results, highlightMarker]);
-
-  // ── Trade Blotter sort state ──
-  type SortKey = 'entry_time' | 'pnl';
-  const [sortKey, setSortKey] = useState<SortKey>('entry_time');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-  const sortedTrades = useMemo(() => {
-    const trades = [...((results?.trades as any[]) || [])];
-    trades.sort((a: any, b: any) => {
-      let av: number;
-      let bv: number;
-      if (sortKey === 'pnl') {
-        av = Number(a.pnl) || 0;
-        bv = Number(b.pnl) || 0;
-      } else {
-        av = toUnixSec(a.entry_time);
-        bv = toUnixSec(b.entry_time);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-      return sortDir === 'asc' ? av - bv : bv - av;
-    });
-    return trades;
-  }, [results, sortKey, sortDir]);
 
-  const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
-  };
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('no stream body');
 
-  const sortIndicator = (key: SortKey) =>
-    sortKey === key ? (sortDir === 'asc' ? '▲' : '▼') : '';
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let accumulated = '';
 
-  const handleRun = () => {
-    const paramsConfig: Record<string, any> = {};
-    params.forEach((p) => {
-      const raw = paramValues[p.name];
-      paramsConfig[p.name] = p.type === 'choice' || p.values ? raw : Number(raw);
-    });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-    const payload: Record<string, any> = {
-      strategy: {
-        template_id: selectedStrategy,
-        params: paramsConfig,
-      },
-      symbol,
-      market,
-      timeframe,
-      source: dataSource,
-      check_lookahead: true,
-      start_date: startDate,
-      end_date: endDate,
-      initial_capital: 10000.0,
-      commission: 0.001,
-      slippage: 0.0005,
-      max_position_pct: 1.0,
-    };
-    // Opt-in realism — only attach when enabled (disabled = legacy 1x spot path)
-    if (enableFunding) {
-      payload.funding = {
-        enabled: true,
-        interval_hours: Number(fundingInterval),
-        default_rate: Number(fundingRate),
-      };
-    }
-    if (enablePerp) {
-      payload.perpetual = {
-        enabled: true,
-        leverage: Number(leverage),
-        maintenance_margin_rate: Number(maintMargin),
-      };
-    }
-    if (enableExchange) {
-      payload.exchange = {
-        enabled: true,
-        maker_fee: Number(makerFee),
-        taker_fee: Number(takerFee),
-        latency_bars: Number(latencyBars),
-        book_base_slippage: Number(bookSlippage),
-        maker_probability: Number(makerProbability),
-        force_limit: forceLimit,
-      };
-    }
-    if (enableExec) {
-      payload.execution = {
-        entry_slippage_pct: Number(execSlippage),
-        exit_slippage_pct: Number(execSlippage),
-        prob_fill_on_limit: Number(execFillProb),
-        latency_ms: Number(execLatency),
-      };
-    }
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-    runBacktest(payload as any);
-  };
-
-  // P2-2: 多幣種批量回測 — 併發跑每個 symbol，輪詢結果後彙總對比。
-  const handleBatchRun = async () => {
-    const syms = batchInput
-      .split(/[\s,]+/)
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean);
-    if (syms.length === 0) return;
-    setBatchRunning(true);
-    setBatchResults(syms.map((s) => ({ symbol: s, status: 'running' })));
-
-    const worker = async (sym: string) => {
-      const payload: Record<string, any> = {
-        strategy: { template_id: selectedStrategy, params: paramsConfigFor(sym) },
-        symbol: sym,
-        timeframe,
-        source: dataSource,
-        start_date: startDate,
-        end_date: endDate,
-        initial_capital: 10000.0,
-        commission: 0.001,
-        slippage: 0.0005,
-        max_position_pct: 1.0,
-      };
-      try {
-        const { task_id } = await api.runBacktest(payload as any);
-        // poll until done (reuse same cadence as store)
-        for (let i = 0; i < 120; i++) {
-          const st = await api.getBacktestStatus(task_id);
-          if (st.status === 'completed') {
-            const r = await api.getBacktestResults(task_id);
-            return { symbol: sym, status: 'completed', metrics: (r as any).metrics };
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const chunk = line.slice(6);
+          if (chunk === '[DONE]') {
+            break;
           }
-          if (st.status === 'error') return { symbol: sym, status: 'error', error: st.error ?? 'failed' };
-          await new Promise((res) => setTimeout(res, 1000));
+          try {
+            const obj = JSON.parse(chunk);
+            if (obj.error) {
+              setError(obj.error);
+              break;
+            }
+            if (obj.content) {
+              accumulated += obj.content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.ts === assistantId ? { ...m, content: accumulated } : m
+                )
+              );
+            }
+          } catch {
+            // skip malformed
+          }
         }
-        return { symbol: sym, status: 'error', error: 'timeout' };
-      } catch (e: any) {
-        return { symbol: sym, status: 'error', error: e?.message ?? String(e) };
       }
-    };
 
-    const out = await Promise.all(syms.map(worker));
-    setBatchResults(out);
-    setBatchRunning(false);
+      if (!accumulated && !error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.ts === assistantId ? { ...m, content: '（無回覆內容）' } : m
+          )
+        );
+      }
+    } catch (e: any) {
+      setError(e.message || '連線失敗');
+      setMessages((prev) =>
+        prev.filter((m) => m.ts !== assistantId)
+      );
+    } finally {
+      setStreaming(false);
+    }
+  }, [messages, streaming, error]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
   };
 
-  // 依當前表單參數構建 params（與 handleRun 一致）
-  const paramsConfigFor = (sym: string): Record<string, any> => {
-    const cfg: Record<string, any> = {};
-    params.forEach((p) => {
-      const raw = paramValues[p.name];
-      cfg[p.name] = p.type === 'choice' || p.values ? raw : Number(raw);
-    });
-    return cfg;
+  const clear = () => {
+    setMessages([]);
+    setError(null);
   };
 
-  const exportCsv = () => {
-    if (!results) return;
-    const rows: string[] = [];
-    const tradeCols = ['entry_time', 'exit_time', 'entry_price', 'exit_price', 'pnl', 'pnl_pct', 'size', 'side'];
-    rows.push(['#', ...tradeCols].join(','));
-    (results.trades as any[]).forEach((t, i) => {
-      rows.push([i + 1, ...tradeCols.map((c) => JSON.stringify((t as any)[c] ?? ''))].join(','));
-    });
-    rows.push('');
-    rows.push('equity_curve');
-    (results.equity_curve as any[]).forEach((p, i) =>
-      rows.push(`${i},${JSON.stringify(p.time ?? '')},${JSON.stringify(p.equity ?? '')}`)
+  /* ── empty state ── */
+  if (messages.length === 0) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-3xl flex-col px-4 pb-16 pt-12 md:px-6">
+        {/* header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-textSecondary">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping bg-success opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 bg-success" />
+            </span>
+            AI Assistant · online
+          </div>
+          <h1 className="mt-6 font-display text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
+            量化交易助手
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-textSecondary">
+            策略設計、回測驗證、風險管理、代碼除錯。直接問。
+          </p>
+        </div>
+
+        {/* quick prompts */}
+        <div className="mb-6 grid gap-2 sm:grid-cols-2">
+          {QUICK.map((q) => (
+            <button
+              key={q.label}
+              onClick={() => send(q.text)}
+              disabled={streaming}
+              className="group rounded-lg border border-border/40 bg-surface p-4 text-left transition-colors hover:border-accent/40 disabled:opacity-40"
+            >
+              <div className="font-display text-sm font-semibold tracking-tight transition-colors group-hover:text-accent">
+                {q.label}
+              </div>
+              <div className="mt-1.5 line-clamp-2 font-mono text-[11px] leading-relaxed text-textSecondary">
+                {q.text.split('\n')[0]}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* input */}
+        <InputArea
+          input={input}
+          setInput={setInput}
+          onKeyDown={onKeyDown}
+          send={() => send(input)}
+          streaming={streaming}
+          taRef={taRef}
+        />
+      </div>
     );
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backtest_${(results as any).task_id ?? 'export'}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const builtinOptions = templates
-    .filter((t) => !t.id.startsWith('user_'))
-    .map((t) => ({ label: t.name, value: t.id }));
-  const userOptions = userStrategies.map((s) => ({
-    label: `我的：${s.name}`,
-    value: `user_${s.id}`,
-  }));
-  const strategyOptions = [...builtinOptions, ...userOptions];
-
-  // 全介面幣種單位(Asset Class → USDT/USD)連動
-  const unit = currencyOf(market);
+  }
 
   return (
-    <PageShell
-      eyebrow="Backtest / workflow"
-      title="策略回測"
-      subtitle="載入市場數據，套用技術策略或你上傳的自定義策略，秒級生成績效報告與權益曲線。"
-    >
-      {/* Configuration Card */}
-      <Card>
-        <button onClick={() => setConfigOpen(v => !v)} className="w-full mb-4 flex items-center justify-between cursor-pointer group">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary group-hover:text-text transition-colors">
-            策略配置
-          </h2>
-          <span className="text-xs text-textSecondary">{configOpen ? '▲' : '▼'}</span>
-        </button>
-
-        <div className={`grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 transition-all duration-200 ${configOpen ? '' : 'hidden'}`}>
-          <Select
-            label="Asset Class"
-            value={market}
-            onChange={(e) => {
-              const m = e.target.value as 'crypto' | 'equity' | 'forex';
-              setMarket(m);
-              // auto-switch data source to the sensible default for this class
-              if (m === 'crypto') setDataSource('bingx');
-              else setDataSource('tradfi');
-            }}
-            options={[
-              { label: 'Crypto (Perp)', value: 'crypto' },
-              { label: 'Equity (Stocks)', value: 'equity' },
-              { label: 'Forex', value: 'forex' },
-            ]}
-          />
-          <SymbolSearch
-            label="Market Instrument"
-            value={symbol}
-            placeholder={market === 'equity' ? 'AAPL, TSLA, NVDA…' : market === 'forex' ? 'EUR/USD, GBP/USD…' : 'BTC/USDT, ETH/USDT…'}
-            options={symbols.map((s) => ({ symbol: s.symbol, status: s.status, category: s.category }))}
-            onChange={(s) => {
-              setSymbol(s);
-              const mk = symbols.find((x) => x.symbol === s);
-              const src = resolveSource(s, mk?.market);
-              loadOHLCV(s, timeframe, src);
-            }}
-          />
-          <Select
-            label="Timeframe"
-            value={timeframe}
-            onChange={(e) => {
-              setTimeframe(e.target.value);
-              const mk = symbols.find((x) => x.symbol === symbol);
-              const src = mk?.exchange === 'bingx' ? 'bingx' : 'tradfi';
-              loadOHLCV(symbol, e.target.value, src);
-            }}
-            options={[
-              { label: '1 Minute', value: '1m' },
-              { label: '5 Minutes', value: '5m' },
-              { label: '15 Minutes', value: '15m' },
-              { label: '30 Minutes', value: '30m' },
-              { label: '45 Minutes', value: '45m' },
-              { label: '1 Hour', value: '1h' },
-              { label: '4 Hours', value: '4h' },
-              { label: '1 Day', value: '1d' },
-            ]}
-          />
-          <Select
-            label="Data Source"
-            value={dataSource}
-            onChange={(e) => setDataSource(e.target.value)}
-            options={[
-              { label: 'Test (local, instant)', value: 'test' },
-              { label: 'Live (BingX)', value: 'bingx' },
-            ]}
-          />
-          {dataSource === 'test' && (
-            <p className="col-span-full -mt-2 text-xs text-textSecondary/60">
-              ⓘ Test data 含歷史全量 OHLCV（非僅日期範圍），193 bars 為前端的 Price Action 預覽上限
-            </p>
-          )}
-          <Select
-            label="Strategy"
-            value={selectedStrategy}
-            onChange={(e) => handleStrategyChange(e.target.value)}
-            options={strategyOptions}
-          />
-          <Input
-            label="Start Date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <Input
-            label="End Date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-
-          {params.map((p) => {
-            const isWeight = p.name.startsWith('w_');
-            const _humanLabel = (n: string) =>
-              n.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-            const label = isWeight
-              ? `權重 · ${FACTOR_CN[p.name.slice(2)] || _humanLabel(p.name.slice(2))}`
-              : _humanLabel(p.name);
-            return p.type === 'choice' || p.values ? (
-              <Select
-                key={p.name}
-                label={label}
-                value={paramValues[p.name] ?? ''}
-                onChange={(e) =>
-                  setParamValues({ ...paramValues, [p.name]: e.target.value })
-                }
-                options={(p.values || []).map((v) => ({ label: v, value: v }))}
-              />
-            ) : (
-              <Input
-                key={p.name}
-                label={label}
-                type="number"
-                value={paramValues[p.name] ?? ''}
-                min={p.min}
-                max={p.max}
-                step={p.step}
-                onChange={(e) =>
-                  setParamValues({ ...paramValues, [p.name]: e.target.value })
-                }
-              />
-            );
-          })}
-        </div>
-        <div className={`transition-all duration-200 ${configOpen ? "" : "hidden"}`}>
-
-        {market === 'crypto' ? (
-          <RealismPanel
-            state={{
-              enableFunding, fundingInterval, fundingRate,
-              enablePerp, leverage, maintMargin,
-              enableExchange, makerFee, takerFee, latencyBars, bookSlippage,
-              makerProbability, forceLimit,
-              enableExec, execSlippage, execFillProb, execLatency,
-            }}
-            handlers={{
-              setEnableFunding, setFundingInterval, setFundingRate,
-              setEnablePerp, setLeverage, setMaintMargin,
-              setEnableExchange, setMakerFee, setTakerFee, setLatencyBars, setBookSlippage,
-              setMakerProbability, setForceLimit,
-              setEnableExec, setExecSlippage, setExecFillProb, setExecLatency,
-            }}
-          />
-        ) : (
-          <Card>
-            <div className="flex items-center gap-3 text-sm text-textSecondary">
-              <span className="rounded bg-accent/10 px-2 py-1 font-mono text-accent">
-                {market === 'equity' ? 'EQUITY' : 'FOREX'}
-              </span>
-              <span>
-                {market === 'equity'
-                  ? 'Cash equities: no leverage, T+1 fill, weekday sessions. Commission 0.05% (min $1).'
-                  : 'FX: 24/5 sessions, spread cost, daily swap (Wed ×3).'}
-              </span>
-            </div>
-          </Card>
-        )}
-
-        <div className="mt-6 flex flex-col gap-3 border-t border-border/10 pt-4">
-          {/* 三階段進度條 */}
-          <div className="text-sm font-mono text-textSecondary">
-            {status === 'running' || status === 'cancelled' ? (
-              <span className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                {status === 'cancelled' ? '已中斷' : `${stageLabel(stage)}… ${Math.round(progress)}%`}
-              </span>
-            ) : 'Ready'}
-          </div>
-          {status === 'running' && (
-            <div className="w-full">
-              <div className="mb-1 flex justify-between text-[11px] font-mono text-textSecondary">
-                <StageTag label="載入資料" active={stage === 'loading' || stageIdx(stage) > 0} done={stageIdx(stage) > 0} />
-                <StageTag label="執行回測" active={stage === 'backtesting' || stageIdx(stage) > 1} done={stageIdx(stage) > 1} />
-                <StageTag label="結果匯總" active={stage === 'finalizing'} done={stageIdx(stage) > 2} />
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded bg-surface">
-                <div className="h-full bg-accent transition-all duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
-              </div>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-mono text-textSecondary opacity-0">·</span>
-            <div className="flex items-center gap-3">
-              {status === 'running' && (
-                <Button variant="ghost" onClick={cancelBacktest} className="text-danger hover:text-danger border border-danger/30">中斷</Button>
-              )}
-              <Button onClick={handleRun} disabled={status === 'running'} variant="primary">
-                {status === 'running' ? 'Running…' : 'Execute Backtest'}
-              </Button>
-              {results && (
-                <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        </div>
+    <div className="mx-auto flex h-[calc(100vh-64px)] max-w-3xl flex-col px-4 pb-4 pt-4 md:px-6">
+      {/* messages */}
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
+        {messages.map((m, i) => (
+          <MessageBubble key={i} msg={m} streaming={streaming && i === messages.length - 1 && m.role === 'assistant'} />
+        ))}
         {error && (
-          <p className="mt-3 text-sm font-mono text-danger">{error}</p>
-        )}
-
-        {status === 'lookahead_warning' && lookaheadWarning && (
-          <div className="mt-3 rounded-sm border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
-            <p className="font-semibold">⚠ 未來函數偵測（Lookahead Bias）</p>
-            <p className="mt-1 font-mono text-xs">{lookaheadWarning.detail}</p>
-            <ul className="mt-2 list-disc pl-5 space-y-1">
-              {(lookaheadWarning.warnings || []).map((w: string, i: number) => (
-                <li key={i} className="font-mono text-xs">{w}</li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs opacity-80">此策略疑似使用未來數據，回測結果不可信。請檢查指標是否引用了尚未收盤的 K 線。</p>
+          <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 font-mono text-xs text-danger">
+            {error}
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Price Chart */}
-      {ohlcv.length > 0 && (
-        <Card className="p-0 overflow-hidden">
-          <div className="p-6 pb-0">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-              Price Action
-            </h3>
-          </div>
-          <TvBacktestChart
-            data={ohlcv}
-            markers={markers}
-            equityData={results?.equity_curve ?? []}
-            buyHoldData={results?.buy_hold_equity ?? []}
-            emaLen={200}
-            theme="dark"
-          />
-        </Card>
-      )}
-
-      {/* P2-2: 多幣種批量回測 */}
-      <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-textSecondary">
-            多幣種批量回測
-          </h2>
-          <span className="font-mono text-xs text-textSecondary">
-            逗號或空白分隔 · 共用當前策略參數
+      {/* input */}
+      <div className="shrink-0">
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            onClick={clear}
+            className="font-mono text-[11px] uppercase tracking-wider text-textSecondary transition-colors hover:text-danger"
+          >
+            清空對話
+          </button>
+          <span className="font-mono text-[11px] text-textSecondary/50">
+            Enter 發送 · Shift+Enter 換行
           </span>
         </div>
-        {/* 一鍵載入常用對沖組合 */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-mono text-textSecondary">常用對沖組合：</span>
-          {[
-            { name: '主流', syms: 'BTC/USDT, ETH/USDT, SOL/USDT' },
-            { name: '主+低相關', syms: 'BTC/USDT, ETH/USDT, XRP/USDT, ADA/USDT' },
-            { name: '高波動', syms: 'SOL/USDT, DOGE/USDT, AVAX/USDT' },
-          ].map((p) => (
-            <button
-              key={p.name}
-              type="button"
-              onClick={() => setBatchInput(p.syms)}
-              className="rounded-md border border-accent/30 px-2.5 py-1 text-xs font-mono text-accent hover:bg-accent/10 transition-colors"
-              title={`載入 ${p.syms}`}
-            >
-              載入 {p.name}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Input
-            label="Symbols"
-            placeholder="BTCUSDT, ETHUSDT, SOLUSDT"
-            value={batchInput}
-            onChange={(e) => setBatchInput(e.target.value)}
-          />
-          <Button
-            onClick={handleBatchRun}
-            disabled={batchRunning}
-            variant="primary"
-            className="mt-6"
-          >
-            {batchRunning ? '批次執行中...' : '批次回測'}
-          </Button>
-        </div>
-
-        {batchResults.length > 0 && (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-sm font-mono">
-              <thead>
-                <tr className="text-left text-xs uppercase text-textSecondary border-b border-border/10">
-                  <th className="px-4 py-2">Symbol</th>
-                  <th className="px-4 py-2 text-right">總回報%</th>
-                  <th className="px-4 py-2 text-right">交易數</th>
-                  <th className="px-4 py-2 text-right">勝率%</th>
-                  <th className="px-4 py-2 text-right">最大回撤%</th>
-                  <th className="px-4 py-2 text-right">獲利因子</th>
-                  <th className="px-4 py-2 text-right">年化%</th>
-                  <th className="px-4 py-2">狀態</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batchResults.map((r) => (
-                  <tr key={r.symbol} className="border-t border-border/10">
-                    <td className="px-4 py-2 font-semibold text-text">{r.symbol}</td>
-                    {r.status === 'completed' && r.metrics ? (
-                      <>
-                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.total_return_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {safePct(Number(r.metrics.total_return_pct))}
-                        </td>
-                        <td className="px-4 py-2 text-right text-text tabular-nums">{r.metrics.total_trades ?? '—'}</td>
-                        <td className="px-4 py-2 text-right text-text tabular-nums">
-                          {safePct(Number(r.metrics.win_rate), { signed: false })}
-                        </td>
-                        <td className="px-4 py-2 text-right text-text tabular-nums">
-                          {safePct(Number(r.metrics.max_drawdown_pct), { signed: false })}
-                        </td>
-                        <td className="px-4 py-2 text-right text-text tabular-nums">
-                          {fmtProfitFactor(Number(r.metrics.profit_factor))}
-                        </td>
-                        <td className={`px-4 py-2 text-right tabular-nums ${Number(r.metrics.annual_return_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {safePct(Number(r.metrics.annual_return_pct))}
-                        </td>
-                      </>
-                    ) : (
-                      <td className="px-4 py-2 text-right text-textSecondary" colSpan={6}>
-                        {r.status === 'running' ? '執行中...' : r.error ?? r.status}
-                      </td>
-                    )}
-                    <td className="px-4 py-2 text-textSecondary">{r.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Results loading skeleton */}
-      {status === 'running' && (
-        <div className="space-y-6" aria-busy="true">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border/20 rounded-sm overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-surface px-4 py-3 flex flex-col gap-2">
-                <div className="h-2 w-16 bg-border/30 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-border/40 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-          <div className="h-64 bg-surface border border-border/10 rounded-sm animate-pulse" />
-          <div className="h-48 bg-surface border border-border/10 rounded-sm animate-pulse" />
-        </div>
-      )}
-
-      {/* Results */}
-      {status === 'completed' && results && (results.trades ?? []).length > 0 ? (
-        <div className="space-y-6">
-          {/* Result summary: strategy + symbol + timeframe */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-surface/50 px-4 py-3 text-sm">
-            <span className="text-textSecondary">回測配置</span>
-            <span className="rounded bg-accent/10 px-2 py-0.5 font-medium text-accent">
-              {(() => {
-                const tid = results?.config?.strategy?.template_id || selectedStrategy;
-                const t = templates.find((x) => x.id === tid);
-                return t?.name ?? tid ?? '—';
-              })()}
-            </span>
-            <span className="font-mono text-text">{results?.config?.symbol ?? symbol}</span>
-            <span className="rounded bg-border/20 px-2 py-0.5 text-textSecondary">
-              {results?.config?.timeframe ?? timeframe}
-            </span>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <span className="text-xs font-mono text-textSecondary">備註</span>
-            <input
-              className="flex-1 rounded border border-border/30 bg-surface px-3 py-1.5 text-sm text-text outline-none focus:border-accent"
-              placeholder={noteKey ? '為此回測加入備註（本機保存）' : '回測完成後可加備註'}
-              value={note}
-              disabled={!noteKey}
-              onChange={(e) => saveNote(e.target.value)}
-            />
-            {noteKey && (
-              <span className="font-mono text-[10px] text-textSecondary">已存本機 · {noteKey}</span>
-            )}
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={pushToNotion}
-              disabled={notionState?.loading}
-              className="rounded bg-surface px-3 py-1.5 text-xs font-medium border border-border/40 hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
-            >
-              {notionState?.loading ? '推送中…' : '推到回測庫'}
-            </button>
-            {notionState?.msg && (
-              <span className="text-xs font-mono text-textSecondary">{notionState.msg}</span>
-            )}
-          </div>
-        </div>
-
-        <Card className="p-0 overflow-hidden">
-            <div className="p-6 pb-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                績效面板
-              </h3>
-            </div>
-            <PerformancePanel
-              metrics={results.metrics}
-              equity={results.equity_curve}
-              buyHold={results.buy_hold_equity}
-              trades={results.trades}
-              positionStatus={results.position_status}
-              initialCapital={Number(results.config?.initial_capital ?? 100000)}
-              currency={unit}
-              onSelectTrade={setSelectedTrade}
-            />
-          </Card>
-
-          {/* Long/Short split breakdown */}
-          <Card className="p-0 overflow-hidden">
-            <div className="p-6 pb-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                多空分析
-              </h3>
-            </div>
-            <div className="p-6">
-              <LongShortPanel metrics={results.metrics} />
-            </div>
-          </Card>
-
-          {/* MAE/MFE scatter */}
-          {results.trades && results.trades.some((t) => t.mae != null && t.mfe != null) && (
-            <Card className="p-0 overflow-hidden">
-              <div className="p-6 pb-0">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  MAE / MFE 散佈圖
-                </h3>
-              </div>
-              <div className="p-6">
-                <MaeMfeScatter trades={results.trades} />
-              </div>
-            </Card>
-          )}
-
-          {/* Trade blotter */}
-          {results.trades && results.trades.length > 0 && (
-            <Card className="p-0 overflow-hidden">
-              <div className="flex items-center justify-between p-6 pb-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  Trade Blotter
-                </h3>
-                <span className="text-xs font-mono text-textSecondary">
-                  {results.trades.length} fills
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm font-mono">
-                  <thead>
-                    <tr className="text-left text-xs uppercase text-textSecondary border-t border-border/10">
-                      <th className="px-6 py-3">#</th>
-                      <th
-                        className="px-6 py-3 cursor-pointer select-none hover:text-text"
-                        onClick={() => toggleSort('entry_time')}
-                      >
-                        Entry Time {sortIndicator('entry_time')}
-                      </th>
-                      <th className="px-6 py-3">Side</th>
-                      <th className="px-6 py-3 text-right">Entry</th>
-                      <th className="px-6 py-3 text-right">Exit</th>
-                      <th className="px-6 py-3 text-right">Size</th>
-                      <th
-                        className="px-6 py-3 text-right cursor-pointer select-none hover:text-text"
-                        onClick={() => toggleSort('pnl')}
-                      >
-                        PnL ({unit}) {sortIndicator('pnl')}
-                      </th>
-                      <th className="px-6 py-3 text-right">PnL %</th>
-                      <th className="px-6 py-3">Exit Reason</th>
-                      <th className="px-6 py-3 text-right">Bars</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedTrades.map((t: any, i: number) => (
-                      <tr
-                        key={i}
-                        className={`border-t border-border/10 transition-colors duration-150 cursor-pointer ${
-                          selectedTrade?.trade_id === t.trade_id
-                            ? 'bg-success/5'
-                            : 'hover:bg-text/[0.02]'
-                        }`}
-                        onClick={() => setSelectedTrade(selectedTrade?.trade_id === t.trade_id ? null : t)}
-                      >
-                        <td className="px-6 py-3 text-textSecondary tabular-nums">{i + 1}</td>
-                        <td className="px-6 py-3 text-textSecondary">{t.entry_time}</td>
-                        <td className={`px-6 py-3 font-semibold ${
-                          t.direction === 'short' ? 'text-danger' : 'text-success'
-                        }`}>
-                          {t.direction === 'short' ? '空' : '多'}
-                        </td>
-                        <td className="px-6 py-3 text-right text-text tabular-nums">
-                          {formatPrice(t.entry_price)}
-                        </td>
-                        <td className="px-6 py-3 text-right text-text tabular-nums">
-                          {t.exit_price != null ? formatPrice(t.exit_price) : '—'}
-                        </td>
-                        <td className="px-6 py-3 text-right text-textSecondary tabular-nums">
-                          {formatQty((t as any).size ?? (t as any).quantity)}
-                        </td>
-                        <td
-                          className={`px-6 py-3 text-right font-semibold tabular-nums ${
-                            Number(t.pnl) >= 0 ? 'text-success' : 'text-danger'
-                          }`}
-                        >
-                          {safeSigned(Number(t.pnl))}
-                        </td>
-                        <td
-                          className={`px-6 py-3 text-right tabular-nums ${
-                            Number(t.pnl_pct) >= 0 ? 'text-success' : 'text-danger'
-                          }`}
-                        >
-                          {t.pnl_pct != null ? safePct(Number(t.pnl_pct)) : '—'}
-                        </td>
-                        <td className="px-6 py-3 text-textSecondary">{t.exit_reason || '—'}</td>
-                        <td className="px-6 py-3 text-right text-textSecondary tabular-nums">
-                          {t.holding_bars != null ? safeInt(Number(t.holding_bars)) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-
-          {/* P1-2: 月度收益表 */}
-          {results.equity_curve && results.equity_curve.length > 0 && (
-            <Card className="p-0 overflow-hidden">
-              <div className="p-6 pb-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  月度收益表
-                </h3>
-              </div>
-              <MonthlyReturnsTable
-                equity={results.equity_curve}
-                initialCapital={Number(results.config?.initial_capital ?? 10000)}
-              />
-            </Card>
-          )}
-
-          {/* P1-3: 交易統計分佈 */}
-          {results.trades && results.trades.length > 0 && (
-            <Card className="p-0 overflow-hidden">
-              <div className="p-6 pb-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-textSecondary">
-                  交易統計分佈
-                </h3>
-              </div>
-              <div className="px-6 pb-6">
-                <TradeStatsDist trades={results.trades} />
-              </div>
-            </Card>
-          )}
-        </div>
-      ) : status === 'completed' ? (
-        <Card><EmptyState title="No trades generated" description="The strategy produced no entries for this configuration. Try widening parameter bounds or a different symbol." /></Card>
-      ) : null}
-    </PageShell>
+        <InputArea
+          input={input}
+          setInput={setInput}
+          onKeyDown={onKeyDown}
+          send={() => send(input)}
+          streaming={streaming}
+          taRef={taRef}
+        />
+      </div>
+    </div>
   );
 }
 
-export default function BacktestPage() {
+/* ── message bubble ── */
+function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
+  const isUser = msg.role === 'user';
   return (
-    <Suspense fallback={
-      <PageShell eyebrow="Backtest / workflow" title="策略回測" subtitle="載入中…">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-10 bg-surface rounded animate-pulse" />
-          ))}
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[85%] rounded-lg px-4 py-3 ${
+          isUser
+            ? 'bg-accent/10 border border-accent/20'
+            : 'bg-surface border border-border/30'
+        }`}
+      >
+        {!isUser && (
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="h-1 w-1 bg-accent" />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-textSecondary">
+              AI
+            </span>
+          </div>
+        )}
+        <div
+          className={`text-sm leading-relaxed ${
+            isUser ? 'text-text' : 'text-text/95'
+          } ${streaming && !msg.content ? 'animate-pulse' : ''}`}
+        >
+          {msg.content || (streaming ? '思考中…' : '')}
         </div>
-        <div className="h-64 bg-surface border border-border/10 rounded-lg animate-pulse mt-6" />
-      </PageShell>
-    }>
-      <BacktestView />
-    </Suspense>
+        <div className="mt-1.5 font-mono text-[10px] text-textSecondary/40">
+          {new Date(msg.ts).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── input area ── */
+function InputArea({
+  input,
+  setInput,
+  onKeyDown,
+  send,
+  streaming,
+  taRef,
+}: {
+  input: string;
+  setInput: (s: string) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  send: () => void;
+  streaming: boolean;
+  taRef: React.RefObject<HTMLTextAreaElement>;
+}) {
+  return (
+    <div className="relative rounded-xl border border-border/40 bg-surface focus-within:border-accent/50 transition-colors">
+      <textarea
+        ref={taRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={onKeyDown}
+        disabled={streaming}
+        rows={1}
+        placeholder="問任何量化交易問題…"
+        className="w-full resize-none bg-transparent px-4 py-3 text-sm text-text placeholder:text-textSecondary/50 focus:outline-none disabled:opacity-50"
+        style={{ minHeight: '48px' }}
+      />
+      <button
+        onClick={send}
+        disabled={streaming || !input.trim()}
+        className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accentInk transition-colors hover:bg-accentStrong disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="發送"
+      >
+        {streaming ? (
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-accentInk/30 border-t-accentInk" />
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        )}
+      </button>
+    </div>
   );
 }
