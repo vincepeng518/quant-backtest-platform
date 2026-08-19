@@ -1,0 +1,35 @@
+{
+  "id": "2e9c7df1ef10",
+  "kind": "optimize",
+  "label": "opt-ma_cross-ETH/USDT",
+  "created_at": 1786643377.8919852,
+  "config": {
+    "symbol": "ETH/USDT",
+    "timeframe": "1h",
+    "start_date": "2025-01-01",
+    "end_date": "2025-06-01",
+    "strategy_id": "ma_cross",
+    "algorithm": "grid",
+    "max_trials": 100,
+    "param_space": [
+      {
+        "name": "fast_period",
+        "min": 5,
+        "max": 50,
+        "step": 5
+      },
+      {
+        "name": "slow_period",
+        "min": 20,
+        "max": 200,
+        "step": 20
+      }
+    ],
+    "source": "bingx"
+  },
+  "metrics": {
+    "best_score": 1.5984981254981303,
+    "algorithm": "grid",
+    "n_trials": 100
+  }
+}

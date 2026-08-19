@@ -1,353 +1,316 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import Link from 'next/link';
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { Spinner } from '@/components/ui/Spinner';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { APP_VERSION } from '@/lib/version';
-import { useDashboard } from '@/lib/dashboard';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-/* ── deterministic equity walk seeded by run count — the desk's signature line ── */
-function equityPath(seed: number, w = 600, h = 120): { pts: string; len: number } {
-  let s = seed * 9301 + 49297;
-  const rnd = () => ((s = (s * 233280 + 9301) % 2332800) / 2332800);
-  let v = h * 0.72;
-  const n = 48;
-  const out: string[] = [];
-  for (let i = 0; i <= n; i++) {
-    const drift = -0.9 - rnd() * 1.6; // upward bias (y is inverted)
-    v = Math.max(8, Math.min(h - 8, v + drift + (rnd() - 0.5) * 14));
-    out.push(`${((i / n) * w).toFixed(1)},${v.toFixed(1)}`);
-  }
-  return { pts: out.join(' '), len: w * 2 };
+/* ── types ── */
+interface Msg {
+  role: 'user' | 'assistant';
+  content: string;
+  ts: number;
 }
 
-const modules = [
-  {
-    no: '01',
-    name: 'Backtest',
-    path: '/backtest',
-    tag: '回測引擎',
-    desc: '載入市場數據，套用技術 / 組合策略，秒級生成績效報告、權益曲線與交易分佈。',
-    metric: 'P&L',
-  },
-  {
-    no: '02',
-    name: 'Optimize',
-    path: '/optimize',
-    tag: '參數優化',
-    desc: '貝葉斯優化自動掃參，收斂到最佳風險調整後參數，輸出 WF + 蒙地卡羅穩健性報告。',
-    metric: 'SHARPE',
-  },
-  {
-    no: '03',
-    name: 'History',
-    path: '/history',
-    tag: '回測歷史',
-    desc: '所有已儲存回測記錄一覽，按 Sharpe / 日期排序，點擊還原該次結果進行檢視與匯出。',
-    metric: 'ARCHIVE',
-  },
-  {
-    no: '04',
-    name: 'Strategies',
-    path: '/strategies',
-    tag: '策略管理',
-    desc: '上傳你的 Python 策略（StrategyBase 抽象層），自帶未來函數檢測，一鍵跑回測或優化。',
-    metric: 'PYTHON',
-  },
+/* ── quick prompts ── */
+const QUICK = [
+  { label: '策略健檢', text: '幫我檢查這個策略的邏輯是否有前視偏差\n\n[貼上你的策略代碼]' },
+  { label: '回測解讀', text: 'Sharpe 1.8, PF 2.1, MaxDD -12%, 87 筆交易，這個策略能用嗎？' },
+  { label: '參數優化', text: '我的策略有 fast_period 和 slow_period 兩個參數，怎麼設計 walk-forward 驗證？' },
+  { label: '風控建議', text: '1萬本金，每筆固定倉位 10%，MaxDD 歷史 -15%，怎麼改善資金管理？' },
 ];
 
-/* ── Masthead: the desk opens with numbers, not slogans ── */
-function DeskBoard({ loading, error, stats, rows }: ReturnType<typeof useDashboard>) {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-  const today = useMemo(() => {
-    const d = new Date();
-    return {
-      date: d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
-      weekday: d.toLocaleDateString('zh-TW', { weekday: 'long' }),
-    };
-  }, []);
+export default function ChatHome() {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState('');
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
-  const walk = useMemo(() => equityPath(Math.max(stats.total, 7)), [stats.total]);
+  /* ── auto-scroll ── */
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
-  const cells: { label: string; value: string; accent?: 'success' | 'danger' | 'accent' }[] = [
-    { label: '總回測數', value: loading ? '—' : String(stats.total) },
-    {
-      label: '平均 Sharpe',
-      value: loading || stats.avgSharpe == null ? '—' : stats.avgSharpe.toFixed(3),
-      accent: (stats.avgSharpe ?? 0) >= 0 ? 'success' : 'danger',
-    },
-    {
-      label: '最佳 Sharpe',
-      value: loading || !stats.bestRun ? '—' : Number(stats.bestRun.sharpe).toFixed(2),
-      accent: 'success',
-    },
-    {
-      label: '最差 Sharpe',
-      value: loading || !stats.worstRun ? '—' : Number(stats.worstRun.sharpe).toFixed(2),
-      accent: 'danger',
-    },
-  ];
+  /* ── textarea auto-resize ── */
+  useEffect(() => {
+    if (taRef.current) {
+      taRef.current.style.height = 'auto';
+      taRef.current.style.height = Math.min(taRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [input]);
 
-  return (
-    <section className="rise-in">
-      {/* date line + live status */}
-      <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-[0.18em] text-textSecondary">
-        <span>
-          {today.date} · {today.weekday}
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping bg-success opacity-60" />
-            <span className="relative inline-flex h-1.5 w-1.5 bg-success" />
-          </span>
-          Engine online
-        </span>
-      </div>
+  const send = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || streaming) return;
 
-      {/* headline — left-aligned, the number is the hero */}
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
-        <div>
-          <h1 className="font-display text-4xl font-semibold leading-[1.2] tracking-tight md:text-6xl">
-            在市場中
-            <br />
-            <span className="text-accent">持續賺取 P&L</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-sm leading-relaxed text-textSecondary md:text-base">
-            極簡、高性能的量化回測與優化平台。從策略構想到樣本外驗證，一套工具完成全部工作流。
-            數據天賦 × 策略思維 × 高速執行。
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/backtest"
-              className="group inline-flex items-center gap-2 bg-accent px-5 py-3 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
-            >
-              進入平台
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              href="/history"
-              className="inline-flex items-center gap-2 border border-border/60 px-5 py-3 text-sm font-medium text-text transition-colors hover:border-accent/50 hover:text-accent"
-            >
-              回測歷史
-            </Link>
-          </div>
-        </div>
+    setError(null);
+    const userMsg: Msg = { role: 'user', content: trimmed, ts: Date.now() };
+    const assistantId = Date.now() + 1;
+    setMessages((prev) => [...prev, userMsg, { role: 'assistant', content: '', ts: assistantId }]);
+    setInput('');
+    setStreaming(true);
 
-        {/* signature equity line — draws itself on load */}
-        <div className="hidden md:block" aria-hidden>
-          <svg width="320" height="120" viewBox="0 0 600 120" fill="none">
-            <line x1="0" y1="119" x2="600" y2="119" stroke="rgb(var(--border))" strokeWidth="1" />
-            <polyline
-              points={walk.pts}
-              stroke="rgb(var(--accent))"
-              strokeWidth="2"
-              className="pnl-draw"
-              style={{ ['--line-len' as string]: walk.len }}
-            />
-          </svg>
-          <p className="mt-2 text-right font-mono text-[10px] uppercase tracking-[0.18em] text-textSecondary">
-            Equity · simulated walk
-          </p>
-        </div>
-      </div>
+    try {
+      const res = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, { role: 'user', content: trimmed }].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
 
-      {/* ledger stats strip */}
-      <div className="mt-12 metrics-grid grid grid-cols-2 gap-px lg:grid-cols-4">
-        {cells.map((c, i) => (
-          <div
-            key={c.label}
-            className="rise-in bg-surface p-5 metric-item"
-            style={{ animationDelay: `${120 + i * 80}ms` }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 bg-accent" />
-              <span className="font-mono text-[11px] uppercase tracking-wider text-textSecondary">
-                {c.label}
-              </span>
-            </div>
-            <p
-              className={`mt-3 font-mono text-3xl font-semibold tracking-tight ${
-                c.accent === 'success'
-                  ? 'text-success'
-                  : c.accent === 'danger'
-                    ? 'text-danger'
-                    : c.accent === 'accent'
-                      ? 'text-accent'
-                      : 'text-text'
-              }`}
-            >
-              {c.value}
-            </p>
-          </div>
-        ))}
-      </div>
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
-      {error && (
-        <p className="mt-4 font-mono text-xs text-danger">stats: {error}</p>
-      )}
-      {!loading && !error && rows.length === 0 && (
-        <p className="mt-4 font-mono text-xs text-textSecondary">
-          尚無回測紀錄 — 前往 Backtest 執行第一筆。
-        </p>
-      )}
-    </section>
-  );
-}
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('no stream body');
 
-/* ── Recent runs ledger ── */
-function RecentRuns({ rows, loading, error }: Pick<ReturnType<typeof useDashboard>, 'rows' | 'loading' | 'error'>) {
-  if (loading)
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const chunk = line.slice(6);
+          if (chunk === '[DONE]') {
+            break;
+          }
+          try {
+            const obj = JSON.parse(chunk);
+            if (obj.error) {
+              setError(obj.error);
+              break;
+            }
+            if (obj.content) {
+              accumulated += obj.content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.ts === assistantId ? { ...m, content: accumulated } : m
+                )
+              );
+            }
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+
+      if (!accumulated && !error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.ts === assistantId ? { ...m, content: '（無回覆內容）' } : m
+          )
+        );
+      }
+    } catch (e: any) {
+      setError(e.message || '連線失敗');
+      setMessages((prev) =>
+        prev.filter((m) => m.ts !== assistantId)
+      );
+    } finally {
+      setStreaming(false);
+    }
+  }, [messages, streaming, error]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
+  };
+
+  const clear = () => {
+    setMessages([]);
+    setError(null);
+  };
+
+  /* ── empty state ── */
+  if (messages.length === 0) {
     return (
-      <div className="flex justify-center py-10">
-        <Spinner />
+      <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-3xl flex-col px-4 pb-16 pt-12 md:px-6">
+        {/* header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-textSecondary">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping bg-success opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 bg-success" />
+            </span>
+            AI Assistant · online
+          </div>
+          <h1 className="mt-6 font-display text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
+            量化交易助手
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-textSecondary">
+            策略設計、回測驗證、風險管理、代碼除錯。直接問。
+          </p>
+        </div>
+
+        {/* quick prompts */}
+        <div className="mb-6 grid gap-2 sm:grid-cols-2">
+          {QUICK.map((q) => (
+            <button
+              key={q.label}
+              onClick={() => send(q.text)}
+              disabled={streaming}
+              className="group rounded-lg border border-border/40 bg-surface p-4 text-left transition-colors hover:border-accent/40 disabled:opacity-40"
+            >
+              <div className="font-display text-sm font-semibold tracking-tight transition-colors group-hover:text-accent">
+                {q.label}
+              </div>
+              <div className="mt-1.5 line-clamp-2 font-mono text-[11px] leading-relaxed text-textSecondary">
+                {q.text.split('\n')[0]}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* input */}
+        <InputArea
+          input={input}
+          setInput={setInput}
+          onKeyDown={onKeyDown}
+          send={() => send(input)}
+          streaming={streaming}
+          taRef={taRef}
+        />
       </div>
     );
-  if (error) return <EmptyState title="無法載入紀錄" description={error} />;
-  if (rows.length === 0) return null;
+  }
 
   return (
-    <section className="rise-in" style={{ animationDelay: '200ms' }}>
-      <div className="flex items-end justify-between">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 bg-accent" />
-          <h2 className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-textSecondary">
-            Recent runs
-          </h2>
-        </div>
-        <Link
-          href="/history"
-          className="group inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wider text-textSecondary transition-colors hover:text-accent"
-        >
-          全部紀錄
-          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-        </Link>
+    <div className="mx-auto flex h-[calc(100vh-64px)] max-w-3xl flex-col px-4 pb-4 pt-4 md:px-6">
+      {/* messages */}
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
+        {messages.map((m, i) => (
+          <MessageBubble key={i} msg={m} streaming={streaming && i === messages.length - 1 && m.role === 'assistant'} />
+        ))}
+        {error && (
+          <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 font-mono text-xs text-danger">
+            {error}
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 divide-y divide-border/30 border-y border-border/40">
-        {rows.slice(0, 8).map((r) => (
-          <Link
-            key={r.task_id}
-            href={`/backtest?task=${r.task_id}`}
-            className="ledger-row group flex items-center justify-between gap-4 px-3 py-3.5"
+      {/* input */}
+      <div className="shrink-0">
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            onClick={clear}
+            className="font-mono text-[11px] uppercase tracking-wider text-textSecondary transition-colors hover:text-danger"
           >
-            <div className="flex min-w-0 items-baseline gap-3">
-              <span className="hidden shrink-0 font-mono text-[11px] text-textSecondary/70 sm:block">
-                {r.created_at?.slice(0, 10)}
-              </span>
-              <span className="truncate font-medium text-text transition-colors group-hover:text-accent">
-                {r.strategy ?? 'strategy'}
-              </span>
-              <span className="shrink-0 font-mono text-xs text-textSecondary">
-                {r.symbol ?? '—'} · {r.timeframe ?? ''}
-              </span>
-            </div>
-            <div className="flex shrink-0 items-center gap-4 font-mono text-sm">
-              <span className="hidden text-textSecondary sm:block">{r.total_trades ?? 0} 筆</span>
-              <span className={(r.sharpe ?? 0) >= 0 ? 'text-success' : 'text-danger'}>
-                SR {Number(r.sharpe ?? 0).toFixed(2)}
-              </span>
-              {((r as any).return_pct) != null && (
-                <span className={Number((r as any).return_pct) >= 0 ? 'text-success' : 'text-danger'}>
-                  {Number((r as any).return_pct) >= 0 ? '+' : ''}{Number((r as any).return_pct).toFixed(1)}%
-                </span>
-              )}
-              {((r as any).max_dd) != null && (
-                <span className="text-textSecondary">
-                  DD {Number((r as any).max_dd).toFixed(1)}%
-                </span>
-              )}
-              <ArrowRight className="h-4 w-4 text-textSecondary transition-all group-hover:translate-x-0.5 group-hover:text-accent" />
-            </div>
-          </Link>
-        ))}
+            清空對話
+          </button>
+          <span className="font-mono text-[11px] text-textSecondary/50">
+            Enter 發送 · Shift+Enter 換行
+          </span>
+        </div>
+        <InputArea
+          input={input}
+          setInput={setInput}
+          onKeyDown={onKeyDown}
+          send={() => send(input)}
+          streaming={streaming}
+          taRef={taRef}
+        />
       </div>
-    </section>
+    </div>
   );
 }
 
-/* ── Module index — numbered ledger rows, not a card grid ── */
-function ModuleIndex() {
+/* ── message bubble ── */
+function MessageBubble({ msg, streaming }: { msg: Msg; streaming?: boolean }) {
+  const isUser = msg.role === 'user';
   return (
-    <section className="rise-in" style={{ animationDelay: '280ms' }}>
-      <div className="flex items-end justify-between">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 bg-accent" />
-          <h2 className="font-mono text-xs font-medium uppercase tracking-[0.18em] text-textSecondary">
-            Workflows
-          </h2>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[85%] rounded-lg px-4 py-3 ${
+          isUser
+            ? 'bg-accent/10 border border-accent/20'
+            : 'bg-surface border border-border/30'
+        }`}
+      >
+        {!isUser && (
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="h-1 w-1 bg-accent" />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-textSecondary">
+              AI
+            </span>
+          </div>
+        )}
+        <div
+          className={`text-sm leading-relaxed ${
+            isUser ? 'text-text' : 'text-text/95'
+          } ${streaming && !msg.content ? 'animate-pulse' : ''}`}
+        >
+          {msg.content || (streaming ? '思考中…' : '')}
         </div>
-        <span className="font-mono text-xs text-textSecondary">04 modules</span>
+        <div className="mt-1.5 font-mono text-[10px] text-textSecondary/40">
+          {new Date(msg.ts).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+        </div>
       </div>
-
-      <div className="mt-4 divide-y divide-border/30 border-y border-border/40">
-        {modules.map((m) => (
-          <Link
-            key={m.no}
-            href={m.path}
-            className="ledger-row group grid grid-cols-[auto_1fr_auto] items-center gap-x-5 gap-y-1 px-3 py-5 md:grid-cols-[auto_220px_1fr_auto_auto]"
-          >
-            <span className="font-display text-2xl font-semibold text-accent/40 transition-colors group-hover:text-accent md:text-3xl">
-              {m.no}
-            </span>
-            <div>
-              <h3 className="font-display text-lg font-semibold tracking-tight transition-colors group-hover:text-accent">
-                {m.name}
-              </h3>
-              <p className="font-mono text-[11px] uppercase tracking-wider text-accent/80">{m.tag}</p>
-            </div>
-            <p className="col-span-3 text-sm leading-relaxed text-textSecondary md:col-span-1">
-              {m.desc}
-            </p>
-            <span className="hidden font-mono text-[10px] uppercase tracking-widest text-textSecondary md:block">
-              {m.metric}
-            </span>
-            <ArrowRight className="hidden h-4 w-4 text-textSecondary transition-all group-hover:translate-x-0.5 group-hover:text-accent md:block" />
-          </Link>
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }
 
-export default function Home() {
-  const dash = useDashboard();
+/* ── input area ── */
+function InputArea({
+  input,
+  setInput,
+  onKeyDown,
+  send,
+  streaming,
+  taRef,
+}: {
+  input: string;
+  setInput: (s: string) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  send: () => void;
+  streaming: boolean;
+  taRef: React.RefObject<HTMLTextAreaElement>;
+}) {
   return (
-    <div className="mx-auto max-w-7xl space-y-20 px-4 pb-16 pt-12 md:px-6 md:pt-16">
-      <ErrorBoundary>
-        <DeskBoard {...dash} />
-      </ErrorBoundary>
-
-      <ErrorBoundary>
-        <RecentRuns {...dash} />
-      </ErrorBoundary>
-
-      <ModuleIndex />
-
-      {/* ── closing band — the discipline line, left-aligned ── */}
-      <section className="rise-in border border-border/40 bg-surface px-8 py-12 md:px-12 md:py-16">
-        <div className="accent-rule mb-8 w-24" />
-        <h2 className="max-w-2xl font-display text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
-          紀律就是利潤，情緒就是成本。
-        </h2>
-        <p className="mt-4 max-w-xl text-sm text-textSecondary">
-          從第一筆回測開始，建立你的系統化交易優勢。
-        </p>
-        <Link
-          href="/backtest"
-          className="group mt-8 inline-flex items-center gap-2 bg-accent px-5 py-3 text-sm font-medium text-accentInk transition-colors hover:bg-accentStrong"
-        >
-          開始回測
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </section>
-
-      {/* version stamp */}
-      <div className="mt-16 select-none text-center font-mono text-[11px] text-textSecondary/30">
-        {APP_VERSION}
-      </div>
+    <div className="relative rounded-xl border border-border/40 bg-surface focus-within:border-accent/50 transition-colors">
+      <textarea
+        ref={taRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={onKeyDown}
+        disabled={streaming}
+        rows={1}
+        placeholder="問任何量化交易問題…"
+        className="w-full resize-none bg-transparent px-4 py-3 text-sm text-text placeholder:text-textSecondary/50 focus:outline-none disabled:opacity-50"
+        style={{ minHeight: '48px' }}
+      />
+      <button
+        onClick={send}
+        disabled={streaming || !input.trim()}
+        className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accentInk transition-colors hover:bg-accentStrong disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="發送"
+      >
+        {streaming ? (
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-accentInk/30 border-t-accentInk" />
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        )}
+      </button>
     </div>
   );
 }

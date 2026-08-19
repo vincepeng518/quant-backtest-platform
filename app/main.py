@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
-from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades, portfolio, realtime_ws
+from app.api.routes import data, strategy, backtest, optimize, analysis, arbitrage, monitoring, research, admin, experiments, validate, exchanges, trades, portfolio, realtime_ws, chat
 from app.config import settings
 from app.core.auth import auth_required
 from app.core.exceptions import AppException
@@ -115,6 +115,7 @@ app.include_router(experiments.router)
 app.include_router(validate.router)
 app.include_router(exchanges.router)
 app.include_router(trades.router)
+app.include_router(chat.router)
 
 
 # ── Predict Bot Heartbeat (direct in main.py) ──

@@ -1,0 +1,43 @@
+{
+  "id": "76011aa197ca",
+  "kind": "optimize",
+  "label": "opt-ma_cross-?",
+  "created_at": 1785935123.7364035,
+  "config": {
+    "strategy_id": "ma_cross",
+    "param_space": [
+      {
+        "name": "fast_period",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 5.0,
+        "type": "range"
+      }
+    ],
+    "algorithm": "grid",
+    "max_trials": 10,
+    "funding": {
+      "enabled": false,
+      "interval_hours": 8,
+      "default_rate": 0.0001
+    },
+    "perpetual": {
+      "enabled": false,
+      "leverage": 1.0,
+      "maintenance_margin_rate": 0.005
+    },
+    "exchange": {
+      "enabled": false,
+      "maker_fee": 0.0002,
+      "taker_fee": 0.0005,
+      "latency_bars": 0,
+      "book_base_slippage": 0.0005,
+      "maker_probability": 0.0
+    }
+  },
+  "metrics": {
+    "best_score": 4.606007765061547,
+    "algorithm": "grid",
+    "n_trials": 21
+  }
+}
