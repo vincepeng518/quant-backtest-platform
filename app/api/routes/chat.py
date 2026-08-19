@@ -53,8 +53,9 @@ SYSTEM_PROMPT = """你是 Quant Platform 的 AI 交易助手，服務於一位�
 @router.post("/stream")
 async def chat_stream(payload: dict[str, Any], request: Request):
     """Stream LLM response as SSE events. Rate-limited per IP."""
-    # Rate limit check
-    client_ip = request.client.host if request.client else "unknown"
+    # Rate limit check — use X-Forwarded-For (Railway hikari proxy)
+    xff = request.headers.get("x-forwarded-for", "")
+    client_ip = xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
     now = time.time()
     # Prune and check minute window
     _rate_min[client_ip] = [t for t in _rate_min[client_ip] if now - t < 60]
