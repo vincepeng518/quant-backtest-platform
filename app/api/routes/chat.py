@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 _LLM_BASE = os.getenv("LLM_BASE_URL", "https://yuanyuaicloud.cn/v1")
 _LLM_KEY = os.getenv("LLM_API_KEY", os.getenv("GLM_API_KEY", ""))
