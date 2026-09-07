@@ -216,6 +216,10 @@ class BacktestResultOut(BaseModel):
     buy_hold_equity: list[dict] = []
     trades: list[TradeRecord] = []
     position_status: list[dict] = []
+    # K 線與交易標記 — 前端 TradingView 圖表靠這兩個欄位，
+    # 先前完全沒回傳，導致「No backtest data / K 線總數 0 根」。
+    chart_data: list[dict] = []
+    markers: list[dict] = []
 
 
 class TaskStatus(BaseModel):

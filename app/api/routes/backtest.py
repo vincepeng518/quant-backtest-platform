@@ -175,6 +175,56 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
         if _to_unix(ts) is not None
     ]
     position_status = getattr(r, "position_status", []) or []
+
+    # ── K 線 + 交易標記 ──
+    # 前端 TvBacktestChart 需要 chart_data（OHLCV）才能畫圖、需要 markers 才能
+    # 標買賣點。先前 API 沒回這兩個欄位，圖表固定顯示 "No backtest data"。
+    chart_data: list[dict] = []
+    markers: list[dict] = []
+    # 原始 K 線存在 backtester 上（bt.set_data 存進 self.data），
+    # 回測結果本身不含 OHLCV，所以從 task 的 backtester 取。
+    _task = _backtest_tasks.get(task_id) or {}
+    _bt = _task.get("backtester")
+    data = getattr(_bt, "data", None) if _bt is not None else None
+    if data is not None and len(data) > 0:
+        for _, row in data.iterrows():
+            ts = _to_unix(row.get("timestamp"))
+            if ts is None:
+                continue
+            try:
+                chart_data.append({
+                    "time": ts,
+                    "timestamp": ts,
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                    "volume": float(row.get("volume") or 0.0),
+                })
+            except Exception:
+                continue
+        # 交易標記：進場買/賣，出場平倉
+        for t in r.trades:
+            ets = _to_unix(t.entry_time)
+            xts = _to_unix(t.exit_time)
+            if ets is not None:
+                is_long = getattr(t, "direction", "long") == "long"
+                markers.append({
+                    "time": ets,
+                    "position": "belowBar" if is_long else "aboveBar",
+                    "color": "#16a34a" if is_long else "#dc2626",
+                    "shape": "arrowUp" if is_long else "arrowDown",
+                    "text": "買" if is_long else "賣",
+                })
+            if xts is not None:
+                markers.append({
+                    "time": xts,
+                    "position": "inBar",
+                    "color": "#64748b",
+                    "shape": "circle",
+                    "text": "平",
+                })
+        markers.sort(key=lambda m: m["time"])
     # ── Quality score 兜底: 若 backtester 未計算 (舊代碼), API 層補算 ──
     q_score = getattr(r, "quality_score", None)
     q_grade = getattr(r, "quality_grade", None)
@@ -225,6 +275,19 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
             "calmar_ratio": r.calmar_ratio,
             "avg_holding_bars": r.avg_holding_bars,
             "trade_freq": r.trade_freq,
+            # Long/Short split — 必須顯式帶上，否則 MetricsOut 宣告的欄位會
+            # 靜默退回預設 0（AGENTS.md 記載的 Pydantic 陷阱），
+            # 造成前端「多 0 / 空 0」但 trades 裡明明有 11 筆的長短倉。
+            "long_trades": r.long_trades,
+            "short_trades": r.short_trades,
+            "long_win_rate": r.long_win_rate,
+            "short_win_rate": r.short_win_rate,
+            "long_pnl": r.long_pnl,
+            "short_pnl": r.short_pnl,
+            "long_expectancy": r.long_expectancy,
+            "short_expectancy": r.short_expectancy,
+            "long_profit_factor": r.long_profit_factor,
+            "short_profit_factor": r.short_profit_factor,
             "quality_score": q_score,
             "quality_grade": q_grade,
             "quality_breakdown": q_breakdown or {},
@@ -233,6 +296,8 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
         buy_hold_equity=buy_hold_curve,
         trades=trades,
         position_status=position_status,
+        chart_data=chart_data,
+        markers=markers,
     )
 
 
@@ -284,6 +349,61 @@ async def get_results(task_id: str):
                 _ec.append({"time": (_tu if _tu is not None else i), "equity": float(v)})
         else:
             _ec = _ec_raw
+
+        # ── K 線 + markers 兜底（舊 JSON 沒有這兩個欄位）──
+        # 從 /history 點進來的是這條路徑；沒有 chart_data 圖表就是 No backtest data。
+        _chart = d.get("chart_data") or []
+        _markers = d.get("markers") or []
+        if not _chart:
+            cfg = d.get("config", {}) or {}
+            try:
+                data = await svc.data_service.get_ohlcv(
+                    symbol=cfg.get("symbol", ""),
+                    timeframe=cfg.get("timeframe", "1h"),
+                    start_date=cfg.get("start_date", ""),
+                    end_date=cfg.get("end_date", ""),
+                    source=cfg.get("source") or "bingx",
+                )
+                if data is not None and len(data) > 0:
+                    for _, row in data.iterrows():
+                        try:
+                            _u = int(pd.Timestamp(row["timestamp"]).timestamp())
+                        except Exception:
+                            continue
+                        _chart.append({
+                            "time": _u, "timestamp": _u,
+                            "open": float(row["open"]), "high": float(row["high"]),
+                            "low": float(row["low"]), "close": float(row["close"]),
+                            "volume": float(row.get("volume") or 0.0),
+                        })
+            except Exception:
+                _chart = []
+        if not _markers and d.get("trades"):
+            def _mk_ts(v):
+                try:
+                    _t = pd.Timestamp(v)
+                except Exception:
+                    return None
+                if _t is None or str(_t) == "NaT":
+                    return None
+                try:
+                    return int(_t.timestamp())
+                except Exception:
+                    return None
+            for t in d["trades"]:
+                _e, _x = _mk_ts(t.get("entry_time")), _mk_ts(t.get("exit_time"))
+                _long = (t.get("direction") or "long") == "long"
+                if _e is not None:
+                    _markers.append({"time": _e,
+                                     "position": "belowBar" if _long else "aboveBar",
+                                     "color": "#16a34a" if _long else "#dc2626",
+                                     "shape": "arrowUp" if _long else "arrowDown",
+                                     "text": "買" if _long else "賣"})
+                if _x is not None:
+                    _markers.append({"time": _x, "position": "inBar",
+                                     "color": "#64748b", "shape": "circle", "text": "平"})
+            _markers.sort(key=lambda m: m["time"])
+
         return BacktestResultOut(
             task_id=task_id,
             status=d.get("status", "completed"),
@@ -291,6 +411,8 @@ async def get_results(task_id: str):
             metrics=metrics,
             equity_curve=_ec,
             trades=d.get("trades", []),
+            chart_data=_chart,
+            markers=_markers,
         )
     raise HTTPException(status_code=404, detail="task not found")
 
