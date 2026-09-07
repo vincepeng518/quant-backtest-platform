@@ -44,7 +44,7 @@ class TestGridSearch:
         results = opt.grid_search({"fast_period": {"type": "range", "min": 5, "max": 10, "step": 5}})
         assert "params" in results[0]
         assert "score" in results[0]
-        assert "result" in results[0]
+        assert "calmar" in results[0]
 
 
 class TestGeneticAlgorithm:

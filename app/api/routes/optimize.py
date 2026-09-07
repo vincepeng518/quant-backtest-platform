@@ -13,7 +13,7 @@ svc = OptimizeService()
 async def run_optimize(config: OptimizeConfig):
     from fastapi.responses import JSONResponse
     result = await svc.run(config.model_dump())
-    return JSONResponse(content=result, headers={
+    return JSONResponse(content=result, status_code=202, headers={
         "Cache-Control": "no-store, max-age=0, must-revalidate", "Pragma": "no-cache"})
 
 

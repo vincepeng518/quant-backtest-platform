@@ -76,4 +76,7 @@ check("時間對齊交集", pf_t.timestamps==[2,3,4], f"tss={pf_t.timestamps}")
 check("對齊後組合長度=3", len(pf_t.portfolio_equity)==3)
 
 print("\n=== 總結:", "全部通過" if ok else "有FAIL ===")
-sys.exit(0 if ok else 1)
+
+def test_portfolio_module_checks():
+    """Module-level checks run at import time; this asserts their result."""
+    assert ok, "portfolio module-level checks failed"
