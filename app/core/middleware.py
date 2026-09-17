@@ -9,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from app.core.access import decide, is_always_public
+from app.core.ratelimit import anon_limiter
 
 logger = logging.getLogger("api")
 
@@ -38,6 +39,20 @@ class AccessGuardMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Authentication required"},
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        # 匿名運算配額：公開站台不得被當免費算力
+        if verdict == "ephemeral":
+            ip = (request.client.host if request.client else "unknown") or "unknown"
+            fwd = request.headers.get("x-forwarded-for") or ""
+            if fwd:
+                ip = fwd.split(",")[0].strip() or ip
+            if not anon_limiter.allow(ip):
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": "匿名運算配額已用完，請稍後再試或帶 token 認證"
+                    },
+                    headers={"Retry-After": str(int(anon_limiter.retry_after(ip)) + 1)},
+                )
         request.state.ephemeral = verdict == "ephemeral"
         request.state.authenticated = authenticated
         return await call_next(request)

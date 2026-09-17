@@ -142,8 +142,59 @@ def test_health_open_even_in_private_mode(monkeypatch):
     assert c.get("/api/data/symbols").status_code == 401
 
 
+def test_anon_can_poll_own_ephemeral_task(client):
+    """匿名者必須能輪詢自己剛跑的 ephemeral 任務，否則 demo 流程斷掉。"""
+    r = client.post(
+        "/api/backtest/run",
+        json={
+            "strategy": {"template_id": "ma_cross", "params": {}},
+            "symbol": "BTC/USDT",
+            "timeframe": "1h",
+            "source": "bingx",
+            "start_date": "2026-08-08",
+            "end_date": "2026-09-17",
+            "initial_capital": 100000,
+        },
+    )
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body.get("ephemeral") is True
+    tid = body["task_id"]
+    # 輪詢自己剛建的任務：不應被 401 擋
+    assert client.get(f"/api/backtest/status/{tid}").status_code == 200
+    assert client.get(f"/api/backtest/results/{tid}").status_code in (200, 404, 425, 503)
+
+
 def test_owner_isolation_results_404(client):
     """他人 task 的 results 回 404（不洩漏存在性）。"""
     r = client.get("/api/backtest/results/nonexistent-id", headers=AUTH)
     assert r.status_code == 404
+
+
+# ─────────────────────────────────────────────────────────────
+# Task 5: 匿名速率限制
+# ─────────────────────────────────────────────────────────────
+
+
+def test_rate_limit_blocks_anon_compute(monkeypatch):
+    """匿名運算超過配額 → 429（公開端點不得被當免費算力）。"""
+    from app.core.ratelimit import SlidingWindowLimiter
+
+    lim = SlidingWindowLimiter(limit=3, window_seconds=60)
+    for _ in range(3):
+        assert lim.allow("1.2.3.4") is True
+    assert lim.allow("1.2.3.4") is False
+    # 不同 IP 不互相影響
+    assert lim.allow("5.6.7.8") is True
+
+
+def test_rate_limit_window_expires(monkeypatch):
+    from app.core.ratelimit import SlidingWindowLimiter
+
+    lim = SlidingWindowLimiter(limit=1, window_seconds=0)
+    assert lim.allow("1.1.1.1") is True
+    import time
+
+    time.sleep(0.01)
+    assert lim.allow("1.1.1.1") is True
 

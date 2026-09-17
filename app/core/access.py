@@ -25,6 +25,11 @@ PUBLIC_READ_PREFIXES = (
     "/api/strategy/templates",
     "/api/exchanges/",
     "/api/health",
+    # 匿名者要能輪詢「自己剛跑的」ephemeral 任務，否則 demo 流程直接斷掉。
+    # 實際隔離由路由層做：owner 不符 → 404（不洩漏存在性），
+    # 所以這裡放行不等於可讀他人任務。
+    "/api/backtest/status",
+    "/api/backtest/results",
 )
 
 # 匿名可執行，但結果必須 ephemeral（不寫 history / 不落庫）
@@ -53,13 +58,14 @@ OWNER_PREFIXES = (
     "/api/validate",
     "/api/research",
     "/api/backtest/history",
-    "/api/backtest/results",
-    "/api/backtest/status",
     "/api/backtest/cancel",
     "/api/backtest/push-notion",
     "/api/strategy/user",
     "/api/strategy/upload",
 )
+# 註：/api/backtest/status 與 /results 不在此列 — 匿名者必須能輪詢自己剛跑的
+# ephemeral 任務，否則 demo 流程直接斷掉。隔離改由路由層的 owner 檢查負責
+# （owner 不符 → 404，不洩漏存在性）。
 
 
 def public_mode() -> str:
