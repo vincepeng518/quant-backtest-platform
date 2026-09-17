@@ -1,12 +1,25 @@
-"""Mock data generators for all tests."""
+"""Mock data generators for all tests + 測試環境 auth 設定。"""
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from engine.backtester import Trade
 from strategies.base import Bar
+
+# Task 2/3 起後端 fail-closed：測試統一帶這把固定 token。
+TEST_TOKEN = "test-token-isolation"
+
+
+@pytest.fixture(autouse=True)
+def _auth_env(monkeypatch):
+    """所有測試預設帶 auth token，避免既有測試因 fail-closed 而 401。"""
+    monkeypatch.setenv("API_BEARER_TOKEN", TEST_TOKEN)
+    monkeypatch.setenv("PUBLIC_MODE", "demo")
 
 
 def make_bars(closes: list[float], seed: int = 0) -> list[Bar]:

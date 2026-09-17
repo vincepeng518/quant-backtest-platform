@@ -5,12 +5,26 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from app.core.auth import ANON_OWNER, owner_id_for
 from app.models.schemas import BacktestConfig, BacktestResultOut, TaskStatus
 from app.services.backtest_service import BacktestService
 from app.services.data_service import _backtest_tasks
+
+
+def _owner_from(request: Request) -> str:
+    """由 Authorization header 推導 owner（單人站台的穩定識別）。"""
+    import os
+
+    bearer = os.getenv("API_BEARER_TOKEN") or ""
+    auth = request.headers.get("authorization") or ""
+    if bearer and auth.startswith("Bearer "):
+        tok = auth.split(" ", 1)[1].strip()
+        if tok == bearer:
+            return owner_id_for(tok)
+    return ANON_OWNER
 
 # Backtests are written by app/services/data_service.py to <repo>/backtests,
 # i.e. parents[2] of that module — anchor here so both reader routes agree.
@@ -22,7 +36,7 @@ svc = BacktestService()
 
 
 @router.post("/run", status_code=202)
-async def run_backtest(config: BacktestConfig):
+async def run_backtest(config: BacktestConfig, request: Request):
     # Defense-in-depth: sandbox-check custom_code even if not currently exec'd,
     # so a future execution path can't RCE. Mirrors strategy/upload validation.
     if config.strategy.custom_code:
@@ -30,11 +44,17 @@ async def run_backtest(config: BacktestConfig):
         ok, err = check_strategy_code(config.strategy.custom_code)
         if not ok:
             raise HTTPException(status_code=400, detail=f"Strategy rejected: {err}")
-    return await svc.run(config.model_dump())
+    # 匿名（未認證）跑的回測必須 ephemeral：不落庫、不進 history。
+    ephemeral = bool(getattr(request.state, "ephemeral", False))
+    owner = ANON_OWNER if ephemeral else _owner_from(request)
+    res = await svc.run(config.model_dump(), owner=owner, ephemeral=ephemeral)
+    if isinstance(res, dict) and ephemeral:
+        res["ephemeral"] = True
+    return res
 
 
 @router.get("/history")
-async def list_history():
+async def list_history(request: Request):
     import math as _m
     def _j(n):
         """inf/NaN → None(JSON 不安全 float)"""
@@ -43,6 +63,7 @@ async def list_history():
             return None if (_m.isinf(f) or _m.isnan(f)) else n
         except (TypeError, ValueError):
             return None
+    owner = _owner_from(request)
     bd = BACKTESTS_DIR
     if not bd.exists():
         return []
@@ -51,6 +72,13 @@ async def list_history():
         try:
             d = json.loads(f.read_text())
         except Exception:
+            continue
+        # owner 隔離：舊檔無 owner 欄位 → 視為 legacy，只有持有 token 者可讀。
+        file_owner = d.get("owner")
+        if file_owner is not None:
+            if file_owner != owner:
+                continue
+        elif owner == ANON_OWNER:
             continue
         m = d.get("metrics", {}) or {}
         cfg = d.get("config", {}) or {}
@@ -83,16 +111,26 @@ async def list_history():
 
 
 @router.delete("/history")
-async def delete_history(ids: list[str]):
+async def delete_history(ids: list[str], request: Request):
     """批次刪除歷史回測紀錄(本機檔 + GitHub)。回報刪除結果與失敗。"""
     if not ids:
         return {"deleted": [], "failed": []}
+    owner = _owner_from(request)
     bd = BACKTESTS_DIR
     deleted, failed = [], []
     removed_local = []
     for tid in ids:
         fp = bd / f"{tid}.json"
         if fp.exists():
+            # owner 隔離：只能刪自己的（舊檔無 owner → legacy 僅認證者可刪）
+            try:
+                _d = json.loads(fp.read_text())
+                _fo = _d.get("owner")
+            except Exception:
+                _fo = None
+            if (_fo is not None and _fo != owner) or (_fo is None and owner == ANON_OWNER):
+                failed.append({"task_id": tid, "error": "not found"})
+                continue
             try:
                 fp.unlink()
                 removed_local.append(str(fp))
@@ -115,13 +153,19 @@ async def delete_history(ids: list[str]):
 
 
 @router.get("/status/{task_id}")
-async def get_status(task_id: str):
+async def get_status(task_id: str, request: Request):
+    task = _backtest_tasks.get(task_id)
+    if task is not None and task.get("owner", ANON_OWNER) != _owner_from(request):
+        raise HTTPException(status_code=404, detail="task not found")
     s = svc.get_status(task_id)
     return TaskStatus(**s)
 
 
 @router.post("/cancel/{task_id}")
-async def cancel_backtest(task_id: str):
+async def cancel_backtest(task_id: str, request: Request):
+    task = _backtest_tasks.get(task_id)
+    if task is not None and task.get("owner", ANON_OWNER) != _owner_from(request):
+        raise HTTPException(status_code=404, detail="task not found")
     return svc.cancel(task_id)
 
 
@@ -302,14 +346,24 @@ def _result_to_out(task_id: str, result, config: dict | None = None) -> Backtest
 
 
 @router.get("/results/{task_id}", response_model=BacktestResultOut)
-async def get_results(task_id: str):
+async def get_results(task_id: str, request: Request):
+    owner = _owner_from(request)
     task = _backtest_tasks.get(task_id)
     if task and task.get("result") is not None:
+        # owner 隔離：非本人 task → 404（不洩漏存在性）
+        if task.get("owner", ANON_OWNER) != owner:
+            raise HTTPException(status_code=404, detail="task not found")
         return _result_to_out(task_id, task["result"], task.get("config"))
     bd = BACKTESTS_DIR
     fp = bd / f"{task_id}.json"
     if fp.exists():
         d = json.loads(fp.read_text())
+        # owner 隔離：舊檔無 owner 欄位 → legacy，只有認證者可讀
+        file_owner = d.get("owner")
+        if (file_owner is not None and file_owner != owner) or (
+            file_owner is None and owner == ANON_OWNER
+        ):
+            raise HTTPException(status_code=404, detail="task not found")
         metrics = dict(d.get("metrics", {}))
         # 兜底: 舊 JSON 無 quality_score 時補算
         m_qs = metrics.get("quality_score")

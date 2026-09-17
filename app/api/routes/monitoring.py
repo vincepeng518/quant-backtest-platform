@@ -10,7 +10,7 @@ from app.core.auth import auth_required
 
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
-PUSH_KEY = os.getenv("MONITOR_PUSH_KEY", "quant-monitor-local")
+PUSH_KEY = os.getenv("MONITOR_PUSH_KEY") or ""  # 無 fallback：未配置則一律拒絕
 _BACKEND_DB = os.getenv("DB_PATH", "./data/backtest.db")
 _SHADOW_DB = os.getenv("MONITOR_DB_PATH", "./monitoring/shadow.db")
 

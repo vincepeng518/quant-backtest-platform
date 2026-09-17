@@ -16,7 +16,7 @@ from app.api.routes import data, strategy, backtest, optimize, analysis, arbitra
 from app.config import settings
 from app.core.auth import auth_required
 from app.core.exceptions import AppException
-from app.core.middleware import TimingMiddleware
+from app.core.middleware import AccessGuardMiddleware, TimingMiddleware
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=settings.log_level.upper())
@@ -79,6 +79,8 @@ app.add_middleware(
 )
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(TimingMiddleware)
+# 最後 add = 最外層 → 先擋不該公開的請求，再進 CORS/timing
+app.add_middleware(AccessGuardMiddleware)
 
 
 @app.exception_handler(AppException)
@@ -119,7 +121,8 @@ app.include_router(chat.router)
 
 
 # ── Predict Bot Heartbeat (direct in main.py) ──
-PUSH_KEY = os.getenv("MONITOR_PUSH_KEY", "quant-monitor-local")
+# 無 fallback：未設 = 未配置，任何 key 都不接受（原本預設 "quant-monitor-local" 是公開常數）
+PUSH_KEY = os.getenv("MONITOR_PUSH_KEY") or ""
 BACKEND_DB = os.getenv("DB_PATH", "./data/backtest.db")
 
 

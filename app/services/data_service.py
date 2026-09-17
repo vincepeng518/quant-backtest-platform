@@ -402,6 +402,10 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
         store[task_id]["result"] = result
 
         # P3: persist result to git for history (survives restart)
+        # 匿名（ephemeral）任務不落庫、不進 history、不寫 GitHub。
+        if store[task_id].get("ephemeral"):
+            logger.info("ephemeral task %s → 略過持久化", task_id)
+            return
         try:
             from app.services.strategy_git import git_persist
             bd = Path(__file__).resolve().parents[2] / "backtests"
@@ -415,6 +419,7 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
                 "metrics": asdict(result),
                 "equity_curve": result.equity_curve,
                 "trades": [asdict(t) for t in result.trades],
+                "owner": store[task_id].get("owner", "__anon__"),
             }
             fp = bd / f"{task_id}.json"
             fp.write_text(json.dumps(payload, default=str, indent=2))

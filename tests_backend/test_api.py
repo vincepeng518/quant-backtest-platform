@@ -4,12 +4,18 @@ from httpx import AsyncClient, ASGITransport
 import pytest
 
 from app.main import app
+from tests_backend.conftest import TEST_TOKEN
 
 
 @pytest.fixture
 def client():
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="http://test")
+    # Task 3 起受保護端點需 bearer；測試統一帶固定 token（見 conftest 的 TEST_TOKEN）
+    return AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+    )
 
 
 @pytest.mark.asyncio

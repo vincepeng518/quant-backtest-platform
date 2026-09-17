@@ -32,7 +32,7 @@ class BacktestService:
     def __init__(self) -> None:
         self.data_service = DataService()
 
-    async def run(self, config: dict[str, Any]) -> dict:
+    async def run(self, config: dict[str, Any], owner: str = "__anon__", ephemeral: bool = False) -> dict:
         # P1-validate: 數值邊界防護(NaN/Inf/capital<=0/超出範圍) → 攔截
         from app.services.validation import validate_financial_inputs
         verr = validate_financial_inputs(config)
@@ -51,7 +51,10 @@ class BacktestService:
         task_id = create_task_id()
         # 先註冊 task (running), 再載資料 — 否則 BingX 慢速拉資料期間
         # 輪詢 /results/{task_id} 會 404 (task 尚未寫入 _backtest_tasks)
-        _backtest_tasks[task_id] = {"status": "running", "backtester": None, "config": config, "stage": "loading"}
+        _backtest_tasks[task_id] = {
+            "status": "running", "backtester": None, "config": config,
+            "stage": "loading", "owner": owner, "ephemeral": ephemeral,
+        }
 
         async def _fail(msg: str) -> dict:
             _backtest_tasks[task_id] = {"status": "error", "error": msg, "backtester": None, "config": config}
@@ -180,9 +183,12 @@ class BacktestService:
             except Exception as e:
                 logger.warning("lookahead verify error: %s", e)
 
-        _backtest_tasks[task_id] = {"status": "running", "backtester": bt, "config": config}
+        _backtest_tasks[task_id] = {
+            "status": "running", "backtester": bt, "config": config,
+            "owner": owner, "ephemeral": ephemeral,
+        }
         asyncio.create_task(_execute_backtest(task_id, bt, _backtest_tasks))
-        return {"task_id": task_id, "status": "running"}
+        return {"task_id": task_id, "status": "running", "ephemeral": ephemeral}
     def get_status(self, task_id: str) -> dict:
         task = _backtest_tasks.get(task_id)
         if not task:

@@ -54,8 +54,10 @@ def test_signal_profile_keys():
 def test_research_run_and_results():
     from fastapi.testclient import TestClient
     from app.main import app
+    from tests_backend.conftest import TEST_TOKEN
 
-    client = TestClient(app)
+    # Task 3 起 /api/research/* 需 bearer
+    client = TestClient(app, headers={"Authorization": f"Bearer {TEST_TOKEN}"})
     body = {
         "type": "market",
         "symbol": "BTC/USDT",

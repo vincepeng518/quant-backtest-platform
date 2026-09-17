@@ -1,0 +1,18 @@
+{
+  "id": "38b1967bf09a",
+  "kind": "optimize",
+  "label": "opt-ma_cross-?",
+  "created_at": 1788774659.3110723,
+  "config": {
+    "strategy_id": "ma_cross",
+    "param_space": [],
+    "funding": {
+      "enabled": false
+    }
+  },
+  "metrics": {
+    "best_score": 2.893061936277896,
+    "algorithm": "grid",
+    "n_trials": 1
+  }
+}

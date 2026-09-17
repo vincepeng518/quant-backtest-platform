@@ -6,12 +6,18 @@ import pytest
 
 from app.main import app
 from app.services import admin_service as admin_mod
+from tests_backend.conftest import TEST_TOKEN
 
 
 @pytest.fixture
 def client():
     transport = ASGITransport(app=app)
-    return AsyncClient(transport=transport, base_url="http://test")
+    # Task 3 起 admin 端點需 bearer
+    return AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+    )
 
 
 @pytest.fixture(autouse=True)
