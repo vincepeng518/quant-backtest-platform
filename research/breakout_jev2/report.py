@@ -43,7 +43,8 @@ def main() -> None:
                       f"{'✓' if f['beats_control'] else '✗'} |")
             oos = [f["oos_sharpe"] for f in folds]
             if oos:
-                print(f"| {tag} | **平均** | — | **{sum(oos) / len(oos):+.3f}** | — | — | — | "
+                print(f"| {tag} | **平均** | （不適用） | **{sum(oos) / len(oos):+.3f}** | "
+                      f"（不適用） | {sum(f['oos_n'] for f in folds)} | （不適用） | "
                       f"**{sum(1 for f in folds if f['beats_control'])}/{len(folds)}** |")
         print()
 
