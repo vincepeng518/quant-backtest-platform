@@ -70,13 +70,20 @@ def main() -> None:
     s4 = load("s4_jev_gate.json")
     if s4:
         print("## 4. Jev 過濾器（嚴格 OOS：train 50% → val 25% → test 25%）\n")
-        print("| 標的 | train 準確率 | 基準線 | 技能 | val 門檻 | test 無Jev 平均% | test 有Jev 平均% | 增益% |")
-        print("|---|---|---|---|---|---|---|---|")
+        print("| 標的 | train n | Jev 準確率 | 多數類基準線 | 有技能 | val 門檻 | test 無Jev 平均% | test 有Jev 平均% | 增益% |")
+        print("|---|---|---|---|---|---|---|---|---|")
         for tag, d in s4.items():
             mb, mg = d["test_no_jev"], d["test_with_jev"]
-            print(f"| {tag} | — | — | 無 | {d['best_thr']:.2f} | {mb['avg_pct']:+.4f} | "
-                  f"{mg['avg_pct']:+.4f} | {d['gain_avg_pct']:+.4f} |")
-        print("\n（Jev 準確率詳見終端輸出：4/5 標的**恰等於多數類基準線** → 只是複述基礎機率，零技能。）\n")
+            acc = d.get("jev_accuracy")
+            br = d.get("majority_base_rate")
+            acc_s = f"{acc:.1%}" if acc is not None else "—"
+            br_s = f"{max(br, 1 - br):.1%}" if br is not None else "—"
+            print(f"| {tag} | {d.get('train_n', '—')} | {acc_s} | {br_s} | "
+                  f"{'✓' if d.get('has_skill') else '✗'} | {d['best_thr']:.2f} | "
+                  f"{mb['avg_pct']:+.4f} | {mg['avg_pct']:+.4f} | {d['gain_avg_pct']:+.4f} |")
+        n_skill = sum(1 for d in s4.values() if d.get("has_skill"))
+        print(f"\n**{n_skill}/{len(s4)} 個標的顯示 Jev 有技能** —— 準確率恰等於多數類基準線的，"
+              f"代表它只是複述基礎機率（說「會繼續」的比例 ≈ 實際發生率），沒有擇時資訊。\n")
 
     print("## 5. 結論\n")
     print(_verdict(s1, s2, s3, s4))
@@ -114,7 +121,9 @@ def _verdict(s1, s2, s3, s4) -> str:
             "- 零成本下每筆約 −0.02%~+0.18%（多數為負），扣 0.14% 來回成本後幾乎全部為負。\n"
             "- 加槓桿只是等比放大：1x 就已達 53%~82% 回撤（遠超你設的 30%），"
             "3x 以上破產機率 100%。\n"
-            "- Jev 在 4/5 標的準確率**恰等於多數類基準線** → 複述基礎機率，無擇時能力。\n"
+            "- Jev 在 **0/5 標的**顯示技能：4 個準確率恰等於多數類基準線"
+            "（50.0/50.0、56.4/56.4、60.0/60.0、52.2/52.2）→ 複述基礎機率，"
+            "無擇時能力；BCH 更差（33.3% vs 基準 66.7%）。\n"
             "- **建議**：放棄 5m Donchian 突破。若要繼續，換時間框架（1h 的 ATR% 約 0.5%，"
             "成本佔比低一個數量級、競爭密度低）—— 但那是另一個題目，且不保證可行。")
     return "\n".join(lines)

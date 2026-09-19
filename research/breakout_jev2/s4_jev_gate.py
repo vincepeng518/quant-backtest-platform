@@ -191,13 +191,15 @@ def main() -> None:
         # ── train：用真值找最佳門檻（真值只在此段使用）──
         truth = {i: first_touch(df, i) for i in sigs}
         tr_sigs = [i for i in sigs if i < t1 and truth[i] in ("cont", "fail")]
+        jev_acc = None
+        base_rate = None
         if len(tr_sigs) >= 20:
-            base_rate = np.mean([truth[i] == "cont" for i in tr_sigs])
-            acc = np.mean([(p_cont[i] >= 0.5) == (truth[i] == "cont") for i in tr_sigs])
+            base_rate = float(np.mean([truth[i] == "cont" for i in tr_sigs]))
+            jev_acc = float(np.mean([(p_cont[i] >= 0.5) == (truth[i] == "cont") for i in tr_sigs]))
             base = max(base_rate, 1 - base_rate)
-            print(f"  train 段: n={len(tr_sigs)}  Jev 準確率 {acc:.1%}  "
+            print(f"  train 段: n={len(tr_sigs)}  Jev 準確率 {jev_acc:.1%}  "
                   f"基準線（多數類）{base:.1%}  "
-                  f"→ {'有技能' if acc > base + 0.02 else '無技能（未勝過基準）'}")
+                  f"→ {'有技能' if jev_acc > base + 0.02 else '無技能（未勝過基準）'}")
         else:
             print(f"  train 段樣本不足（{len(tr_sigs)}）")
 
@@ -233,6 +235,10 @@ def main() -> None:
             verdict += "  ⚠️ 樣本不足（<50），標記為無法判定"
         print(f"  → Jev {verdict}")
         payload[tag] = {"best_thr": best_thr, "val_ret_pct": best_ret,
+                        "train_n": len(tr_sigs), "jev_accuracy": jev_acc,
+                        "majority_base_rate": base_rate,
+                        "has_skill": bool(jev_acc is not None and base_rate is not None
+                                          and jev_acc > max(base_rate, 1 - base_rate) + 0.02),
                         "test_no_jev": m_b, "test_with_jev": m_g, "gain_avg_pct": gain,
                         "n_signals": len(sigs), "tokens": tok}
     json.dump(payload, open(f"{OUT}/s4_jev_gate.json", "w"), indent=2)
