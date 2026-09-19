@@ -19,6 +19,7 @@ import pandas as pd
 BYBIT_4H = "/root/bxdata"
 BYBIT_OOS_4H = "/root/bxdata_oos"
 BYBIT_1D = "/root/bxdata"
+OKX_4H = "/root/okx_data"
 OKX_5M = "/root/okx_data_5m"
 GRIDLAB = "/root/gridlab"
 
@@ -97,6 +98,25 @@ def available_4h(segment: str = "long") -> list[str]:
 def available_1h() -> list[str]:
     fs = glob.glob(f"{OKX_5M}/*_5m.csv")
     return sorted(os.path.basename(p).replace("_USDT_5m.csv", "") for p in fs)
+
+
+def load_1h_long(usdt_tag: str) -> pd.DataFrame:
+    """okx_data/<TAG>_USDT_1h.csv -> 23,041 根 1h（2.6 年，2024-01 起）。
+
+    這是比 load_1h_from_5m（443 天）長 2.2 倍的 1h 資料源，
+    用於修補「1h 結論建立在統計力不足的樣本上」這個缺口。
+    """
+    path = f"{OKX_4H}/{usdt_tag}_USDT_1h.csv"
+    df = pd.read_csv(path)
+    df.columns = [c.lower() for c in df.columns]
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    return df[["timestamp", "open", "high", "low", "close", "volume"]] \
+             .sort_values("timestamp").reset_index(drop=True)
+
+
+def available_1h_long() -> list[str]:
+    fs = glob.glob(f"{OKX_4H}/*_USDT_1h.csv")
+    return sorted(os.path.basename(p).replace("_USDT_1h.csv", "") for p in fs)
 
 
 BARS_PER_YEAR = {"4h": 2190.0, "1h": 8760.0, "1d": 365.0}
