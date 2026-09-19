@@ -13,7 +13,56 @@
 | 錨定式 Walk-Forward（含隨機參數對照） | 所有標的 OOS 平均為正：**否**（BTC -3.75、APT -9.03、FIL -0.73、BCH -8.83） |
 | OOS 勝過 control P90 且樣本 >= 20 筆 | **0 折**（3 折帳面勝出但樣本 < 20，無效） |
 | 蒙地卡羅（10,000 次 × 20 配置） | 達月化 20% 機率 **全為 0.0%**；無任何配置回撤 < 30% |
-| Jev 過濾器（嚴格 OOS） | **0/5 標的顯示技能**：BTC 50.0%/基準 50.0%、APT 56.4%/56.4%、SUI 60.0%/60.0%、FIL 52.2%/52.2%、BCH 33.3%/基準 66.7%（比全猜還差） |
+| Jev 過濾器（嚴格 OOS） | ⚠️ **此結論已作廢，見下方「Jev 實驗設計缺陷」** |
+
+## Jev 實驗設計缺陷（**Stage 4 的結論作廢**，2026-09-20 修正）
+
+Stage 4 的原判「Jev 在 0/5 標的顯示技能」**不成立**，是實驗設計缺陷造成的假陰性。
+
+### 缺陷清單
+
+| 缺陷 | 我做的 | 正確做法 | 後果 |
+|---|---|---|---|
+| **問錯題型** | 問「+2ATR 還是 −2ATR 先到」= **價格路徑預測** | Jev 不是預測模型；應問狀態分類 / setup 值不值得看 / 閘門 | 問它不擅長的題 |
+| **選項沒蓋滿現實** | criteria 只有 `{continue_further, reverse_back}`，**無 HOLD / no-trade** | 選項必須互斥且蓋滿現實（含 HOLD） | **1,431/1,431 全部硬選 `continue_further`** |
+| **把偏答當成無技能** | 解讀成「Jev 無用」 | 那是**沒有 HOLD 的強制二選一簽名** | 下了錯誤結論 |
+| **state 是摘要不是證據** | 只給 6 個純量（`atr_as_pct`、`recent_12bar_return`…），無原始 OHLCV / 成交量 / 點差 / 盤口 | state 要放證據：最近高低、量、失衡、持倉 | state 幾乎無資訊量 |
+| **把 confidence 當勝率** | 第一輪算 `corr(信心, 判斷正確)` | 明確禁止 | 誤用原語 |
+| **無正當對照組** | 只比「有Jev vs 無Jev」 | 至少要有：隨機、永遠 HOLD、單純 imbalance/EMA | 無基準可判優劣 |
+| **版本沒鎖** | 未 pin | 應鎖 `jev-1.13.0` 並對該版本校準閾值 | 閾值日後失效 |
+| **instructions 用中文** | 全繁中 | 關鍵判斷用英文較穩 | 較不穩 |
+
+### 反證（實測，2026-09-20）
+
+同一份 state，只把 criteria 改成三選項（含 HOLD）並改用英文 instructions：
+
+```
+side:  HOLD 0.99, BUY 0.01, SELL 0.00
+setup: score 0.51（0 分機率 0.76）
+```
+
+→ **加上 HOLD 後它立刻說「不值得動」**，與前一輪的 `continue_further` 100% 偏答形成對比。
+證明那個偏答**是我的問題設計造成的**，不是 Jev 的性質。
+
+### 版本 pin 的實測結果（重要）
+
+在 Vercel AI Gateway 上測試四個 model id：
+
+| model id | 結果 |
+|---|---|
+| `typesafe-ai/jev` | ✓ 可用 |
+| `typesafe-ai/jev-1.13.0` | ✗ **HTTP 404 model_not_found** |
+| `typesafe-ai/jev-1.13` | ✗ 404 |
+| `typesafe-ai/jev-latest` | ✗ 404 |
+
+→ **走 Vercel gateway 無法鎖版本。** 要鎖版本必須走**直連 TypeSafe**：
+`POST https://api.typesafe.ai/v1/systemone`，model 用 `jev-latest`，
+key 是 `ts-` 前綴（Vercel 那把 `vck_` 不能直連）。
+
+### 不受影響的部分
+
+**Stage 1–3（策略本身無 edge）的結論不變** —— 那三階段完全沒碰 Jev，
+是純粹的價格/成本/統計檢定（零成本 CI、錨定式 WF、蒙地卡羅）。
 
 ## 月化 20% 的數學門檻（為什麼不可能）
 
