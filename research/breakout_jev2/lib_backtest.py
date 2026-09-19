@@ -63,7 +63,13 @@ def backtest(
     o = df["open"].values; h = df["high"].values
     l = df["low"].values;  c = df["close"].values
     atr = df["atr"].values
-    dhi = df["don_hi"].values; dlo = df["don_lo"].values
+    hi_col, lo_col = f"don_hi_{lookback}", f"don_lo_{lookback}"
+    if hi_col in df.columns:
+        dhi = df[hi_col].values
+        dlo = df[lo_col].values
+    else:                                   # fallback：當場算（無未來函數）
+        dhi = df["high"].rolling(lookback).max().shift(1).values
+        dlo = df["low"].rolling(lookback).min().shift(1).values
     ts = df["timestamp"].values
 
     eq = 1.0

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from research.breakout_jev2.lib_data import add_atr, prior_extremes, load_5m
+from research.breakout_jev2.lib_data import add_atr, add_features, prior_extremes, load_5m
 
 
 def test_add_atr_has_no_nan_after_warmup():
@@ -17,6 +17,15 @@ def test_prior_extremes_excludes_current_bar():
     assert hi.iloc[2] == 2.0
     assert lo.iloc[2] == 0.5
     assert np.isnan(hi.iloc[1])
+
+
+def test_add_features_creates_one_channel_per_lookback():
+    df = load_5m("BTC_USDT").head(800).copy()
+    out = add_features(df, lookbacks=[24, 96])
+    assert "don_hi_24" in out.columns and "don_hi_96" in out.columns
+    # 24 根通道必定 <= 96 根通道（更短窗更貼近價格）
+    valid = out.dropna(subset=["don_hi_24", "don_hi_96"])
+    assert (valid["don_hi_24"] <= valid["don_hi_96"]).all()
 
 
 def test_features_are_causal():

@@ -36,9 +36,19 @@ def prior_extremes(df: pd.DataFrame, lookback: int):
     return hi, lo
 
 
-def add_features(df: pd.DataFrame, lookback: int = 576) -> pd.DataFrame:
+LOOKBACKS = [24, 96, 288, 576, 720]
+
+
+def add_features(df: pd.DataFrame, lookbacks: list[int] | None = None) -> pd.DataFrame:
+    """加上 ATR、各 lookback 的 Donchian 通道、動能特徵。
+
+    每個 lookback 各存一組 `don_hi_<n>` / `don_lo_<n>` 欄位。
+    **`backtest()` 會依傳入的 lookback 選對應欄位** —— 只存單一 don_hi
+    會讓所有 lookback 跑出同一結果（曾實際踩到）。
+    """
     out = add_atr(df)
-    out["don_hi"], out["don_lo"] = prior_extremes(out, lookback)
+    for lb in (lookbacks or LOOKBACKS):
+        out[f"don_hi_{lb}"], out[f"don_lo_{lb}"] = prior_extremes(out, lb)
     out["ret_1"] = out["close"].pct_change(1) * 100
     out["ret_12"] = out["close"].pct_change(12) * 100
     out["ret_48"] = out["close"].pct_change(48) * 100

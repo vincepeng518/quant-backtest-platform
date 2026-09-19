@@ -20,16 +20,29 @@ def _flat_df(n=300, don_hi=999.0):
         "open": [100.0] * n, "high": [100.5] * n,
         "low": [99.5] * n, "close": [100.0] * n,
         "volume": [1.0] * n, "atr": [1.0] * n,
-        "don_hi": [don_hi] * n, "don_lo": [1.0] * n,
+        "don_hi_96": [don_hi] * n, "don_lo_96": [1.0] * n,
     })
 
 
 def _one_breakout_df(n=300, at=100):
-    """只有 index==at 那一根突破（其餘 don_hi 極高 -> 不再發訊號）。"""
+    """只有 index==at 那一根突破（其餘 don_hi_96 極高 -> 不再發訊號）。"""
     df = _flat_df(n)
     df.loc[at, "close"] = 105.0
-    df.loc[at, "don_hi"] = 99.0
+    df.loc[at, "don_hi_96"] = 99.0
     return df
+
+
+def test_lookback_selects_matching_channel_column():
+    """回歸測試：不同 lookback 必須讀到不同欄位，否則所有 lookback 結果相同。"""
+    n = 300
+    df = _flat_df(n)
+    df["don_hi_24"] = [99.0] * n       # 較低通道 -> 每根都突破
+    df["don_hi_96"] = [999.0] * n      # 較高通道 -> 永不突破
+    df["don_lo_24"] = [1.0] * n
+    tr24, _ = backtest(df, 24, 2.0, 4.0, 10.0)
+    tr96, _ = backtest(df, 96, 2.0, 4.0, 10.0)
+    assert len(tr24) > 0
+    assert len(tr96) == 0
 
 
 def test_no_signal_no_trades():
