@@ -95,7 +95,11 @@ def load_data() -> pd.DataFrame:
         if "timestamp" in df.columns:
             df = df.rename(columns={"timestamp": "date"})
         df["date"] = pd.to_datetime(df["date"])
-        if len(df) > 800:
+        # 快取必須新鮮: 最後一根不得落後現在超過 2 天, 否則整份重抓。
+        # (2026-09-20 事故: 別的 research 腳本寫了只到 2026-07-30 的截斷快取,
+        #  本引擎因 len(df)>800 直接採用 → 連續兩次跑出 7 月的舊價與舊訊號。)
+        fresh = (pd.Timestamp.utcnow().tz_localize(None) - df["date"].max()).days <= 2
+        if len(df) > 800 and fresh:
             return df
     if ccxt:
         ex = ccxt.bingx({"enableRateLimit": True})
