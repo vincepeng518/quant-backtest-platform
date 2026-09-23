@@ -51,3 +51,9 @@ factor_lib/qlib_factors/qlib_loader_source.py
 
 # data cache — parquet OHLCV cache, never commit runtime data
 data/ohlcv/
+
+# 絕不提交
+.npm/
+.npmrc
+.bash_history
+*.service.bak

@@ -25,8 +25,28 @@ NOVITA_BASE = "https://api.novita.ai/openai"
 NOVITA_MODEL = "meta-llama/llama-3.3-70b-instruct"
 NOVITA_KEY_FILES = ["/root/.hermes/.env", "/root/.env"]
 
+KEY_FILES = ["/root/.hermes/.env", "/root/.env", ".env"]
+
+
+def _load_key(name: str) -> str:
+    """憑證一律走環境變數或未提交的 KEY_FILES，禁止硬編碼在原始碼裡。"""
+    import re as _re
+    v = os.environ.get(name, "")
+    if v:
+        return v
+    for f in KEY_FILES:
+        try:
+            for line in open(f, encoding="utf-8", errors="ignore"):
+                m = _re.match(rf"^{name}\s*=\s*['\"]?([A-Za-z0-9_\-\.]+)", line.strip())
+                if m:
+                    return m.group(1)
+        except Exception:
+            continue
+    return ""
+
+
 QWEN_BASE = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
-QWEN_KEY = "***REMOVED-QWEN-KEY***"
+QWEN_KEY = _load_key("QWEN_API_KEY")
 
 # Qwen token endpoint 可用文字模型 (2026-07-21 驗證)
 QWEN_MODELS = [
@@ -45,16 +65,7 @@ LLM_PROVIDER = "novita"  # runtime default; cron uses qwen
 
 
 def _load_novita_key() -> str:
-    import re
-    for f in NOVITA_KEY_FILES:
-        try:
-            for line in open(f, encoding="utf-8", errors="ignore"):
-                m = re.match(r"^NOVITA_API_KEY\s*=\s*['\"]?([A-Za-z0-9_\-]+)", line.strip())
-                if m:
-                    return m.group(1)
-        except Exception:
-            continue
-    return os.environ.get("NOVITA_API_KEY", "")
+    return _load_key("NOVITA_API_KEY")
 
 
 def llm_chat(system: str, user: str, max_tokens: int = 1500, provider: str = None) -> str:

@@ -6,6 +6,25 @@ from typing import Optional
 
 import yaml
 
+_KEY_FILES = ("/root/.hermes/.env", "/root/.env", ".env")
+
+
+def _load_key(name: str) -> str:
+    """憑證只從環境變數或未提交的 KEY_FILES 讀；禁止寫進 config.yaml / 原始碼。"""
+    import re as _re
+    v = os.environ.get(name, "")
+    if v:
+        return v
+    for f in _KEY_FILES:
+        try:
+            for line in open(f, encoding="utf-8", errors="ignore"):
+                m = _re.match(rf"^{name}\s*=\s*['\"]?([A-Za-z0-9_\-\.]+)", line.strip())
+                if m:
+                    return m.group(1)
+        except Exception:
+            continue
+    return ""
+
 
 @dataclass
 class MonitorConfig:
@@ -66,7 +85,7 @@ class MonitorConfig:
             ob_source=ob.get("source", cls.ob_source),
             ob_token_id=ob.get("polymarket_token_id", cls.ob_token_id),
             ob_refresh_sec=ob.get("book_refresh_sec", cls.ob_refresh_sec),
-            api_key=ob.get("api_key", cls.api_key),
+            api_key=_load_key("PREDICT_FUN_API_KEY") or ob.get("api_key", cls.api_key),
             db=sto.get("db", cls.db),
             log=sto.get("log", cls.log),
             settle_on_close=run.get("settle_on_close", cls.settle_on_close),
