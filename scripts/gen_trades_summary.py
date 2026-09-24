@@ -90,8 +90,8 @@ def main():
     def pnl(r):
         return float(r.get("realizedProfit") or 0) + float(r.get("unrealizedProfit") or 0)
 
-    # 依 ts 排序算連勝
-    srt = sorted(records, key=sort_ts)
+    # 依 ts 排序算連勝。只算已平倉：持倉中的浮盈虧會隨行情變動，不能計入勝率/總損益
+    srt = sorted((r for r in records if r.get("status") != "OPEN"), key=sort_ts)
     for r in srt:
         p = pnl(r)
         totalPnl += p
@@ -141,14 +141,15 @@ def main():
     # dayPnl 已有。OK。
 
     # metrics(sharpe etc) — 用非零 pnl
-    pnls = [pnl(r) for r in records if pnl(r) != 0]
+    pnls = [pnl(r) for r in srt if pnl(r) != 0]
     metrics = calc_metrics(pnls)
     trade_count = len(pnls)
 
     summary = {
         "generated_from": "by-month aggregation",
         "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
-        "total_records": len(records),
+        "total_records": len(srt),
+        "open_positions": len(records) - len(srt),
         "months": months_desc,
         "totals": {
             "pnl": round(totalPnl, 4), "position_value": round(totalPos, 4),
