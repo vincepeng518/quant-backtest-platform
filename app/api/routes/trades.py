@@ -119,6 +119,16 @@ def _refresh_serialized_sync() -> None:
         _refresh_in_flight = False
 
 
+def _schedule_refresh() -> None:
+    """Kick off one background refresh if none is running (stale-while-revalidate)."""
+    global _refresh_in_flight
+    with _refresh_lock:
+        if _refresh_in_flight:
+            return
+        _refresh_in_flight = True
+    _refresh_executor.submit(_refresh_serialized_sync)
+
+
 def _gh_get(api_base: str, path: str):
     req = urllib.request.Request(f"{api_base}/{path}", headers=HEADERS)
     try:
@@ -497,11 +507,7 @@ async def get_trades():
             )
         elif age < CACHE_TTL + STALE_GRACE:
             # Stale but within grace — serve stale, refresh in background
-            with _refresh_lock:
-                if not _refresh_in_flight:
-                    _refresh_in_flight = True
-                    loop = asyncio.get_event_loop()
-                    loop.run_in_executor(_refresh_executor, _refresh_serialized_sync)
+            _schedule_refresh()
             return Response(
                 content=cached_bytes,
                 media_type="application/json",
@@ -509,8 +515,9 @@ async def get_trades():
             )
         # Past stale grace — fall through to fresh compute
 
-    # 2) Cache miss or stale expired — compute fresh synchronously
-    _refresh_serialized_sync()
+    # 2) Cache miss or stale expired — compute in a worker thread (urllib/numpy
+    #    would otherwise block the event loop for seconds)
+    await asyncio.to_thread(_refresh_serialized_sync)
 
     with _cache_lock:
         fresh_bytes = _serialized_cache["bytes"]
