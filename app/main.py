@@ -91,6 +91,21 @@ async def app_exception_handler(request: Request, exc: AppException):
     )
 
 
+@app.on_event("startup")
+async def _warm_symbols_cache() -> None:
+    # 預熱 symbols 快取（BingX load_markets ~2s），避免重啟後首個訪客等待
+    import asyncio
+    from app.api.routes.data import ds
+
+    async def _warm():
+        try:
+            await ds.get_symbols()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("symbols warmup failed: %s", e)
+
+    asyncio.create_task(_warm())
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
