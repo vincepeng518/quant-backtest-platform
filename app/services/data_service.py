@@ -114,7 +114,7 @@ class DataService:
         cache_key = f"ohlcv:{symbol}:{timeframe}:{start_date}:{end_date}:{source}"
         cached = cache.get(cache_key)
         if cached is not None:
-            return pd.DataFrame(cached)
+            return cached.copy() if isinstance(cached, pd.DataFrame) else pd.DataFrame(cached)
 
         # test/csv 源由 generate_test_data 直接按 timeframe 生成对应周期数据，
         # 不需要走 custom_minutes 重采样分支（避免 15m/30m 被 1h 数据冒充）。
@@ -163,6 +163,13 @@ class DataService:
             if symbol.upper().startswith("NCCO") or symbol.upper() in {"PAXG/USDT", "XAUT/USDT"}:
                 fetch_sym = symbol.replace("/USDT", "-USDT")
             data = await self._try_fetch(self.bingx, fetch_sym, timeframe, start_date, end_date)
+            # BingX 歷史深度有限（15m 查詢窗 315 天、1m 7 天，舊區段常回 No data）
+            # → 起始日期沒涵蓋到就改用 Binance 完整歷史
+            if start_date and not self._covers_start(data, start_date, timeframe):
+                alt = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
+                if alt is not None and len(alt) > (0 if data is None else len(data)):
+                    logger.info("BingX 未涵蓋 %s 起始 %s，改用 Binance (%d bars)", symbol, start_date, len(alt))
+                    data = alt
             # Fallback chain: bingx -> binance -> csv
             if data is None or len(data) == 0:
                 data = await self._try_fetch(self.binance, symbol, timeframe, start_date, end_date)
@@ -173,8 +180,28 @@ class DataService:
         # ── Write to parquet cache if fetch succeeded (no date filter) ──
         if data is not None and len(data) > 0 and source not in ("test", "csv") and not start_date and not end_date:
             self._parquet_write(self._parquet_path(symbol, timeframe, source), data)
+        # 日期區間抓取（回測主路徑）放進程內快取 10 分鐘，重跑/調參不重下載。
+        # 只在沒 Redis 時做（DataFrame 不走 JSON 序列化）。
+        if (data is not None and len(data) > 0 and source not in ("test", "csv")
+                and (start_date or end_date) and cache._ensure() is None):
+            cache.set(cache_key, data.copy(), ttl=600)
 
         return data if data is not None else pd.DataFrame()
+
+    @staticmethod
+    def _covers_start(df: Optional[pd.DataFrame], start_date: str, timeframe: str) -> bool:
+        """True if df's first bar is within ~3 bars (min 1 day) of start_date."""
+        if df is None or len(df) == 0:
+            return False
+        first = pd.Timestamp(df["timestamp"].iloc[0])
+        start = pd.Timestamp(start_date)
+        if first.tzinfo is not None:
+            first = first.tz_convert(None)
+        if start.tzinfo is not None:
+            start = start.tz_convert(None)
+        tol = max(pd.Timedelta(days=1), pd.Timedelta(timeframe.replace("m", "min").replace("M", "min")) * 3) \
+            if timeframe[:-1].isdigit() and timeframe[-1] in "mhd" else pd.Timedelta(days=7)
+        return bool(first <= start + tol)
 
     @staticmethod
     def _custom_minutes(timeframe: str) -> Optional[int]:

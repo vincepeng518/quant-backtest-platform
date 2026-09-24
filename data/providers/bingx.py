@@ -58,8 +58,9 @@ class BingXProvider:
                     end_ms = ex.parse8601(f"{end_date}Z" if len(end_date) == 10 else end_date)
                 frames: list[list] = []
                 cursor = start_ms
-                remaining = limit
-                max_pages = 12
+                # 有 start_date 時按日期範圍分頁抓全，不受單頁 limit 限制
+                remaining = limit if start_ms is None else 10**9
+                max_pages = 12 if start_ms is None else 600
                 for _ in range(max_pages):
                     if remaining <= 0:
                         break
