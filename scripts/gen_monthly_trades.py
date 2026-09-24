@@ -59,21 +59,34 @@ def enrich(rec, snap_name):
     return rec
 
 
-def _fingerprint(r):
+def _trade_key(r):
+    """去重鍵。帶 order id 的舊格式用 id(同一秒可能有多筆部分成交);
+    2026-08-03 起 bot 不再寫 order id → 用 (symbol, side, 平倉 ts)。
+    同一筆在不同快照 realizedProfit/positionAmt 會有尾數差,不能拿來當鍵。"""
+    sym = norm_sym(r.get("symbol"))
     if r.get("status") == "OPEN":
-        return ("OPEN", r.get("symbol"), r.get("side"), r.get("avgPrice"), r.get("positionAmt"))
-    return ("CLOSED", r.get("symbol"), r.get("side"), r.get("open_order_id"),
-            r.get("close_order_id"), r.get("realizedProfit"))
+        return ("OPEN", sym, r.get("side"), r.get("avgPrice"))
+    if r.get("open_order_id") or r.get("close_order_id"):
+        # 舊格式同一組 order id 會對應多筆部分成交 → 需帶 realizedProfit 區分
+        return ("ID", sym, r.get("side"), r.get("open_order_id"), r.get("close_order_id"), r.get("realizedProfit"))
+    return ("TS", sym, r.get("side"), r.get("ts"))
+
+
+def _snapshot_files():
+    """所有 bot 快照,依檔名時間排序(舊→新)。排除已知污染檔 trades_20261231_*。"""
+    out = []
+    for f in glob.glob(os.path.join(TRADES_DIR, "trades_*.json")):
+        b = os.path.basename(f)
+        if not _re.match(r"^trades_\d{8}_\d{6}\.json$", b) or b.startswith("trades_20261231"):
+            continue
+        out.append(b)
+    return sorted(out)
 
 
 def latest_snapshot_name():
-    """最新快照 = 最新的 trades_*.json(mtime)。"""
-    cands = [f for f in glob.glob(os.path.join(TRADES_DIR, "trades_*.json"))
-             if "by-month" not in f]
-    if not cands:
-        return None
-    cands.sort(key=os.path.getmtime, reverse=True)
-    return os.path.basename(cands[0])
+    """最新快照 = 檔名時間最新的 trades_*.json(不用 mtime:git checkout 會打亂 mtime)。"""
+    files = _snapshot_files()
+    return files[-1] if files else None
 
 
 def main():
@@ -81,32 +94,47 @@ def main():
     if not latest:
         print("找不到任何 trades 快照"); return
 
-    seen = set()
-    records = []
-
-    # 1) 最新快照(主)
-    with open(os.path.join(TRADES_DIR, latest), "r", encoding="utf-8") as f:
-        snap = json.load(f)
-    for r in snap.get("records", []):
-        fp = _fingerprint(r)
-        if fp in seen:
-            continue
-        seen.add(fp)
-        records.append(enrich(r, latest))
-
-    # 2) 全量舊快照補歷史
+    # 1) 全量舊快照(帶 order id)當歷史底
+    closed: dict = {}
+    id_era_ts = set()
     for fn in FULL_SNAPSHOTS:
         p = os.path.join(TRADES_DIR, fn)
-        if fn == latest or not os.path.exists(p):
+        if not os.path.exists(p):
             continue
         with open(p, "r", encoding="utf-8") as f:
             old = json.load(f)
         for r in old.get("records", []):
-            fp = _fingerprint(r)
-            if fp in seen:
+            if r.get("status") == "OPEN" or not r.get("ts"):
                 continue
-            seen.add(fp)
-            records.append(enrich(r, fn))
+            closed.setdefault(_trade_key(r), enrich(r, fn))
+            id_era_ts.add((norm_sym(r.get("symbol")), r.get("side"), r.get("ts")))
+
+    # 2) 之後每一份快照都併進來(快照是滾動視窗,只讀最新一份會漏掉中間的平倉)
+    start = FULL_SNAPSHOTS[0]
+    snaps = [s for s in _snapshot_files() if s >= start]
+    for fn in snaps:
+        try:
+            with open(os.path.join(TRADES_DIR, fn), "r", encoding="utf-8") as f:
+                snap = json.load(f)
+        except Exception as e:
+            print("skip", fn, e)
+            continue
+        for r in (snap.get("records", []) if isinstance(snap, dict) else snap):
+            if r.get("status") == "OPEN" or not r.get("ts"):
+                continue
+            k = _trade_key(r)
+            if (k[1], k[2], r.get("ts")) in id_era_ts:
+                continue  # 已在全量歷史快照裡(後期快照會把同一筆拆成不同部分成交數量,不能再算一次)
+            closed[k] = enrich(r, fn)  # 後出現的覆蓋(以最新快照的數值為準)
+
+    # 3) OPEN 持倉只取最新快照
+    records = list(closed.values())
+    with open(os.path.join(TRADES_DIR, latest), "r", encoding="utf-8") as f:
+        snap = json.load(f)
+    for r in snap.get("records", []):
+        if r.get("status") == "OPEN":
+            records.append(enrich(r, latest))
+    print(f"合併 {len(snaps)} 份快照 → {len(closed)} 筆平倉 + {len(records) - len(closed)} 筆持倉")
 
     # 切分月份
     by_month = collections.OrderedDict()
