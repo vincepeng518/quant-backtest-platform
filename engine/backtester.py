@@ -316,19 +316,31 @@ class Backtester:
                 if breached:
                     _close_position(oco_tp, bar, bar_index, reason="take_profit")
 
-        for i, (_, row) in enumerate(self.data.iterrows()):
+        # 以欄位陣列逐 bar 取值（iterrows 每根建 Series，35k bars 約 10s）
+        _cols = self.data
+        _ts_arr = _cols["timestamp"].tolist()
+        _o_arr = _cols["open"].to_numpy(dtype=float).tolist()
+        _h_arr = _cols["high"].to_numpy(dtype=float).tolist()
+        _l_arr = _cols["low"].to_numpy(dtype=float).tolist()
+        _c_arr = _cols["close"].to_numpy(dtype=float).tolist()
+        _v_arr = _cols["volume"].to_numpy(dtype=float).tolist() if "volume" in _cols.columns else [0.0] * len(_cols)
+        _md_arr = _cols["metadata"].tolist() if "metadata" in _cols.columns else None
+        base_close = _c_arr[0] if _c_arr else 0.0
+        peak = equity_curve[0]
+        for i in range(len(_c_arr)):
             # 中斷檢查(每 200 bar;預設 _cancel_requested=False 零額外開銷)
             if (i & 199) == 0 and self._cancel_requested:
                 self._cancelled = True
                 break
+            _md = _md_arr[i] if _md_arr is not None else None
             bar = Bar(
-                timestamp=row["timestamp"],
-                open=row["open"],
-                high=row["high"],
-                low=row["low"],
-                close=row["close"],
-                volume=row["volume"],
-                metadata=dict(row["metadata"]) if "metadata" in row and isinstance(row.get("metadata"), dict) else None,
+                timestamp=_ts_arr[i],
+                open=_o_arr[i],
+                high=_h_arr[i],
+                low=_l_arr[i],
+                close=_c_arr[i],
+                volume=_v_arr[i],
+                metadata=dict(_md) if isinstance(_md, dict) else None,
             )
 
             signal = self.strategy.next(bar)
@@ -403,7 +415,8 @@ class Backtester:
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
-            peak = max(equity_curve)
+            if current_equity > peak:
+                peak = current_equity
             dd = (peak - current_equity) / peak * 100
             drawdown_curve.append(dd)
             timestamps.append(bar.timestamp)
@@ -411,7 +424,6 @@ class Backtester:
             if len(buy_hold_curve) == 1:
                 buy_hold_curve.append(capital)
             else:
-                base_close = self.data.iloc[0].close
                 buy_hold_curve.append(capital * (bar.close / base_close))
 
         return self._calculate_metrics(trades, equity_curve, drawdown_curve, buy_hold_curve, timestamps)

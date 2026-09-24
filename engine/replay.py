@@ -233,6 +233,8 @@ class ReplayBacktester(Backtester):
                 self._resting = [o for o in self._resting if o.get("group") != pos_group]
                 self._oco_group = None
 
+        _peak = equity_curve[0]
+        _base_close = float(self.data["close"].iloc[0])
         for i, (_, row) in enumerate(self.data.iterrows()):
             self._bar_hashes_seen += 1
             bar = Bar(
@@ -357,14 +359,15 @@ class ReplayBacktester(Backtester):
 
             current_equity = capital + (position.pnl if position else 0)
             equity_curve.append(current_equity)
-            peak = max(equity_curve)
+            if current_equity > _peak:
+                _peak = current_equity
+            peak = _peak
             dd = (peak - current_equity) / peak * 100
             drawdown_curve.append(dd)
             timestamps.append(bar.timestamp)
             if len(buy_hold_curve) == 1:
                 buy_hold_curve.append(capital)
             else:
-                base_close = self.data.iloc[0].close
-                buy_hold_curve.append(capital * (bar.close / base_close))
+                buy_hold_curve.append(capital * (bar.close / _base_close))
 
         return self._calculate_metrics(trades, equity_curve, drawdown_curve, buy_hold_curve, timestamps)

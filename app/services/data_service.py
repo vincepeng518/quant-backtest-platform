@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
@@ -408,6 +408,22 @@ class DataService:
         return out
 
 
+def _shallow_result_dict(result, trades_d: list[dict]) -> dict:
+    """asdict(result) 的等價輸出，但不 deepcopy 大型曲線（asdict 對 35k bar 要 ~5s）。"""
+    out = {}
+    for f in fields(result):
+        v = getattr(result, f.name)
+        if f.name == "trades":
+            out[f.name] = trades_d
+        elif isinstance(v, list):
+            out[f.name] = list(v)
+        elif isinstance(v, dict):
+            out[f.name] = dict(v)
+        else:
+            out[f.name] = v
+    return out
+
+
 def create_task_id() -> str:
     return str(uuid.uuid4())[:8]
 
@@ -416,7 +432,8 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
     try:
         # T2: 三階段進度 — backtesting(執行回測)
         store[task_id]["stage"] = "backtesting"
-        result = backtester.run()
+        # 放到 worker thread：同步引擎跑數十秒會卡死整個 event loop（連 /health 都不回）
+        result = await asyncio.to_thread(backtester.run)
         # 若被要求中斷 → 回報 cancelled,不結案
         if getattr(backtester, "_cancelled", False):
             store[task_id]["status"] = "cancelled"
@@ -438,14 +455,16 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
             bd = Path(__file__).resolve().parents[2] / "backtests"
             bd.mkdir(parents=True, exist_ok=True)
             cfg = store[task_id].get("config", {})
+            trades_d = [asdict(t) for t in result.trades]
+            metrics_d = _shallow_result_dict(result, trades_d)
             payload = {
                 "task_id": task_id,
                 "status": "completed",
                 "created_at": datetime.utcnow().isoformat(),
                 "config": cfg,
-                "metrics": asdict(result),
+                "metrics": metrics_d,
                 "equity_curve": result.equity_curve,
-                "trades": [asdict(t) for t in result.trades],
+                "trades": trades_d,
                 "owner": store[task_id].get("owner", "__anon__"),
             }
             fp = bd / f"{task_id}.json"
@@ -462,7 +481,8 @@ async def _execute_backtest(task_id: str, backtester, store: dict[str, dict]) ->
             save_experiment(
                 kind="backtest",
                 config=cfg,
-                metrics={k: v for k, v in asdict(result).items() if not isinstance(v, (list, dict))},
+                metrics={f.name: getattr(result, f.name) for f in fields(result)
+                         if not isinstance(getattr(result, f.name), (list, dict))},
                 label=f"{cfg.get('symbol', '?')}-{cfg.get('strategy', {}).get('template_id', '?')}",
             )
         except Exception as e:
