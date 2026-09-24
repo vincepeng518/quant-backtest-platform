@@ -1,5 +1,4 @@
-"""
-Trades API — 從 GitHub repo 讀取所有歷史交易快照 + Predict.fun 持倉。
+"""Trades API — 從 GitHub repo 讀取所有歷史交易快照 + Predict.fun 持倉。
 
 資料來源:
   1. BingX: bot/trade_bot.py 每4h抓取 → GitHub trades/ 目錄 (所有快照合併去重)
@@ -14,10 +13,13 @@ import logging
 import base64
 import urllib.request
 import urllib.error
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
+import orjson
 from fastapi import APIRouter
+from fastapi.responses import Response
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,64 @@ if _token:
 _cache_lock = Lock()
 _cache: dict = {"ts": 0, "records": [], "snapshots": [], "fees_total": None}
 CACHE_TTL = 900  # 15 min (之前 5 min 太短, 快照每4h才更新)
+
+# ── Serialized response cache (pre-serialized with orjson, saves json.dumps every request) ──
+_serialized_cache: dict = {"ts": 0, "bytes": None}
+_snapshot_identity: dict = {"name": None, "ts": 0}
+STALE_GRACE = CACHE_TTL  # stale-while-revalidate grace period (serve stale up to 30 min)
+_refresh_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trades_refresh")
+_refresh_in_flight: bool = False
+_refresh_lock = Lock()
+
+
+def _build_full_response() -> bytes | None:
+    """Assemble & pre-serialize the full /api/trades response (records + metrics + predict).
+
+    Returns orjson-encoded bytes ready to serve directly as Response(content=...).
+    """
+    try:
+        data = _load_all_trades()
+        records = data.get("records", [])
+        metrics = _calc_metrics(records)
+        predict_records = _fetch_predict_positions()
+        resp = {
+            "total": len(records),
+            "snapshots": data.get("snapshots", []),
+            "records": records,
+            "metrics": metrics,
+            "fees_total": data.get("fees_total"),
+            "funding_total": data.get("funding_total", 0),
+            "metrics_30d": data.get("metrics_30d"),
+            "source": "bingx-all-snapshots",
+            "predict": {
+                "total": len(predict_records),
+                "records": predict_records,
+                "metrics": _calc_metrics(predict_records),
+            },
+        }
+        return orjson.dumps(resp, default=str)
+    except Exception as e:
+        logger.error("_build_full_response failed: %s", e, exc_info=True)
+        return None
+
+
+def _refresh_serialized_sync() -> None:
+    """Refresh the serialized cache synchronously (runs in thread pool).
+
+    Designed for stale-while-revalidate background refresh so the event-loop
+    thread isn't blocked by urllib / numpy I/O.
+    """
+    try:
+        serialized = _build_full_response()
+        if serialized:
+            with _cache_lock:
+                _serialized_cache["ts"] = time.time()
+                _serialized_cache["bytes"] = serialized
+    except Exception as e:
+        logger.warning("background serialized refresh failed: %s", e)
+    finally:
+        global _refresh_in_flight
+        _refresh_in_flight = False
 
 
 def _gh_get(api_base: str, path: str):
@@ -414,12 +474,58 @@ async def get_predict_trades():
 
 @router.get("")
 async def get_trades():
-    """回傳所有 BingX 歷史交易記錄 (合併所有快照去重) + Predict.fun。"""
+    """回傳所有 BingX 歷史交易記錄 (合併所有快照去重) + Predict.fun。
+
+    Uses pre-serialized cache with stale-while-revalidate: serves cached bytes
+    immediately (orjson-encoded) and refreshes in background when stale.
+    """
+    now = time.time()
+
+    # 1) Check serialized cache
+    with _cache_lock:
+        cached_ts = _serialized_cache["ts"]
+        cached_bytes = _serialized_cache["bytes"]
+
+    if cached_bytes is not None:
+        age = now - cached_ts
+        if age < CACHE_TTL:
+            # Fresh — serve immediately
+            return Response(
+                content=cached_bytes,
+                media_type="application/json",
+                headers={"X-Cache": "HIT"},
+            )
+        elif age < CACHE_TTL + STALE_GRACE:
+            # Stale but within grace — serve stale, refresh in background
+            with _refresh_lock:
+                if not _refresh_in_flight:
+                    _refresh_in_flight = True
+                    loop = asyncio.get_event_loop()
+                    loop.run_in_executor(_refresh_executor, _refresh_serialized_sync)
+            return Response(
+                content=cached_bytes,
+                media_type="application/json",
+                headers={"X-Cache": "STALE"},
+            )
+        # Past stale grace — fall through to fresh compute
+
+    # 2) Cache miss or stale expired — compute fresh synchronously
+    _refresh_serialized_sync()
+
+    with _cache_lock:
+        fresh_bytes = _serialized_cache["bytes"]
+
+    if fresh_bytes is not None:
+        return Response(
+            content=fresh_bytes,
+            media_type="application/json",
+            headers={"X-Cache": "MISS"},
+        )
+
+    # 3) Last-resort fallback: return dict (slow path, should not normally trigger)
     data = _load_all_trades()
     records = data["records"]
     metrics = _calc_metrics(records)
-
-    # Also fetch Predict.fun
     predict_records = _fetch_predict_positions()
 
     return {

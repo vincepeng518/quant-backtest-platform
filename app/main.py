@@ -92,18 +92,30 @@ async def app_exception_handler(request: Request, exc: AppException):
 
 
 @app.on_event("startup")
-async def _warm_symbols_cache() -> None:
-    # 預熱 symbols 快取（BingX load_markets ~2s），避免重啟後首個訪客等待
+async def _warm_caches() -> None:
+    # 預熱 symbols + trades 快取，避免重啟後首個訪客等待
     import asyncio
     from app.api.routes.data import ds
+    from app.api.routes.trades import _refresh_serialized_sync as _warm_trades
 
-    async def _warm():
+    async def _warm_symbols():
         try:
             await ds.get_symbols()
         except Exception as e:  # noqa: BLE001
             logger.warning("symbols warmup failed: %s", e)
 
-    asyncio.create_task(_warm())
+    async def _warm_trades_cache():
+        try:
+            # _refresh_serialized_sync is synchronous (urllib/numpy I/O),
+            # run in a thread to avoid blocking the event loop during startup
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _warm_trades)
+            logger.info("trades cache prewarmed")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("trades prewarm failed: %s", e)
+
+    asyncio.create_task(_warm_symbols())
+    asyncio.create_task(_warm_trades_cache())
 
 
 @app.get("/health")
