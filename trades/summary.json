@@ -1,7 +1,7 @@
 {
  "generated_from":"by-month aggregation",
- "generated_at":"2026-09-29T18:05:42.949485Z",
- "total_records":2642,
+ "generated_at":"2026-09-29T19:06:42.910187Z",
+ "total_records":2643,
  "open_positions":0,
  "months":[
   "2026-09",
@@ -29,27 +29,27 @@
   "2024-06"
  ],
  "totals":{
-  "pnl":-1216.8305,
-  "position_value":4118849.03,
+  "pnl":-1228.7777,
+  "position_value":4124848.64,
   "wins":1137,
-  "losses":1501,
+  "losses":1502,
   "scratch":4,
-  "win_rate":43.1,
-  "avg_pnl":-0.4613,
+  "win_rate":43.08,
+  "avg_pnl":-0.4656,
   "long_pnl":-109.8354,
-  "short_pnl":-1106.9951,
+  "short_pnl":-1118.9423,
   "gains_amt":13187.7172,
-  "losses_amt":-14404.5477,
+  "losses_amt":-14416.4949,
   "max_win_streak":15,
   "max_loss_streak":17,
-  "fees_total":1889.8637
+  "fees_total":1894.0673
  },
  "metrics":{
-  "sharpe":-0.21,
-  "sortino":-0.253,
-  "profit_factor":0.916
+  "sharpe":-0.212,
+  "sortino":-0.256,
+  "profit_factor":0.915
  },
- "trade_count":2638,
+ "trade_count":2639,
  "monthly_agg":{
   "2024-06":{
    "records":91,
@@ -184,10 +184,10 @@
    "losses":35
   },
   "2026-09":{
-   "records":28,
-   "pnl":-23.4689,
+   "records":29,
+   "pnl":-35.4161,
    "wins":6,
-   "losses":22
+   "losses":23
   }
  },
  "heatmap_12w":[
@@ -603,7 +603,7 @@
   },
   {
    "key":"2026-09-29",
-   "pnl":11.4603,
+   "pnl":-0.4869,
    "dow":1
   },
   {
