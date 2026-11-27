@@ -1,6 +1,6 @@
 {
  "generated_from":"by-month aggregation",
- "generated_at":"2026-11-27T14:57:55.143849Z",
+ "generated_at":"2026-11-27T16:00:14.513745Z",
  "total_records":2687,
  "open_positions":0,
  "months":[
@@ -205,11 +205,6 @@
   }
  },
  "heatmap_12w":[
-  {
-   "key":"2026-09-05",
-   "pnl":0.0,
-   "dow":5
-  },
   {
    "key":"2026-09-06",
    "pnl":-0.2096,
@@ -624,6 +619,11 @@
    "key":"2026-11-27",
    "pnl":-38.7705,
    "dow":4
+  },
+  {
+   "key":"2026-11-28",
+   "pnl":0.0,
+   "dow":5
   }
  ]
 }
